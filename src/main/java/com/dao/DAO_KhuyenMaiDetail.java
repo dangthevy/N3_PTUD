@@ -1,0 +1,133 @@
+package com.dao;
+
+import com.entities.KhuyenMai;
+import com.entities.KhuyenMaiDetail;
+import com.entities.Tuyen;
+import com.enums.LoaiKhuyenMai;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * DAO_KhuyenMaiDetail – stub với đầy đủ chữ ký hàm.
+ */
+public class DAO_KhuyenMaiDetail {
+
+    private final Connection conn;
+
+    public DAO_KhuyenMaiDetail(Connection conn) {
+        this.conn = conn;
+    }
+
+    // ---- READ ----
+    public List<KhuyenMaiDetail> getKhuyenMaiDetailByMaKM(String maKM) {
+        List<KhuyenMaiDetail> list = new ArrayList<>();
+        String sql = "SELECT * FROM KhuyenMaiDetail kmd LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen WHERE maKM = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maKM);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs, maKM));
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    public KhuyenMaiDetail getKhuyenMaiDetailByID(String maKMDetail) {
+        String sql = "SELECT * FROM KhuyenMaiDetail kmd LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen WHERE maKMDetail = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maKMDetail);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String maKM = rs.getString("maKM");
+                    return mapRow(rs, maKM);
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+    public List<Tuyen> getAllTuyen() {
+        List<Tuyen> list = new ArrayList<Tuyen>();
+        String sql = "SELECT maTuyen, tenTuyen FROM Tuyen ORDER BY maTuyen";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new Tuyen(
+                        rs.getString("maTuyen"),
+                        rs.getString("tenTuyen")
+                ));
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    // ---- CREATE ----
+    public boolean insertKhuyenMaiDetail(KhuyenMaiDetail kmd) {
+        String sql = "INSERT INTO KhuyenMaiDetail(maKM,maTuyen,loaiKM,giaTri,loaiVe,doiTuong,trangThai) VALUES(?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, kmd.getKhuyenMai() != null ? kmd.getKhuyenMai().getMaKM() : null);
+            ps.setString(2, kmd.getTuyen().getMaTuyen());
+            ps.setString(3, kmd.getLoaiKM().name());
+            ps.setDouble(4, kmd.getGiaTri());
+            ps.setString(5, kmd.getLoaiVe());
+            ps.setString(6, kmd.getDoiTuong());
+            ps.setInt(7, kmd.isTrangThai() ? 1 : 0);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // ---- UPDATE ----
+    public boolean updateKhuyenMaiDetail(KhuyenMaiDetail kmd) {
+        String sql = "UPDATE KhuyenMaiDetail SET maTuyen=?,loaiKM=?,giaTri=?,loaiVe=?,doiTuong=?, trangThai=? WHERE maKMDetail=?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, kmd.getTuyen().getMaTuyen());
+            ps.setString(2, kmd.getLoaiKM().name());
+            ps.setDouble(3, kmd.getGiaTri());
+            ps.setString(4, kmd.getLoaiVe());
+            ps.setString(5, kmd.getDoiTuong());
+            ps.setInt(6, kmd.isTrangThai() ? 1 : 0);
+            System.out.println(kmd.isTrangThai() ? 1 : 0);
+            ps.setString(7,    kmd.getMaKMDetail());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // ---- DELETE ----
+    public boolean setActiveKMD(String maKMDetail, boolean active) {
+        String sql = "UPDATE KhuyenMaiDetail SET trangThai = ? WHERE maKMDetail = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBoolean(1, active);
+            ps.setString(2, maKMDetail);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public boolean deleteAllByMaKM(String maKM) {
+        String sql = "DELETE FROM KhuyenMaiDetail WHERE maKM = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maKM);
+            return ps.executeUpdate() >= 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // ---- HELPER ----
+    private KhuyenMaiDetail mapRow(ResultSet rs, String maKM) throws SQLException {
+        KhuyenMaiDetail kmd = new KhuyenMaiDetail();
+        kmd.setMaKMDetail(rs.getString("maKMDetail"));
+        kmd.setTuyen(new Tuyen(
+                rs.getString("maTuyen"),
+                rs.getString("tenTuyen")
+        ));
+        kmd.setLoaiKM(LoaiKhuyenMai.fromString(rs.getString("loaiKM")));
+        kmd.setGiaTri(rs.getDouble("giaTri"));
+        kmd.setLoaiVe(rs.getString("loaiVe"));
+        kmd.setDoiTuong(rs.getString("doiTuong"));
+        kmd.setTrangThai(rs.getBoolean("trangThai"));
+        // gán KhuyenMai stub chỉ chứa maKM (đủ để dùng trong UI)
+        KhuyenMai km = new KhuyenMai();
+        km.setMaKM(maKM);
+        kmd.setKhuyenMai(km);
+        return kmd;
+    }
+}
