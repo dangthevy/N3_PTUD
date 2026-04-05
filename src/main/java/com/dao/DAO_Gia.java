@@ -64,7 +64,8 @@ public class DAO_Gia {
     // =========================================================
     public List<GiaHeaderRow> getAllHeader() {
         List<GiaHeaderRow> list = new ArrayList<>();
-        String sql = "SELECT maGia, moTa, ngayApDung, ngayKetThuc " +
+        String sql = "SELECT maGia, COALESCE(moTa, tenGia, maGia) AS moTa, " +
+                "ngayApDung, ngayKetThuc " +
                 "FROM GiaHeader ORDER BY ngayApDung DESC";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -88,14 +89,16 @@ public class DAO_Gia {
     // =========================================================
     public boolean insertHeader(String maGia, String moTa,
                                 String ngayApDung, String ngayKetThuc) {
-        String sql = "INSERT INTO GiaHeader (maGia, moTa, ngayApDung, ngayKetThuc) " +
-                "VALUES (?, ?, ?, ?)";
+        // tenGia = moTa, maLT để NULL (không bắt buộc từ UI)
+        String sql = "INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc) " +
+                "VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
-            ps.setString(2, moTa);
-            ps.setString(3, ngayApDung);
-            ps.setString(4, ngayKetThuc);
+            ps.setString(2, moTa);   // tenGia dùng moTa làm tên
+            ps.setString(3, moTa);
+            ps.setString(4, ngayApDung);
+            ps.setString(5, ngayKetThuc);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -109,14 +112,15 @@ public class DAO_Gia {
     public boolean updateHeader(String maGia, String moTa,
                                 String ngayApDung, String ngayKetThuc) {
         String sql = "UPDATE GiaHeader " +
-                "SET moTa = ?, ngayApDung = ?, ngayKetThuc = ? " +
+                "SET tenGia = ?, moTa = ?, ngayApDung = ?, ngayKetThuc = ? " +
                 "WHERE maGia = ?";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, moTa);
-            ps.setString(2, ngayApDung);
-            ps.setString(3, ngayKetThuc);
-            ps.setString(4, maGia);
+            ps.setString(2, moTa);
+            ps.setString(3, ngayApDung);
+            ps.setString(4, ngayKetThuc);
+            ps.setString(5, maGia);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();

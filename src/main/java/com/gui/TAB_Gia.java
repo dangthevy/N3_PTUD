@@ -7,6 +7,9 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
 import javax.swing.*;
@@ -78,25 +81,14 @@ public class TAB_Gia extends JPanel {
     // DỮ LIỆU DANH MỤC — khớp data2.sql
     // =========================================================================
     // maLoaiToa → tenLoaiToa
-    private static final String[][] DS_LOAI_TOA = {
-            {"LT_GMC", "Ghế mềm có ĐH"},
-            {"LT_GCC", "Ghế cứng có ĐH"},
-            {"LT_GN4", "Nằm 4 chỗ có ĐH"}
-    };
-    // maLoaiVe → tenLoaiVe, mucGiam%
-    private static final String[][] DS_LOAI_VE = {
-            {"LV01", "Người lớn",        "0"},
-            {"LV02", "Trẻ em",           "50"},
-            {"LV03", "Người cao tuổi",   "30"}
-    };
-    // maTuyen → tenTuyen
-    private static final String[][] DS_TUYEN = {
-            {"T01", "Hà Nội → Sài Gòn"},
-            {"T02", "Sài Gòn → Hà Nội"},
-            {"T03", "Hà Nội → Đà Nẵng"}
-    };
+    // Danh mục load động từ DB — tránh hardcode sai mã
+    private String[][] DS_LOAI_TOA = {};
+    private String[][] DS_LOAI_VE  = {};
+    private String[][] DS_TUYEN    = {};
 
     private static final String[] TRANG_THAI_ARR = {"Đang áp dụng", "Ngừng áp dụng"};
+
+    private static final String DATE_FMT = "dd/MM/yyyy";
 
     private enum BtnStyle { PRIMARY, SECONDARY, DANGER }
 
@@ -121,9 +113,18 @@ public class TAB_Gia extends JPanel {
     private final JLabel lblTrangThai= infoLbl("-");
 
     // =========================================================================
+    // STAT BAR — labels thống kê
+    // =========================================================================
+    private final JLabel lblStatTotal  = new JLabel("0");
+    private final JLabel lblStatDang   = new JLabel("0");
+    private final JLabel lblStatNgung  = new JLabel("0");
+    private final JLabel lblStatDetail = new JLabel("0");
+
+    // =========================================================================
     // KHỞI TẠO
     // =========================================================================
     public TAB_Gia() {
+        UIManager.put("PopupMenu.consumeEventOnClose", Boolean.TRUE);
         setLayout(new BorderLayout());
         setBackground(BG_PAGE);
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
@@ -138,12 +139,9 @@ public class TAB_Gia extends JPanel {
         tblGH = buildTableGH();
         tblGD = buildTableGD();
 
-        // Chọn dòng GiaHeader → làm mới GiaDetail bên phải
         tblGH.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) refreshDetail();
         });
-
-        // Double-click → sửa
         tblGH.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) openUpdateHeaderDialog();
@@ -155,29 +153,128 @@ public class TAB_Gia extends JPanel {
             }
         });
 
-        // Layout 55% trái / 45% phải — giống TAB_LichTrinh
         JPanel body = new JPanel(new GridBagLayout());
         body.setOpaque(false);
 
+        JPanel leftPanel  = buildLeftPanel();
+        JPanel rightPanel = buildRightPanel();
+
+        // Panel trái cố định 700px, phải fill còn lại
+        leftPanel.setPreferredSize(new Dimension(700, 0));
+        leftPanel.setMinimumSize(new Dimension(700, 0));
+        leftPanel.setMaximumSize(new Dimension(700, Integer.MAX_VALUE));
+
         GridBagConstraints gcL = new GridBagConstraints();
-        gcL.gridx = 0; gcL.gridy = 0; gcL.weightx = 0.55; gcL.weighty = 1.0;
+        gcL.gridx = 0; gcL.gridy = 0; gcL.weightx = 0.0; gcL.weighty = 1.0;
         gcL.fill = GridBagConstraints.BOTH; gcL.insets = new Insets(0, 0, 0, 6);
-        body.add(buildLeftPanel(), gcL);
+        body.add(leftPanel, gcL);
 
         GridBagConstraints gcR = new GridBagConstraints();
-        gcR.gridx = 1; gcR.gridy = 0; gcR.weightx = 0.45; gcR.weighty = 1.0;
+        gcR.gridx = 1; gcR.gridy = 0; gcR.weightx = 1.0; gcR.weighty = 1.0;
         gcR.fill = GridBagConstraints.BOTH; gcR.insets = new Insets(0, 6, 0, 0);
-        body.add(buildRightPanel(), gcR);
+        body.add(rightPanel, gcR);
 
+        add(buildStatBar(), BorderLayout.NORTH);
         add(body, BorderLayout.CENTER);
-
-        // Load data mẫu từ data2.sql
         loadFromDB();
     }
 
     // =========================================================================
     // PANEL TRÁI — danh sách GiaHeader
     // =========================================================================
+    // =========================================================================
+    // STAT BAR — 4 thẻ thống kê
+    // =========================================================================
+    private JPanel buildStatBar() {
+        JPanel bar = new JPanel(new GridLayout(1, 4, 16, 0));
+        bar.setOpaque(false);
+        bar.setBorder(BorderFactory.createEmptyBorder(0, 0, 14, 0));
+        bar.add(buildStatCard("TỔNG BẢNG GIÁ",   lblStatTotal,  new Color(37,  99, 235)));
+        bar.add(buildStatCard("ĐANG ÁP DỤNG",     lblStatDang,   new Color(34, 197, 94)));
+        bar.add(buildStatCard("NGỪNG ÁP DỤNG",    lblStatNgung,  new Color(239, 68, 68)));
+        bar.add(buildStatCard("TỔNG CHI TIẾT GIÁ",lblStatDetail, new Color(100,116,139)));
+        return bar;
+    }
+
+    private JPanel buildStatCard(String title, JLabel lblValue, Color accent) {
+        JPanel p = new JPanel(new BorderLayout(8, 4));
+        p.setBackground(Color.WHITE);
+        p.setBorder(BorderFactory.createCompoundBorder(
+                new ShadowBorder(),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)));
+
+        JLabel lblT = new JLabel(title);
+        lblT.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblT.setForeground(TEXT_MID);
+
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblValue.setForeground(accent);
+
+        // Icon vẽ tay góc phải
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 30));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth()/2, cy = getHeight()/2;
+                if (title.contains("TỔNG BẢNG")) {
+                    // Icon: stack 3 tờ
+                    g2.drawRoundRect(cx-8, cy-6, 16, 12, 3, 3);
+                    g2.drawLine(cx-6, cy-9, cx+6, cy-9);
+                    g2.drawLine(cx-5, cy-12, cx+5, cy-12);
+                } else if (title.contains("ĐANG")) {
+                    // Icon: tích trong vòng tròn
+                    g2.drawOval(cx-8, cy-8, 16, 16);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-4, cy, cx-1, cy+4);
+                    g2.drawLine(cx-1, cy+4, cx+5, cy-4);
+                } else if (title.contains("NGỪNG")) {
+                    // Icon: vòng tròn gạch ngang
+                    g2.drawOval(cx-8, cy-8, 16, 16);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-5, cy, cx+5, cy);
+                } else {
+                    // Icon: bảng giá có $
+                    g2.drawRoundRect(cx-8, cy-7, 16, 14, 3, 3);
+                    g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-5, cy-3, cx+5, cy-3);
+                    g2.drawLine(cx-5, cy,   cx+3, cy);
+                    g2.drawLine(cx-5, cy+3, cx+1, cy+3);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(40, 40));
+        ico.setOpaque(false);
+
+        JPanel left = new JPanel(new BorderLayout(0, 4));
+        left.setOpaque(false);
+        left.add(lblT,     BorderLayout.NORTH);
+        left.add(lblValue, BorderLayout.CENTER);
+
+        p.add(left, BorderLayout.CENTER);
+        p.add(ico,  BorderLayout.EAST);
+        return p;
+    }
+
+    private void updateStats() {
+        int total = modelGH.getRowCount();
+        int dang = 0, ngung = 0;
+        for (int i = 0; i < total; i++) {
+            Object tt = modelGH.getValueAt(i, 4);
+            if (tt != null && tt.toString().equals("Đang áp dụng")) dang++;
+            else ngung++;
+        }
+        int detail = modelGD.getRowCount();
+        lblStatTotal .setText(String.valueOf(total));
+        lblStatDang  .setText(String.valueOf(dang));
+        lblStatNgung .setText(String.valueOf(ngung));
+        lblStatDetail.setText(String.valueOf(detail));
+    }
+
     private JPanel buildLeftPanel() {
         JPanel pnl = new JPanel(new BorderLayout(0, 8));
         pnl.setBackground(BG_PAGE);
@@ -202,10 +299,32 @@ public class TAB_Gia extends JPanel {
 
         JPanel btnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         btnBar.setOpaque(false);
-        JButton btnThem = makeBtn("Thêm bảng giá", BtnStyle.PRIMARY);
-        JButton btnXoa  = makeBtn("Xóa",            BtnStyle.DANGER);
+
+        // Nút Thêm với icon +
+        JButton btnThem = new JButton("  Thêm bảng giá") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int x = 14, cy = getHeight() / 2;
+                g2.drawLine(x - 5, cy, x + 5, cy);
+                g2.drawLine(x, cy - 5, x, cy + 5);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnThem.setFont(F_LABEL); btnThem.setForeground(Color.WHITE);
+        btnThem.setPreferredSize(new Dimension(160, 36));
+        btnThem.setContentAreaFilled(false); btnThem.setBorderPainted(false);
+        btnThem.setFocusPainted(false);
+        btnThem.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnThem.addActionListener(e -> openAddHeaderDialog());
-        btnXoa .addActionListener(e -> deleteHeader());
+
+        JButton btnXoa = makeBtn("Xóa", BtnStyle.DANGER);
+        btnXoa.addActionListener(e -> deleteHeader());
+
         btnBar.add(btnThem);
         btnBar.add(btnXoa);
 
@@ -405,6 +524,7 @@ public class TAB_Gia extends JPanel {
     // LOAD DỮ LIỆU — data2.sql: GiaHeader + GiaDetail
     // =========================================================================
     private void loadFromDB() {
+        loadDanhMuc(); // Load mã loại toa, loại vé, tuyến từ DB trước
         modelGH.setRowCount(0);
         try {
             List<GiaHeaderRow> list = daoGia.getAllHeader();
@@ -430,10 +550,54 @@ public class TAB_Gia extends JPanel {
             if (modelGH.getRowCount() > 0) {
                 tblGH.setRowSelectionInterval(0, 0);
             }
+            updateStats();
         } catch (Exception e) {
             e.printStackTrace();
             warn("Không thể tải dữ liệu: " + e.getMessage());
         }
+    }
+
+    // =========================================================================
+    // LOAD DANH MỤC TỪ DB — tránh hardcode sai mã
+    // =========================================================================
+    private void loadDanhMuc() {
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection()) {
+
+            // LoaiToa: maLoaiToa, tenLoaiToa ✓
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT maLoaiToa, tenLoaiToa FROM LoaiToa ORDER BY maLoaiToa");
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                java.util.List<String[]> list = new java.util.ArrayList<>();
+                while (rs.next())
+                    list.add(new String[]{rs.getString("maLoaiToa"), rs.getString("tenLoaiToa")});
+                if (!list.isEmpty()) DS_LOAI_TOA = list.toArray(new String[0][]);
+            } catch (Exception e) { e.printStackTrace(); }
+
+            // LoaiVe: maLoai (PK), tenLoai, mucGiam — KHÔNG phải maLoaiVe/tenLoaiVe
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT maLoai, tenLoai, mucGiam FROM LoaiVe ORDER BY maLoai");
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                java.util.List<String[]> list = new java.util.ArrayList<>();
+                while (rs.next())
+                    list.add(new String[]{
+                            rs.getString("maLoai"),
+                            rs.getString("tenLoai"),
+                            String.valueOf((int)(rs.getDouble("mucGiam") * 100)) // 0.5 → "50"
+                    });
+                if (!list.isEmpty()) DS_LOAI_VE = list.toArray(new String[0][]);
+            } catch (Exception e) { e.printStackTrace(); }
+
+            // Tuyen: maTuyen, tenTuyen ✓
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                    "SELECT maTuyen, tenTuyen FROM Tuyen ORDER BY maTuyen");
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                java.util.List<String[]> list = new java.util.ArrayList<>();
+                while (rs.next())
+                    list.add(new String[]{rs.getString("maTuyen"), rs.getString("tenTuyen")});
+                if (!list.isEmpty()) DS_TUYEN = list.toArray(new String[0][]);
+            } catch (Exception e) { e.printStackTrace(); }
+
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void loadDetailForMaGia(String maGia) {
@@ -454,6 +618,7 @@ public class TAB_Gia extends JPanel {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        updateStats(); // cập nhật số chi tiết giá khi chọn bảng giá khác
     }
 
     // =========================================================================
@@ -462,44 +627,121 @@ public class TAB_Gia extends JPanel {
     private void openAddHeaderDialog() {
         JDialog dlg = makeDialog("Thêm Bảng Giá Mới");
 
-        JTextField txtMaGia   = makeField("VD: G2027");
+        // Tự sinh mã bảng giá
+        String maTuSinh = genMaGia();
+
         JTextField txtMoTa    = makeField("VD: Bảng giá năm 2027");
-        JTextField txtTuNgay  = makeField("VD: 01/01/2027");
-        JTextField txtDenNgay = makeField("VD: 31/12/2027");
-        JComboBox<String> cbTT = makeCombo(TRANG_THAI_ARR);
+        DatePickerField dpTu  = new DatePickerField("");
+        DatePickerField dpDen = new DatePickerField("");
 
         JPanel form = new JPanel(new GridBagLayout());
         form.setOpaque(false);
         form.setBorder(BorderFactory.createEmptyBorder(16, 24, 8, 24));
         GridBagConstraints gc = defaultGC();
         int r = 0;
-        addRow(form, gc, r++, "Mã bảng giá:", txtMaGia);
-        addRow(form, gc, r++, "Mô tả:",        txtMoTa);
-        addRow(form, gc, r++, "Ngày áp dụng:", txtTuNgay);
-        addRow(form, gc, r++, "Ngày kết thúc:",txtDenNgay);
-        addRow(form, gc, r,   "Trạng thái:",   cbTT);
+
+        addSep(form, gc, r++, "Thông tin Bảng Giá", ACCENT);
+        addRow(form, gc, r++, "Mô tả *:",          txtMoTa);
+        addRow(form, gc, r++, "Ngày áp dụng *:",   dpTu);
+        addRow(form, gc, r,   "Ngày kết thúc *:",  dpDen);
+
+        // Hint mã tự sinh
+        JLabel lblMaHint = new JLabel("Mã: " + maTuSinh + "  (tự sinh)");
+        lblMaHint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblMaHint.setForeground(TEXT_LIGHT);
+        gc.gridx=0; gc.gridy=r+1; gc.gridwidth=2; gc.weightx=1;
+        gc.insets=new Insets(2,6,4,6);
+        form.add(lblMaHint, gc);
+        gc.gridwidth=1; gc.insets=new Insets(5,6,5,6);
 
         JButton btnLuu = makeBtn("Lưu", BtnStyle.PRIMARY);
         btnLuu.addActionListener(e -> {
-            String ma   = txtMaGia.getText().trim();
             String moTa = txtMoTa.getText().trim();
-            String tu   = txtTuNgay.getText().trim();   // dd/MM/yyyy
-            String den  = txtDenNgay.getText().trim();  // dd/MM/yyyy
-            if (ma.isEmpty() || moTa.isEmpty() || tu.isEmpty() || den.isEmpty()) {
-                warn("Vui lòng điền đầy đủ thông tin."); return;
+
+            // --- Validate mô tả ---
+            if (moTa.isEmpty()) {
+                warn("Vui lòng nhập Mô tả bảng giá."); txtMoTa.requestFocus(); return;
             }
-            String tuRaw  = toDbDate(tu);
-            String denRaw = toDbDate(den);
-            boolean ok = daoGia.insertHeader(ma, moTa, tuRaw, denRaw);
+
+            // --- Validate ngày áp dụng ---
+            String tuDisp = dpTu.getDate().trim();
+            if (tuDisp.isEmpty()) { warn("Vui lòng chọn Ngày áp dụng."); return; }
+            String tuRaw;
+            try { tuRaw = toDbDate(tuDisp); java.time.LocalDate.parse(tuRaw); }
+            catch (Exception ex) { warn("Ngày áp dụng không hợp lệ!"); return; }
+
+            // --- Validate ngày kết thúc ---
+            String denDisp = dpDen.getDate().trim();
+            if (denDisp.isEmpty()) { warn("Vui lòng chọn Ngày kết thúc."); return; }
+            String denRaw;
+            try { denRaw = toDbDate(denDisp); java.time.LocalDate.parse(denRaw); }
+            catch (Exception ex) { warn("Ngày kết thúc không hợp lệ!"); return; }
+
+            // --- Validate thứ tự ngày ---
+            if (!java.time.LocalDate.parse(denRaw).isAfter(java.time.LocalDate.parse(tuRaw))) {
+                warn("Ngày kết thúc phải sau Ngày áp dụng!"); return;
+            }
+
+            // --- Validate trùng khoảng thời gian ---
+            String trungTen = kiemTraTrungThoiGian(tuRaw, denRaw, null);
+            if (trungTen != null) {
+                warn("Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\"!\n"
+                        + "Vui lòng chọn khoảng thời gian khác."); return;
+            }
+
+            boolean ok = daoGia.insertHeader(maTuSinh, moTa, tuRaw, denRaw);
             if (ok) {
-                String trangThai = tinhTrangThai(tuRaw, denRaw);
-                modelGH.addRow(new Object[]{ma, moTa, tu, den, trangThai, denRaw});
+                String tt = tinhTrangThai(tuRaw, denRaw);
+                modelGH.addRow(new Object[]{maTuSinh, moTa, tuDisp, denDisp, tt, denRaw});
+                updateStats();
                 dlg.dispose();
             } else {
-                warn("Lỗi khi lưu vào database! Kiểm tra lại Mã bảng giá.");
+                warn("Lỗi khi lưu vào database! Mã bảng giá có thể đã tồn tại.");
             }
         });
         showDlg(dlg, form, btnLuu);
+    }
+
+    /** Tự sinh mã bảng giá dạng BGxx */
+    private String genMaGia() {
+        int max = 0;
+        for (int i = 0; i < modelGH.getRowCount(); i++) {
+            String ma = modelGH.getValueAt(i, 0).toString();
+            try {
+                int n = Integer.parseInt(ma.replaceAll("[^0-9]", ""));
+                if (n > max) max = n;
+            } catch (Exception ignored) {}
+        }
+        return String.format("BG%02d", max + 1);
+    }
+
+    /** Kiểm tra trùng khoảng thời gian với các bảng giá đã có */
+    private String kiemTraTrungThoiGian(String tuRawMoi, String denRawMoi, String excludeMaGia) {
+        try {
+            java.time.LocalDate tuMoi  = java.time.LocalDate.parse(tuRawMoi);
+            java.time.LocalDate denMoi = java.time.LocalDate.parse(denRawMoi);
+            for (int i = 0; i < modelGH.getRowCount(); i++) {
+                String maGia = modelGH.getValueAt(i, 0).toString();
+                if (excludeMaGia != null && maGia.equals(excludeMaGia)) continue;
+
+                // Bỏ qua bảng giá đã Ngừng áp dụng
+                Object ttObj = modelGH.getValueAt(i, 4);
+                if (ttObj != null && ttObj.toString().equals("Ngừng áp dụng")) continue;
+
+                Object denRawObj = modelGH.getValueAt(i, 5);
+                Object tuDispObj = modelGH.getValueAt(i, 2);
+                if (denRawObj == null || tuDispObj == null) continue;
+                try {
+                    java.time.LocalDate tuCu  = java.time.LocalDate.parse(toDbDate(tuDispObj.toString()));
+                    java.time.LocalDate denCu = java.time.LocalDate.parse(denRawObj.toString());
+                    // Chồng lấp: tuMoi < denCu AND denMoi > tuCu
+                    if (tuMoi.isBefore(denCu) && denMoi.isAfter(tuCu)) {
+                        return modelGH.getValueAt(i, 1).toString();
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     // =========================================================================
@@ -517,10 +759,9 @@ public class TAB_Gia extends JPanel {
 
         JDialog dlg = makeDialog("Cập Nhật Bảng Giá");
 
-        JTextField txtMaGia   = roField(maGia);
         JTextField txtMoTa    = makeFieldVal(moTa);
-        JTextField txtTuNgay  = makeFieldVal(tuNgay);
-        JTextField txtDenNgay = makeFieldVal(denNgay);
+        DatePickerField dpTu  = new DatePickerField(tuNgay);
+        DatePickerField dpDen = new DatePickerField(denNgay);
         JComboBox<String> cbTT = makeCombo(TRANG_THAI_ARR);
         cbTT.setSelectedItem(trangThai);
 
@@ -529,31 +770,66 @@ public class TAB_Gia extends JPanel {
         form.setBorder(BorderFactory.createEmptyBorder(16, 24, 8, 24));
         GridBagConstraints gc = defaultGC();
         int r = 0;
-        addRow(form, gc, r++, "Mã bảng giá:", txtMaGia);
-        addRow(form, gc, r++, "Mô tả:",        txtMoTa);
-        addRow(form, gc, r++, "Ngày áp dụng:", txtTuNgay);
-        addRow(form, gc, r++, "Ngày kết thúc:",txtDenNgay);
-        addRow(form, gc, r,   "Trạng thái:",   cbTT);
+
+        addSep(form, gc, r++, "Thông tin Bảng Giá", ACCENT);
+
+        // Hint mã (không chỉnh được)
+        JLabel lblMaHint = new JLabel("Mã: " + maGia);
+        lblMaHint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblMaHint.setForeground(TEXT_LIGHT);
+        gc.gridx=0; gc.gridy=r++; gc.gridwidth=2; gc.weightx=1;
+        gc.insets=new Insets(0,6,4,6);
+        form.add(lblMaHint, gc);
+        gc.gridwidth=1; gc.insets=new Insets(5,6,5,6);
+
+        addRow(form, gc, r++, "Mô tả *:",          txtMoTa);
+        addRow(form, gc, r++, "Ngày áp dụng *:",   dpTu);
+        addRow(form, gc, r++, "Ngày kết thúc *:",  dpDen);
+        addRow(form, gc, r,   "Trạng thái:",        cbTT);
 
         final int selRow = row;
         JButton btnLuu = makeBtn("Cập nhật", BtnStyle.PRIMARY);
         btnLuu.addActionListener(e -> {
             String moTaNew = txtMoTa.getText().trim();
-            String tuNew   = txtTuNgay.getText().trim();   // dd/MM/yyyy
-            String denNew  = txtDenNgay.getText().trim();  // dd/MM/yyyy
-            if (moTaNew.isEmpty() || tuNew.isEmpty() || denNew.isEmpty()) {
-                warn("Vui lòng điền đầy đủ thông tin."); return;
+            if (moTaNew.isEmpty()) { warn("Vui lòng nhập Mô tả."); txtMoTa.requestFocus(); return; }
+
+            String tuDisp = dpTu.getDate().trim();
+            if (tuDisp.isEmpty()) { warn("Vui lòng chọn Ngày áp dụng."); return; }
+            String tuRaw;
+            try { tuRaw = toDbDate(tuDisp); java.time.LocalDate.parse(tuRaw); }
+            catch (Exception ex) { warn("Ngày áp dụng không hợp lệ!"); return; }
+
+            String denDisp = dpDen.getDate().trim();
+            if (denDisp.isEmpty()) { warn("Vui lòng chọn Ngày kết thúc."); return; }
+            String denRaw;
+            try { denRaw = toDbDate(denDisp); java.time.LocalDate.parse(denRaw); }
+            catch (Exception ex) { warn("Ngày kết thúc không hợp lệ!"); return; }
+
+            if (!java.time.LocalDate.parse(denRaw).isAfter(java.time.LocalDate.parse(tuRaw))) {
+                warn("Ngày kết thúc phải sau Ngày áp dụng!"); return;
             }
-            String tuRaw  = toDbDate(tuNew);
-            String denRaw = toDbDate(denNew);
+
+            String trungTen = kiemTraTrungThoiGian(tuRaw, denRaw, maGia);
+            if (trungTen != null) {
+                warn("Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\"!\n"
+                        + "Vui lòng chọn khoảng thời gian khác."); return;
+            }
+
             boolean ok = daoGia.updateHeader(maGia, moTaNew, tuRaw, denRaw);
             if (ok) {
-                modelGH.setValueAt(moTaNew,              selRow, 1);
-                modelGH.setValueAt(tuNew,                selRow, 2);
-                modelGH.setValueAt(denNew,               selRow, 3);
-                modelGH.setValueAt(tinhTrangThai(tuRaw, denRaw), selRow, 4);
-                modelGH.setValueAt(denRaw,               selRow, 5);
+                // Ưu tiên trạng thái user chọn thủ công
+                String ttMoi = (String) cbTT.getSelectedItem();
+                // Nếu user không chọn thủ công "Ngừng áp dụng" thì tính lại theo ngày
+                if (ttMoi == null || ttMoi.equals("Đang áp dụng")) {
+                    ttMoi = tinhTrangThai(tuRaw, denRaw);
+                }
+                modelGH.setValueAt(moTaNew, selRow, 1);
+                modelGH.setValueAt(tuDisp,  selRow, 2);
+                modelGH.setValueAt(denDisp, selRow, 3);
+                modelGH.setValueAt(ttMoi,   selRow, 4);
+                modelGH.setValueAt(denRaw,  selRow, 5);
                 refreshDetail();
+                updateStats();
                 dlg.dispose();
             } else {
                 warn("Lỗi khi cập nhật database!");
@@ -578,6 +854,7 @@ public class TAB_Gia extends JPanel {
                 modelGH.removeRow(row);
                 modelGD.setRowCount(0);
                 resetInfo();
+                updateStats();
             } else {
                 warn("Lỗi khi xóa! Kiểm tra lại ràng buộc khóa ngoại.");
             }
@@ -625,28 +902,46 @@ public class TAB_Gia extends JPanel {
         JButton btnLuu = makeBtn("Lưu", BtnStyle.PRIMARY);
         btnLuu.addActionListener(e -> {
             String giaStr = txtGia.getText().trim();
-            if (giaStr.isEmpty()) { warn("Vui lòng nhập giá."); return; }
+
+            // --- Validate giá ---
+            if (giaStr.isEmpty()) { warn("Vui lòng nhập Giá vé."); txtGia.requestFocus(); return; }
             long giaVal;
-            try { giaVal = Long.parseLong(giaStr.replaceAll("[^0-9]", "")); }
-            catch (NumberFormatException ex) { warn("Giá không hợp lệ."); return; }
+            try {
+                giaVal = Long.parseLong(giaStr.replaceAll("[^0-9]", ""));
+            } catch (NumberFormatException ex) {
+                warn("Giá vé không hợp lệ! Chỉ nhập số nguyên dương."); return;
+            }
+            if (giaVal <= 0) { warn("Giá vé phải lớn hơn 0!"); return; }
+            if (giaVal > 100_000_000) { warn("Giá vé vượt quá giới hạn cho phép (100 triệu VND)."); return; }
 
             int idxToa   = cbToa.getSelectedIndex();
             int idxVe    = cbVe.getSelectedIndex();
             int idxTuyen = cbTuyen.getSelectedIndex();
-            String maToa   = DS_LOAI_TOA[idxToa][0];
-            String maVe    = DS_LOAI_VE[idxVe][0];
+            String maToa      = DS_LOAI_TOA[idxToa][0];
+            String maVe       = DS_LOAI_VE[idxVe][0];
             String maTuyenSel = DS_TUYEN[idxTuyen][0];
+
+            // --- Validate trùng tổ hợp ---
+            for (int i = 0; i < modelGD.getRowCount(); i++) {
+                if (modelGD.getValueAt(i, 4).toString().equals(maToa)
+                        && modelGD.getValueAt(i, 5).toString().equals(maVe)
+                        && modelGD.getValueAt(i, 6).toString().equals(maTuyenSel)) {
+                    warn("Tổ hợp (Loại toa / Loại vé / Tuyến) này đã tồn tại trong bảng giá!\n"
+                            + "Vui lòng chọn tổ hợp khác hoặc cập nhật dòng đã có.");
+                    return;
+                }
+            }
 
             boolean ok = daoGia.insertDetail(maGia, maToa, maVe, maTuyenSel, giaVal);
             if (ok) {
                 modelGD.addRow(new Object[]{
                         tenLoaiToa(maToa), tenLoaiVe(maVe), tenTuyen(maTuyenSel),
-                        formatGia(giaVal),
-                        maToa, maVe, maTuyenSel   // ẩn
+                        formatGia(giaVal), maToa, maVe, maTuyenSel
                 });
+                updateStats();
                 dlg.dispose();
             } else {
-                warn("Lỗi khi lưu! Tổ hợp (Toa / Vé / Tuyến) này có thể đã tồn tại.");
+                warn("Lỗi khi lưu vào database!");
             }
         });
         showDlg(dlg, form, btnLuu);
@@ -693,10 +988,16 @@ public class TAB_Gia extends JPanel {
         JButton btnLuu = makeBtn("Cập nhật", BtnStyle.PRIMARY);
         btnLuu.addActionListener(e -> {
             String giaStr = txtGia.getText().trim();
-            if (giaStr.isEmpty()) { warn("Vui lòng nhập giá."); return; }
+            if (giaStr.isEmpty()) { warn("Vui lòng nhập Giá vé."); txtGia.requestFocus(); return; }
             long giaVal;
-            try { giaVal = Long.parseLong(giaStr.replaceAll("[^0-9]", "")); }
-            catch (NumberFormatException ex) { warn("Giá không hợp lệ."); return; }
+            try {
+                giaVal = Long.parseLong(giaStr.replaceAll("[^0-9]", ""));
+            } catch (NumberFormatException ex) {
+                warn("Giá vé không hợp lệ! Chỉ nhập số nguyên dương."); return;
+            }
+            if (giaVal <= 0) { warn("Giá vé phải lớn hơn 0!"); return; }
+            if (giaVal > 100_000_000) { warn("Giá vé vượt quá giới hạn cho phép (100 triệu VND)."); return; }
+
             boolean ok = daoGia.updateDetail(maGiaHdr, maToa, maVe, maTuyenSel, giaVal);
             if (ok) {
                 modelGD.setValueAt(formatGia(giaVal), selRow, 3);
@@ -725,6 +1026,7 @@ public class TAB_Gia extends JPanel {
             boolean deleted = daoGia.deleteDetail(maGiaHdr, maToa, maVe, maTuyenSel);
             if (deleted) {
                 modelGD.removeRow(row);
+                updateStats();
             } else {
                 warn("Lỗi khi xóa chi tiết giá!");
             }
@@ -770,7 +1072,58 @@ public class TAB_Gia extends JPanel {
     }
 
     private JLabel sectionLbl(String t) {
-        JLabel l = new JLabel(t); l.setFont(F_LABEL); l.setForeground(TEXT_DARK); return l;
+        JLabel l = new JLabel(t) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(ACCENT);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cy = getHeight() / 2;
+                // Icon bảng giá (khung với $ bên trong)
+                g2.drawRoundRect(4, cy-6, 14, 12, 2, 2);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(7, cy-3, 15, cy-3);
+                g2.drawLine(7, cy,   13, cy);
+                g2.drawLine(7, cy+3, 11, cy+3);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        l.setFont(F_LABEL);
+        l.setForeground(TEXT_DARK);
+        l.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+        return l;
+    }
+
+    private JLabel sepLbl(String t, Color c) {
+        String clean = t.replaceAll("[\\u2500-\\u257F]+", "").trim();
+        JLabel l = new JLabel(clean) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                FontMetrics fm = g2.getFontMetrics(getFont());
+                int tw = fm.stringWidth(getText()), cy = getHeight() / 2;
+                int tx = (getWidth() - tw) / 2;
+                g2.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 70));
+                g2.setStroke(new BasicStroke(1f));
+                if (tx > 8) g2.drawLine(4, cy, tx - 8, cy);
+                if (tx + tw + 8 < getWidth()) g2.drawLine(tx + tw + 8, cy, getWidth() - 4, cy);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        l.setForeground(c);
+        l.setHorizontalAlignment(SwingConstants.CENTER);
+        return l;
+    }
+
+    private void addSep(JPanel form, GridBagConstraints gc, int row, String txt, Color c) {
+        gc.gridx = 0; gc.gridy = row; gc.gridwidth = 2; gc.weightx = 1;
+        JLabel lbl = sepLbl(txt, c);
+        lbl.setPreferredSize(new Dimension(0, 26));
+        form.add(lbl, gc);
+        gc.gridwidth = 1;
     }
 
     private JTextField roField(String v) {
@@ -1024,4 +1377,306 @@ public class TAB_Gia extends JPanel {
         @Override public Insets getBorderInsets(Component c) { return new Insets(S, S, S, S); }
         @Override public Insets getBorderInsets(Component c, Insets ins) { ins.set(S, S, S, S); return ins; }
     }
+
+    private class DatePickerField extends JPanel {
+        private final JTextField   txt;
+        private final Calendar     cal;
+        private JPanel             pnlGrid;
+        private JComboBox<String>  cbThang;
+        private JComboBox<Integer> cbNam;
+        private JWindow            popup;
+        private static final String[] TEN_THANG = {
+                "Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6",
+                "Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"
+        };
+        private static final String[] TEN_THU = {"T2","T3","T4","T5","T6","T7","CN"};
+
+        DatePickerField(String init) {
+            setLayout(new BorderLayout());
+            setOpaque(false);
+            cal = Calendar.getInstance();
+            if (init != null && !init.isEmpty()) {
+                try { cal.setTime(new SimpleDateFormat(DATE_FMT).parse(init)); }
+                catch (Exception ignored) {}
+            }
+            String disp = (init != null && !init.isEmpty())
+                    ? init : new SimpleDateFormat(DATE_FMT).format(cal.getTime());
+
+            // ── Text field hiển thị ngày ──────────────────────────────────
+            txt = new JTextField(disp);
+            txt.setFont(F_CELL);
+            txt.setForeground(TEXT_DARK);
+            txt.setBackground(new Color(0xF8FAFD));
+            txt.setEditable(false);
+            txt.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            txt.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(BORDER, 1, true),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 34)));
+
+            // ── Icon lịch vẽ tay ─────────────────────────────────────────
+            JLabel ico = new JLabel() {
+                private boolean hovered = false;
+                {
+                    addMouseListener(new MouseAdapter() {
+                        @Override public void mouseEntered(MouseEvent e) { hovered = true;  repaint(); }
+                        @Override public void mouseExited (MouseEvent e) { hovered = false; repaint(); }
+                    });
+                }
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    Color ic = hovered ? ACCENT : TEXT_MID;
+                    g2.setColor(ic);
+                    int cx = getWidth()/2, cy = getHeight()/2;
+                    // Khung lịch
+                    g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawRoundRect(cx-8, cy-7, 16, 14, 3, 3);
+                    // Đường ngang header
+                    g2.drawLine(cx-8, cy-3, cx+8, cy-3);
+                    // Gai trên
+                    g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-4, cy-11, cx-4, cy-5);
+                    g2.drawLine(cx+4, cy-11, cx+4, cy-5);
+                    // Dots ngày
+                    g2.setStroke(new BasicStroke(1f));
+                    int[] dx = {cx-5, cx, cx+5, cx-5, cx};
+                    int[] dy = {cy,   cy, cy,   cy+4, cy+4};
+                    for (int i = 0; i < 5; i++) g2.fillOval(dx[i]-2, dy[i]-2, 4, 4);
+                    g2.dispose();
+                }
+            };
+            ico.setPreferredSize(new Dimension(30, 34));
+            ico.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            ico.setToolTipText("Chọn ngày");
+
+            JPanel wrap = new JPanel(new BorderLayout());
+            wrap.setOpaque(false);
+            wrap.add(txt, BorderLayout.CENTER);
+            wrap.add(ico, BorderLayout.EAST);
+            add(wrap, BorderLayout.CENTER);
+
+            MouseAdapter ma = new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) { toggle(); }
+            };
+            txt.addMouseListener(ma);
+            ico.addMouseListener(ma);
+        }
+
+        private void toggle(){if(popup!=null&&popup.isVisible()){popup.dispose();popup=null;return;}showPop();}
+        private void showPop(){
+            popup=new JWindow(SwingUtilities.getWindowAncestor(this));
+            popup.setLayout(new BorderLayout());
+
+            // Panel chính với shadow border
+            JPanel p=new JPanel(new BorderLayout(0,8));
+            p.setBackground(BG_CARD);
+            p.setBorder(BorderFactory.createCompoundBorder(
+                    new ShadowBorder(),
+                    BorderFactory.createEmptyBorder(10,10,10,10)));
+
+            // Header tháng/năm
+            p.add(navBar(),BorderLayout.NORTH);
+
+            // Separator mỏng
+            JSeparator sep=new JSeparator();
+            sep.setForeground(BORDER);
+            p.add(sep,BorderLayout.CENTER);
+
+            // Grid ngày
+            pnlGrid=new JPanel(new GridLayout(0,7,2,2));
+            pnlGrid.setBackground(BG_CARD);
+            pnlGrid.setBorder(BorderFactory.createEmptyBorder(4,0,0,0));
+
+            JPanel south=new JPanel(new BorderLayout());
+            south.setOpaque(false);
+            south.add(pnlGrid,BorderLayout.CENTER);
+
+            // Nút "Hôm nay"
+            JButton btnToday=new JButton("Hôm nay"){
+                @Override protected void paintComponent(Graphics g){
+                    Graphics2D g2=(Graphics2D)g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                    if(getModel().isRollover()){g2.setColor(new Color(0xEBF3FF));g2.fillRoundRect(0,0,getWidth(),getHeight(),6,6);}
+                    g2.dispose();super.paintComponent(g);
+                }
+            };
+            btnToday.setFont(F_SMALL);btnToday.setForeground(ACCENT);
+            btnToday.setContentAreaFilled(false);btnToday.setBorderPainted(false);
+            btnToday.setFocusPainted(false);btnToday.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            btnToday.addActionListener(e->{
+                cal.setTime(new Date());
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                txt.setText(new SimpleDateFormat(DATE_FMT).format(cal.getTime()));
+                fillGrid();popup.dispose();popup=null;
+            });
+
+            JPanel todayBar=new JPanel(new FlowLayout(FlowLayout.CENTER,0,4));
+            todayBar.setBackground(BG_CARD);
+            todayBar.setBorder(BorderFactory.createMatteBorder(1,0,0,0,BORDER));
+            todayBar.add(btnToday);
+            south.add(todayBar,BorderLayout.SOUTH);
+
+            p.add(south,BorderLayout.SOUTH);
+
+            fillGrid();
+            popup.add(p);popup.pack();
+            popup.setSize(Math.max(240,popup.getWidth()),popup.getHeight());
+            Point loc=txt.getLocationOnScreen();
+            popup.setLocation(loc.x,loc.y+txt.getHeight()+4);
+            popup.setVisible(true);
+            popup.addWindowFocusListener(new java.awt.event.WindowFocusListener(){
+                @Override public void windowGainedFocus(java.awt.event.WindowEvent e){}
+                @Override public void windowLostFocus(java.awt.event.WindowEvent e){if(popup!=null){popup.dispose();popup=null;}}
+            });
+        }
+        private JPanel navBar() {
+            JPanel nav = new JPanel(new BorderLayout(6,0));
+            nav.setBackground(BG_CARD);
+            nav.setBorder(BorderFactory.createEmptyBorder(0,0,6,0));
+
+            JButton prev = navBtn("\u2039"); // ‹
+            JButton next = navBtn("\u203a"); // ›
+            prev.addActionListener(e -> {
+                cal.add(Calendar.MONTH,-1);
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                fillGrid();
+            });
+            next.addActionListener(e -> {
+                cal.add(Calendar.MONTH, 1);
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                fillGrid();
+            });
+
+            cbThang = new JComboBox<>(TEN_THANG);
+            cbThang.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+            cbThang.setPreferredSize(new Dimension(90, 28));
+            cbThang.addActionListener(e -> { cal.set(Calendar.MONTH, cbThang.getSelectedIndex()); fillGrid(); });
+
+            int y = Calendar.getInstance().get(Calendar.YEAR);
+            Integer[] yrs = new Integer[16];
+            for (int i = 0; i < 16; i++) yrs[i] = y - 5 + i;
+            cbNam = new JComboBox<>(yrs);
+            cbNam.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+            cbNam.setPreferredSize(new Dimension(64, 28));
+            cbNam.addActionListener(e -> {
+                if (cbNam.getSelectedItem() != null) {
+                    cal.set(Calendar.YEAR, (Integer) cbNam.getSelectedItem()); fillGrid();
+                }
+            });
+
+            JPanel ctr = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
+            ctr.setBackground(BG_CARD);
+            ctr.add(cbThang); ctr.add(cbNam);
+
+            nav.add(prev, BorderLayout.WEST);
+            nav.add(ctr,  BorderLayout.CENTER);
+            nav.add(next, BorderLayout.EAST);
+            return nav;
+        }
+
+        private void fillGrid() {
+            pnlGrid.removeAll();
+
+            // Tên thứ — CN màu đỏ nhạt
+            for (int i = 0; i < TEN_THU.length; i++) {
+                JLabel l = new JLabel(TEN_THU[i], SwingConstants.CENTER);
+                l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                l.setPreferredSize(new Dimension(28, 22));
+                l.setForeground(i == 6 ? new Color(0xEF4444) : TEXT_MID);
+                pnlGrid.add(l);
+            }
+
+            Calendar tmp = (Calendar) cal.clone();
+            tmp.set(Calendar.DAY_OF_MONTH, 1);
+            int first = (tmp.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+            Calendar today = Calendar.getInstance();
+            int todayD = today.get(Calendar.DAY_OF_MONTH);
+            boolean sameMonth = today.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+                    && today.get(Calendar.YEAR)  == cal.get(Calendar.YEAR);
+            int chosen = -1;
+            try {
+                Calendar c = Calendar.getInstance();
+                c.setTime(new SimpleDateFormat(DATE_FMT).parse(txt.getText()));
+                if (c.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+                        && c.get(Calendar.YEAR) == cal.get(Calendar.YEAR))
+                    chosen = c.get(Calendar.DAY_OF_MONTH);
+            } catch (Exception ignored) {}
+
+            for (int i = 0; i < first; i++) pnlGrid.add(new JLabel());
+
+            int days = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+            final int fc = chosen;
+            for (int d = 1; d <= days; d++) {
+                final int nd = d;
+                boolean isToday = sameMonth && d == todayD;
+                boolean isSel   = d == fc;
+                boolean isSun   = (first + d - 1) % 7 == 6; // Chủ nhật
+
+                JButton b = new JButton(String.valueOf(d)) {
+                    @Override protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        if (isSel) {
+                            g2.setColor(ACCENT);
+                            g2.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 8, 8);
+                        } else if (getModel().isRollover()) {
+                            g2.setColor(new Color(0xDDEEFF));
+                            g2.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 8, 8);
+                        } else if (isToday) {
+                            g2.setColor(new Color(0xEBF5FF));
+                            g2.fillRoundRect(2, 2, getWidth()-4, getHeight()-4, 8, 8);
+                            g2.setColor(ACCENT);
+                            g2.setStroke(new BasicStroke(1.2f));
+                            g2.drawRoundRect(2, 2, getWidth()-5, getHeight()-5, 8, 8);
+                        }
+                        g2.dispose();
+                        super.paintComponent(g);
+                    }
+                };
+                b.setFont(new Font("Segoe UI", isToday ? Font.BOLD : Font.PLAIN, 11));
+                b.setForeground(isSel ? Color.WHITE
+                        : isSun ? new Color(0xEF4444)
+                        : isToday ? ACCENT
+                        : TEXT_DARK);
+                b.setPreferredSize(new Dimension(28, 28));
+                b.setContentAreaFilled(false);
+                b.setBorderPainted(false);
+                b.setFocusPainted(false);
+                b.setMargin(new Insets(0,0,0,0));
+                b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                b.addActionListener(e -> {
+                    cal.set(Calendar.DAY_OF_MONTH, nd);
+                    txt.setText(new SimpleDateFormat(DATE_FMT).format(cal.getTime()));
+                    if (popup != null) { popup.dispose(); popup = null; }
+                });
+                pnlGrid.add(b);
+            }
+            pnlGrid.revalidate();
+            pnlGrid.repaint();
+        }
+
+        private JButton navBtn(String t) {
+            JButton b = new JButton(t);
+            b.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+            b.setForeground(ACCENT);
+            b.setContentAreaFilled(false);
+            b.setBorderPainted(false);
+            b.setFocusPainted(false);
+            b.setMargin(new Insets(0,0,0,0));
+            b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            b.setPreferredSize(new Dimension(26, 26));
+            return b;
+        }
+
+        public String getDate() { return txt.getText(); }
+        public void resetDate() {
+            cal.setTime(new Date());
+            txt.setText("");
+        }
+    } // end DatePickerField
 }
