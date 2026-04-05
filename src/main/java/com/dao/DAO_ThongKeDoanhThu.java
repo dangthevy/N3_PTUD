@@ -13,10 +13,10 @@ public class DAO_ThongKeDoanhThu {
     public List<Object[]> getDsTheoDoanhThu(Date tuNgay, Date denNgay) {
         List<Object[]> list = new ArrayList<>();
 
-        // Đếm số lượng hóa đơn (COUNT(maHD)) thay vì số vé
+        // CẬP NHẬT: Sửa SUM(thanhTien) thành SUM(tongTien) cho khớp với CSDL mới
         String sql = "SELECT CAST(ngayLap AS DATE) AS Ngay, " +
                 "COUNT(maHD) AS SoHoaDon, " +
-                "SUM(thanhTien) AS DoanhThu " +
+                "SUM(tongTien) AS DoanhThu " +
                 "FROM HoaDon " +
                 "WHERE 1=1 ";
 

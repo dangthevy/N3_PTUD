@@ -3,74 +3,44 @@ package com.entities;
 import java.util.Date;
 import java.util.List;
 
-import com.enums.PTThanhToan;
-
 public class HoaDon {
 	private String maHD;
 	private Date ngayLap;
-	private NhanVien nhanVien; // Quan hệ 1-1: Nhân viên lập hóa đơn
-	private KhachHang khachHang; // Quan hệ 1-1: Khách hàng mua vé
-	private KhuyenMai khuyenMai; // Có thể null nếu không có khuyến mãi
-	private PTThanhToan ptt; // Phương thức thanh toán (TIENMAT, CHUYENKHOAN)
-	private double thueVAT;
-	private double tongTienGoc; // Tổng tiền trước khi giảm giá
-	private double thanhTien; // Tổng tiền cuối cùng sau KM và Thuế
+	private NhanVien nhanVien;     // Quan hệ N-1: Nhiều Hóa đơn do 1 Nhân viên lập
+	private KhachHang khachHang;   // Quan hệ N-1: Nhiều Hóa đơn thuộc 1 Khách hàng
 
-	public KhuyenMai getKhuyenMai() {
-		return khuyenMai;
-	}
+	// Chỉ lưu Tổng Tiền Cuối Cùng (theo cấu trúc DB mới)
+	private double tongTien;
 
-	public void setKhuyenMai(KhuyenMai khuyenMai) {
-		this.khuyenMai = khuyenMai;
-	}
-
-	public PTThanhToan getPtt() {
-		return ptt;
-	}
-
-	public void setPtt(PTThanhToan ptt) {
-		this.ptt = ptt;
-	}
-
-	public double getThueVAT() {
-		return thueVAT;
-	}
-
-	public void setThueVAT(double thueVAT) {
-		this.thueVAT = thueVAT;
-	}
-
-	public double getTongTienGoc() {
-		return tongTienGoc;
-	}
-
-	public void setTongTienGoc(double tongTienGoc) {
-		this.tongTienGoc = tongTienGoc;
-	}
+	// Quan hệ 1-N: Một hóa đơn có nhiều chi tiết hóa đơn (vé)
+	private List<CTietHoaDon> danhSachChiTiet;
 
 	public HoaDon() {
 		this.ngayLap = new Date(); // Gán ngay ngày hiện tại khi vừa tạo đối tượng
+		this.tongTien = 0;
 	}
 
-	public HoaDon(String maHD, Date ngayLap, NhanVien nhanVien, KhachHang khachHang, KhuyenMai khuyenMai,
-			PTThanhToan ptt, double thueVAT) {
+	public HoaDon(String maHD, Date ngayLap, NhanVien nhanVien, KhachHang khachHang, double tongTien) {
 		this.maHD = maHD;
 		this.ngayLap = ngayLap;
 		this.nhanVien = nhanVien;
 		this.khachHang = khachHang;
-		this.khuyenMai = khuyenMai;
-		this.ptt = ptt;
-		this.thueVAT = thueVAT;
+		this.tongTien = tongTien;
 	}
 
-	// Hàm tính toán logic (Business Logic)
+	// Hàm tính toán logic (Business Logic) dựa theo Item-Level Discount
 	public double tinhTongTien() {
-		// thueVAT thường là 0.1 (10%)
-		// thanhTien = (tongTienGoc * (1 - tyLeGiam)) * (1 + thueVAT)
-		return thanhTien;
+		double total = 0;
+		if (this.danhSachChiTiet != null) {
+			for (CTietHoaDon cthd : danhSachChiTiet) {
+				total += cthd.getThanhTien();
+			}
+		}
+		this.tongTien = total;
+		return total;
 	}
 
-	// Getters and Setters
+	// ================= GETTERS & SETTERS =================
 	public String getMaHD() {
 		return maHD;
 	}
@@ -103,12 +73,19 @@ public class HoaDon {
 		this.khachHang = khachHang;
 	}
 
-	public double getThanhTien() {
-		return thanhTien;
+	public double getTongTien() {
+		return tongTien;
 	}
 
-	public void setThanhTien(double thanhTien) {
-		this.thanhTien = thanhTien;
+	public void setTongTien(double tongTien) {
+		this.tongTien = tongTien;
 	}
-	// ... (Các getter/setter khác tự tạo tương tự)
+
+	public List<CTietHoaDon> getDanhSachChiTiet() {
+		return danhSachChiTiet;
+	}
+
+	public void setDanhSachChiTiet(List<CTietHoaDon> danhSachChiTiet) {
+		this.danhSachChiTiet = danhSachChiTiet;
+	}
 }

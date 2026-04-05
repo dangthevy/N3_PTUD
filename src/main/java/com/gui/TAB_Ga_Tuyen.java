@@ -52,7 +52,7 @@ public class TAB_Ga_Tuyen extends JPanel {
 
     private DefaultTableModel dataModel_Tuyen;
     private JTable tableTuyen;
-    private JTextField txtSearchTuyen; // Thanh tìm kiếm Tuyến mới
+    private JTextField txtSearchTuyen;
 
     private final DAO_Ga dsGa = new DAO_Ga();
     private final DAO_Tuyen dsTuyen  = new DAO_Tuyen();
@@ -70,7 +70,7 @@ public class TAB_Ga_Tuyen extends JPanel {
 
         GridBagConstraints gcLeft = new GridBagConstraints();
         gcLeft.gridx = 0; gcLeft.gridy = 0;
-        gcLeft.weightx = 0.55;
+        gcLeft.weightx = 0.50;
         gcLeft.weighty = 1.0;
         gcLeft.fill = GridBagConstraints.BOTH;
         gcLeft.insets = new Insets(0, 0, 0, 8);
@@ -78,7 +78,7 @@ public class TAB_Ga_Tuyen extends JPanel {
 
         GridBagConstraints gcRight = new GridBagConstraints();
         gcRight.gridx = 1; gcRight.gridy = 0;
-        gcRight.weightx = 0.45;
+        gcRight.weightx = 0.50;
         gcRight.weighty = 1.0;
         gcRight.fill = GridBagConstraints.BOTH;
         gcRight.insets = new Insets(0, 8, 0, 0);
@@ -136,6 +136,12 @@ public class TAB_Ga_Tuyen extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getViewport().setBackground(BG_CARD);
         styleScrollBar(scrollPane.getVerticalScrollBar());
+
+        // Fix lỗi khoảng trống màu trắng ở góc trên cùng bên phải thanh cuộn
+        JPanel cornerGa = new JPanel();
+        cornerGa.setBackground(ACCENT);
+        scrollPane.setCorner(JScrollPane.UPPER_RIGHT_CORNER, cornerGa);
+
         tableCard.add(scrollPane, BorderLayout.CENTER);
 
         // LIVE SEARCH GA
@@ -158,7 +164,7 @@ public class TAB_Ga_Tuyen extends JPanel {
             if (row < 0) { warn("Vui lòng chọn Ga cần xóa!"); return; }
             String maGa = tableGa.getValueAt(row, 0).toString();
             int confirm = JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc chắn muốn xóa Ga: " + maGa + " khỏi danh sách hoạt động?",
+                    "Bạn có chắc chắn muốn xóa Ga: " + maGa + "?",
                     "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
@@ -197,7 +203,7 @@ public class TAB_Ga_Tuyen extends JPanel {
     }
 
     // =========================================================================
-    // PANEL PHẢI: QUẢN LÝ TUYẾN (ĐÃ ĐƯỢC THIẾT KẾ LẠI)
+    // PANEL PHẢI: QUẢN LÝ TUYẾN
     // =========================================================================
     private JPanel createTuyenPanel() {
         JPanel pnl = new JPanel(new BorderLayout(0, 8));
@@ -208,7 +214,6 @@ public class TAB_Ga_Tuyen extends JPanel {
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         top.setOpaque(false); top.add(title); top.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
 
-        // Khung tìm kiếm Tuyến tương tự bên Ga
         JPanel searchCard = makeCard(new BorderLayout(9, 0));
         searchCard.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(12, 12, 12, 12)));
 
@@ -230,7 +235,6 @@ public class TAB_Ga_Tuyen extends JPanel {
         searchCard.add(txtSearchTuyen, BorderLayout.CENTER);
         searchCard.add(btnGroupTuyen, BorderLayout.EAST);
 
-        // Bảng dữ liệu Tuyến
         JPanel tableCard = makeCard(new BorderLayout());
         String[] cols = {"Mã Tuyến", "Tên Tuyến", "Thời gian", "Ga Đi", "Ga Đến"};
         dataModel_Tuyen = new DefaultTableModel(cols, 0);
@@ -244,9 +248,15 @@ public class TAB_Ga_Tuyen extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getViewport().setBackground(BG_CARD);
         styleScrollBar(scrollPane.getVerticalScrollBar());
+
+        // Fix lỗi khoảng trống màu trắng ở góc trên cùng bên phải thanh cuộn
+        JPanel cornerTuyen = new JPanel();
+        cornerTuyen.setBackground(ACCENT);
+        scrollPane.setCorner(JScrollPane.UPPER_RIGHT_CORNER, cornerTuyen);
+
         tableCard.add(scrollPane, BorderLayout.CENTER);
 
-        // SỰ KIỆN: LIVE SEARCH TUYẾN
+        // LIVE SEARCH TUYẾN
         txtSearchTuyen.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
             public void removeUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
@@ -267,17 +277,15 @@ public class TAB_Ga_Tuyen extends JPanel {
             }
         });
 
-        // Nút Thêm
         btnThemTuyen.addActionListener(e -> hienThiDialogThemTuyen());
 
-        // Nút Xóa
         btnXoaTuyen.addActionListener(e -> {
             int row = tableTuyen.getSelectedRow();
             if (row < 0) { warn("Vui lòng chọn Tuyến cần xóa!"); return; }
             String maTuyen = tableTuyen.getValueAt(row, 0).toString();
 
             int confirm = JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc chắn muốn xóa Tuyến: " + maTuyen + " khỏi danh sách hoạt động?",
+                    "Bạn có chắc chắn muốn xóa Tuyến: " + maTuyen + "?",
                     "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
@@ -290,7 +298,6 @@ public class TAB_Ga_Tuyen extends JPanel {
             }
         });
 
-        // Double Click Bảng
         tableTuyen.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
@@ -439,7 +446,6 @@ public class TAB_Ga_Tuyen extends JPanel {
         dialog.pack(); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
 
-    // Giao diện POPUP THÊM TUYẾN MỚI
     private void hienThiDialogThemTuyen() {
         JDialog dialog = makeDialog("Thêm Mới Tuyến Đường");
         JPanel form = new JPanel(new GridBagLayout());
@@ -470,16 +476,21 @@ public class TAB_Ga_Tuyen extends JPanel {
         String[] allHours = new String[100]; for (int i = 0; i <= 99; i++) allHours[i] = String.format("%02d", i);
         String[] allMinutes = new String[60]; for (int i = 0; i <= 59; i++) allMinutes[i] = String.format("%02d", i);
 
+        // HIỆU CHỈNH LẠI KÍCH THƯỚC Ô THỜI GIAN
         JComboBox<String> cbGio = makeCombo(allHours); cbGio.setEditable(true);
+        cbGio.setPreferredSize(new Dimension(75, 36));
+
         JComboBox<String> cbPhut = makeCombo(allMinutes); cbPhut.setEditable(true);
+        cbPhut.setPreferredSize(new Dimension(75, 36));
+
         setupAutoSelectAll(cbGio); setupAutoSelectAll(cbPhut);
         applySmartFilter(cbGio, allHours); applySmartFilter(cbPhut, allMinutes);
         cbGio.setSelectedItem("00"); cbPhut.setSelectedItem("00");
 
-        JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         timePanel.setOpaque(false);
         timePanel.add(cbGio); timePanel.add(new JLabel("Giờ"));
-        timePanel.add(Box.createHorizontalStrut(20));
+        timePanel.add(Box.createHorizontalStrut(10));
         timePanel.add(cbPhut); timePanel.add(new JLabel("Phút"));
 
         int r = 0;
@@ -506,7 +517,7 @@ public class TAB_Ga_Tuyen extends JPanel {
                 int phut = Integer.parseInt(cbPhut.getSelectedItem().toString().trim());
                 thoiGian = (gio * 60) + phut;
                 if (thoiGian <= 0 || thoiGian >= (100 * 60)) {
-                    warn("Thời gian không hợp lệ! (Phải từ 1 phút đến 99h 59m)"); return;
+                    warn("Thời gian không hợp lệ!"); return;
                 }
             } catch (Exception ex) { warn("Thời gian chạy không hợp lệ!"); return; }
 
@@ -542,7 +553,7 @@ public class TAB_Ga_Tuyen extends JPanel {
     private void hienThiDialogSuaTuyen(int row) {
         String maTuyen = tableTuyen.getValueAt(row, 0).toString();
         Tuyen tuyenHienTai = dsTuyen.getTuyenByMa(maTuyen);
-        if (tuyenHienTai == null) { warn("Không tìm thấy dữ liệu tuyến này trong CSDL!"); return; }
+        if (tuyenHienTai == null) { warn("Không tìm thấy dữ liệu tuyến này!"); return; }
 
         JDialog dialog = makeDialog("Cập nhật Tuyến");
         JPanel form = new JPanel(new GridBagLayout());
@@ -571,19 +582,24 @@ public class TAB_Ga_Tuyen extends JPanel {
         cbGaDiSua.addActionListener(e -> updateTenTuyenSua.run());
         cbGaDenSua.addActionListener(e -> updateTenTuyenSua.run());
 
-        JComboBox<String> cbGioSua = makeCombo(new String[0]);
-        JComboBox<String> cbPhutSua = makeCombo(new String[0]);
-        for (int i = 0; i <= 99; i++) cbGioSua.addItem(String.format("%02d", i));
-        for (int i = 0; i <= 59; i++) cbPhutSua.addItem(String.format("%02d", i));
+        String[] allHours = new String[100]; for (int i = 0; i <= 99; i++) allHours[i] = String.format("%02d", i);
+        String[] allMinutes = new String[60]; for (int i = 0; i <= 59; i++) allMinutes[i] = String.format("%02d", i);
+
+        // HIỆU CHỈNH LẠI KÍCH THƯỚC Ô THỜI GIAN
+        JComboBox<String> cbGioSua = makeCombo(allHours); cbGioSua.setEditable(true);
+        cbGioSua.setPreferredSize(new Dimension(75, 36));
+
+        JComboBox<String> cbPhutSua = makeCombo(allMinutes); cbPhutSua.setEditable(true);
+        cbPhutSua.setPreferredSize(new Dimension(75, 36));
 
         int tongPhut = tuyenHienTai.getThoiGianChay();
         cbGioSua.setSelectedItem(String.format("%02d", tongPhut / 60));
         cbPhutSua.setSelectedItem(String.format("%02d", tongPhut % 60));
 
-        JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         timePanel.setOpaque(false);
         timePanel.add(cbGioSua); timePanel.add(new JLabel("Giờ"));
-        timePanel.add(Box.createHorizontalStrut(20));
+        timePanel.add(Box.createHorizontalStrut(10));
         timePanel.add(cbPhutSua); timePanel.add(new JLabel("Phút"));
 
         int r = 0;
@@ -609,7 +625,7 @@ public class TAB_Ga_Tuyen extends JPanel {
                     + Integer.parseInt(cbPhutSua.getSelectedItem().toString());
 
             if (phutSua <= 0 || phutSua >= (100 * 60)) {
-                warn("Thời gian không hợp lệ! (Phải từ 1 phút đến 99h 59m)"); return;
+                warn("Thời gian không hợp lệ!"); return;
             }
 
             for (int i = 0; i < dataModel_Tuyen.getRowCount(); i++) {
@@ -701,7 +717,9 @@ public class TAB_Ga_Tuyen extends JPanel {
 
     private JComboBox<String> makeCombo(String[] items) {
         JComboBox<String> cb = new JComboBox<>(items); cb.setFont(F_CELL); cb.setBackground(new Color(0xF8FAFD)); cb.setForeground(TEXT_DARK);
-        cb.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(2, 4, 2, 4))); return cb;
+        cb.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(2, 4, 2, 4)));
+        cb.setPreferredSize(new Dimension(130, 36)); // Default size
+        return cb;
     }
 
     private GridBagConstraints defaultGC() {
