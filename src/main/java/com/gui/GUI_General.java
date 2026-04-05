@@ -41,7 +41,7 @@ public class GUI_General extends JPanel {
 		setLayout(new BorderLayout());
 
 		// Khởi tạo các Tab
-		tab_Dashboard = new TAB_Dashboard(this);
+		tab_Dashboard = new TAB_Dashboard(this, nv.getChucVu().name());
 		tab_BanVe = new TAB_BanVe();
 		tab_HoanVe = new TAB_HoanVe();
 		tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();

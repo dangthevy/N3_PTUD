@@ -22,6 +22,13 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.table.*;
 
 /**
+ * Tab Quản lý Lịch trình & Chuyến tàu
+ *
+ * Quy tắc mã:
+ *  - maChuyen : CHUYEN + XXXX  (10 ký tự, tự động sinh, chỉ tăng khi xác nhận)
+ *  - maTuyen  : T + XXXX        ( 5 ký tự, tự động sinh, chỉ tăng khi xác nhận)
+ *  - maLT     : LT + XXXX       ( 6 ký tự, tự động sinh, chỉ tăng khi xác nhận)
+ *
  * Nghiệp vụ:
  *  - 1 maChuyen ↔ 1 maLT
  *  - 2 maChuyen khác nhau có thể dùng cùng maTau

@@ -15,7 +15,6 @@ public class DAO_LoaiToa {
 	         PreparedStatement ps = con.prepareStatement(sql);
 	         ResultSet rs = ps.executeQuery()) {
 	        while (rs.next()) {
-	            // Sửa maLoai -> maLoaiToa
 	            ds.add(new LoaiToa(rs.getString("maLoaiToa"), rs.getString("tenLoaiToa")));
 	        }
 	    } catch (Exception e) {
