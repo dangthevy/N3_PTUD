@@ -2,6 +2,7 @@ package com.enums;
 
 public enum TrangThaiNhanVien {
     HOATDONG("Hoạt động"),
+    NGHIPHEP("Nghỉ phép"),
     NGUNGHOATDONG("Ngưng hoạt động");
 
     private final String label;
