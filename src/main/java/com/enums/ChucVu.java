@@ -1,7 +1,5 @@
 package com.enums;
 
-import java.util.Arrays;
-
 public enum ChucVu {
     QUANLY("Quản lý"),
     ADMIN("Admin"),
@@ -19,11 +17,5 @@ public enum ChucVu {
 
     public static ChucVu fromString(String value) {
         return ChucVu.valueOf(value.toUpperCase());
-    }
-
-    public static ChucVu[] getWithoutAdmin() {
-        return Arrays.stream(values())
-                .filter(cv -> cv != ADMIN)
-                .toArray(ChucVu[]::new);
     }
 }

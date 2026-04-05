@@ -23,7 +23,7 @@ public class DAO_NhanVien {
     // ================= GET ALL =================
     public List<NhanVien> getAllNhanVien() {
         List<NhanVien> list = new ArrayList<>();
-        String sql = "SELECT * FROM NhanVien WHERE An = 0 ORDER BY ngayVaoLam ASC";
+        String sql = "SELECT * FROM NhanVien ORDER BY ngayVaoLam ASC";
 
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -41,7 +41,7 @@ public class DAO_NhanVien {
 
     // ================= GET BY ID =================
     public NhanVien getNhanVienByID(String maNV) {
-        String sql = "SELECT * FROM NhanVien WHERE maNV = ? AND An = 0";
+        String sql = "SELECT * FROM NhanVien WHERE maNV = ?";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maNV);
@@ -59,40 +59,23 @@ public class DAO_NhanVien {
         return null;
     }
 
-    // ================= SEARCH =================
-    public List<NhanVien> searchNhanVien(String keyword, ChucVu chucVu, TrangThaiNhanVien trangThai) {
+    // ================= SEARCH BY TEN =================
+    public List<NhanVien> findNhanVienByTenNV(String keyword) {
         List<NhanVien> list = new ArrayList<>();
+        String sql = "SELECT * FROM NhanVien WHERE tenNV LIKE ?";
 
-        // Xây WHERE động
-        StringBuilder sql = new StringBuilder(
-                "SELECT * FROM NhanVien WHERE 1=1"
-        );
-        List<Object> params = new ArrayList<>();
-
-        if (keyword != null && !keyword.isEmpty()) {
-            sql.append(" AND (tenNV LIKE ? OR sdt LIKE ? OR email LIKE ?)");
-            String like = "%" + keyword + "%";
-            params.add(like); params.add(like); params.add(like);
-        }
-        if (chucVu != null) {
-            sql.append(" AND chucVu = ?");
-            params.add(chucVu.name()); // hoặc chucVu.getLabel() tuỳ bạn lưu gì trong DB
-        }
-        if (trangThai != null) {
-            sql.append(" AND trangThai = ?");
-            params.add(trangThai.name());
-        }
-
-        sql.append(" AND An = 0 ORDER BY tenNV");
-
-        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++)
-                ps.setObject(i + 1, params.get(i));
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, "%" + keyword + "%");
 
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapResultSet(rs));
+                while (rs.next()) {
+                    list.add(mapResultSet(rs));
+                }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         return list;
     }
@@ -108,11 +91,11 @@ public class DAO_NhanVien {
             ps.setString(1, nv.getTenNV());
             ps.setString(2, nv.getSdt());
             ps.setString(3, nv.getEmail());
-            ps.setString(4, nv.getTaiKhoan());
-            ps.setString(5, nv.getMatKhau());
-            ps.setString(6, nv.getChucVu().name()); // QUANLY
-            ps.setString(7, nv.getTrangThai().name()); // HOATDONG
-            ps.setDate(8, new java.sql.Date(nv.getNgayVaoLam().getTime()));
+            ps.setString(5, nv.getTaiKhoan());
+            ps.setString(6, nv.getMatKhau());
+            ps.setString(7, nv.getChucVu().name()); // QUANLY
+            ps.setString(8, nv.getTrangThai().name()); // HOATDONG
+            ps.setDate(9, new java.sql.Date(nv.getNgayVaoLam().getTime()));
 
             return ps.executeUpdate() > 0;
 
@@ -148,14 +131,6 @@ public class DAO_NhanVien {
         }
 
         return false;
-    }
-
-    public boolean setAnNhanVien(String maNV) {
-        String sql = "UPDATE NhanVien SET An = 1, TrangThai = 'NGUNGHOATDONG' WHERE MaNV = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maNV);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
     // ================= MAP =================
@@ -217,7 +192,7 @@ public class DAO_NhanVien {
      * --- KIỂM TRA MÃ NV TỒN TẠI ---
      */
     public boolean isIdExists(String id) {
-        String sql = "SELECT COUNT(*) FROM NhanVien WHERE maNV = ? AND (trangThai = 'HOATDONG' OR trangThai = 'HOAT DONG')";
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE maNV = ?";
         try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 
             if (con == null)
@@ -241,7 +216,7 @@ public class DAO_NhanVien {
      */
     public NhanVien getNhanVienById(String id) {
         NhanVien nv = null;
-        String sql = "SELECT * FROM NhanVien WHERE maNV = ? AND (trangThai = 'HOATDONG' OR trangThai = 'HOAT DONG')";
+        String sql = "SELECT * FROM NhanVien WHERE maNV = ?";
 
         try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 
