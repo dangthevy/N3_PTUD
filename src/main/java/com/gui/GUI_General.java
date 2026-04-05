@@ -9,287 +9,323 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class GUI_General extends JPanel {
-	// Khai báo các Tab
-	private TAB_Dashboard tab_Dashboard;
-	private TAB_BanVe tab_BanVe;
-	private TAB_HoanVe tab_HoanVe;
-	private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
-	private TAB_Tau tab_Tau;
-	private TAB_Toa_ChoNgoi tab_Toa_ChoNgoi;
-	private TAB_Ga_Tuyen tab_Ga_Tuyen;
-	private TAB_LichTrinh_ChuyenTau tab_LichTrinh_ChuyenTau;
-	private TAB_Gia tab_Gia;
-	private TAB_QLNhanVien tab_QLNhanVien;
-	private TAB_QLKhachHang tab_QLKhachHang;
-	private TAB_KhuyenMai tab_KhuyenMai;
-	private TAB_ThongKeDoanhThu tab_ThongKeDoanhThu;
-	private TAB_ThongKeVe tab_ThongKeVe;
+    // Khai báo các Tab
+    private TAB_Dashboard tab_Dashboard;
+    private TAB_BanVe tab_BanVe;
+    private TAB_HoanVe tab_HoanVe;
+    private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
+    private TAB_Tau tab_Tau;
+    private TAB_Toa_ChoNgoi tab_Toa_ChoNgoi;
+    private TAB_Ga_Tuyen tab_Ga_Tuyen;
+    private TAB_LichTrinh_ChuyenTau tab_LichTrinh_ChuyenTau;
+    private TAB_Gia tab_Gia;
+    private TAB_QLNhanVien tab_QLNhanVien;
+    private TAB_QLKhachHang tab_QLKhachHang;
+    private TAB_KhuyenMai tab_KhuyenMai;
+    private TAB_ThongKeDoanhThu tab_ThongKeDoanhThu;
+    private TAB_ThongKeVe tab_ThongKeVe;
 
-	private JPanel contentPanel;
-	private JPanel currentTabPanel;
-	private JButton activeButton;
+    private JPanel contentPanel;
+    private JPanel currentTabPanel;
+    private JButton activeButton;
 
-	private final Color SIDEBAR_BG = new Color(0, 125, 250);
-	private final Color SIDEBAR_ACTIVE = new Color(0, 90, 200);
-	private final Color SUB_MENU_BG = new Color(0, 115, 240);
+    private final Color SIDEBAR_BG = new Color(0, 125, 250);
+    private final Color SIDEBAR_ACTIVE = new Color(0, 90, 200);
+    private final Color SUB_MENU_BG = new Color(0, 115, 240);
 
-	public GUI_General(NhanVien nv) {
-		initComponents(nv);
-	}
+    public GUI_General(NhanVien nv) {
+        initComponents(nv);
+    }
 
-	private void initComponents(NhanVien nv) {
-		setLayout(new BorderLayout());
+    private void initComponents(NhanVien nv) {
+        setLayout(new BorderLayout());
 
-		// Khởi tạo các Tab
-		tab_Dashboard = new TAB_Dashboard(this, nv.getChucVu().name());
-		tab_BanVe = new TAB_BanVe();
-		tab_HoanVe = new TAB_HoanVe();
-		tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
-		tab_Tau = new TAB_Tau();
-		tab_Toa_ChoNgoi = new TAB_Toa_ChoNgoi();
-		tab_Ga_Tuyen = new TAB_Ga_Tuyen();
-		tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();
-		tab_Gia = new TAB_Gia();
-		tab_QLNhanVien = new TAB_QLNhanVien();
-		tab_QLKhachHang = new TAB_QLKhachHang();
-		tab_KhuyenMai = new TAB_KhuyenMai();
-		tab_ThongKeDoanhThu = new TAB_ThongKeDoanhThu();
-		tab_ThongKeVe = new TAB_ThongKeVe();
+        // Khởi tạo các Tab
+        tab_Dashboard = new TAB_Dashboard(this, nv.getChucVu().name());
+        tab_BanVe = new TAB_BanVe();
+        tab_HoanVe = new TAB_HoanVe();
+        tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
+        tab_Tau = new TAB_Tau();
+        tab_Toa_ChoNgoi = new TAB_Toa_ChoNgoi();
+        tab_Ga_Tuyen = new TAB_Ga_Tuyen();
+        tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();
+        tab_Gia = new TAB_Gia();
+        tab_QLNhanVien = new TAB_QLNhanVien();
+        tab_QLKhachHang = new TAB_QLKhachHang(nv);
+        tab_KhuyenMai = new TAB_KhuyenMai();
+        tab_ThongKeDoanhThu = new TAB_ThongKeDoanhThu();
+        tab_ThongKeVe = new TAB_ThongKeVe();
 
-		// 1. SIDEBAR PANEL
-		JPanel sidebarPanel = new JPanel();
-		sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS));
-		sidebarPanel.setBackground(SIDEBAR_BG);
-		sidebarPanel.setPreferredSize(new Dimension(280, 0));
+        // 1. SIDEBAR PANEL
+        JPanel sidebarPanel = new JPanel();
+        sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS));
+        sidebarPanel.setBackground(SIDEBAR_BG);
+        sidebarPanel.setPreferredSize(new Dimension(280, 0));
 
-		addUserInfoSection(sidebarPanel, nv);
-		addTabButtons(sidebarPanel, nv);
+        addUserInfoSection(sidebarPanel, nv);
+        addTabButtons(sidebarPanel, nv);
 
-		add(sidebarPanel, BorderLayout.WEST);
+        add(sidebarPanel, BorderLayout.WEST);
 
-		// 2. RIGHT PANEL
-		JPanel rightPanel = new JPanel(new BorderLayout());
-		rightPanel.add(createHeader(nv), BorderLayout.NORTH);
+        // 2. RIGHT PANEL
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        rightPanel.add(createHeader(nv), BorderLayout.NORTH);
 
-		contentPanel = new JPanel(new BorderLayout());
-		contentPanel.setBackground(Color.WHITE);
-		showTab(tab_Dashboard);
+        contentPanel = new JPanel(new BorderLayout());
+        contentPanel.setBackground(Color.WHITE);
+        showTab(tab_Dashboard);
 
-		rightPanel.add(contentPanel, BorderLayout.CENTER);
-		add(rightPanel, BorderLayout.CENTER);
-	}
+        rightPanel.add(contentPanel, BorderLayout.CENTER);
+        add(rightPanel, BorderLayout.CENTER);
+    }
 
-	private void addTabButtons(JPanel sidebar, NhanVien nv) {
-		// Kiểm tra chức vụ (phân biệt Quản lý và Nhân viên)
-        boolean isAdmin = nv.getChucVu() == ChucVu.QUANLY
-                || nv.getChucVu() == ChucVu.ADMIN;
+    private void addTabButtons(JPanel sidebar, NhanVien nv) {
+        boolean isAdmin = (nv.getChucVu() == ChucVu.ADMIN);
+        boolean isQuanLy = (nv.getChucVu() == ChucVu.QUANLY);
+        boolean canAccessMain = (nv.getChucVu() == ChucVu.NHANVIEN || isAdmin);
+        boolean canAccessAdminTools = (isQuanLy || isAdmin);
 
-		// CHỨC NĂNG CHÍNH - Cả 2 đều có quyền
-		sidebar.add(createSideTitle("CHỨC NĂNG CHÍNH"));
-		addTabButton(sidebar, "Màn hình chính", tab_Dashboard, true);
-		addTabButton(sidebar, "Bán vé", tab_BanVe, true);
-		addTabButton(sidebar, "Hoàn vé", tab_HoanVe, true);
-		addTabButton(sidebar, "Thanh toán & Lập hóa đơn", tab_ThanhToanLapHD, true);
+        sidebar.add(createSideTitle("CHỨC NĂNG CHÍNH"));
+        addTabButton(sidebar, "Màn hình chính", tab_Dashboard, true);
+        addTabButton(sidebar, "Bán vé", tab_BanVe, canAccessMain);
+        addTabButton(sidebar, "Hoàn vé", tab_HoanVe, canAccessMain);
+        addTabButton(sidebar, "Tra cứu hóa đơn", tab_ThanhToanLapHD, canAccessMain);
 
-		// QUẢN LÝ HỆ THỐNG
-		sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
+        sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
+        addDropdownMenu(sidebar, "Quản lý Đoàn tàu", new String[] { "Tàu", "Toa & Chỗ ngồi" },
+                new JPanel[] { tab_Tau, tab_Toa_ChoNgoi }, canAccessAdminTools);
+        addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga & Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
+                new JPanel[] { tab_Ga_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, canAccessAdminTools);
+        addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
+        addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, canAccessAdminTools);
+        addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, canAccessAdminTools);
 
-		// Đoàn tàu, Lịch trình, Khách hàng, Khuyến mãi: Nhân viên & Quản lý đều được
-		// vào
-		addDropdownMenu(sidebar, "Quản lý Đoàn tàu", new String[] { "Tàu", "Toa & Chỗ ngồi" },
-				new JPanel[] { tab_Tau, tab_Toa_ChoNgoi }, true);
+        sidebar.add(createSideTitle("BÁO CÁO"));
+        addDropdownMenu(sidebar, "Thống kê", new String[] { "Doanh thu", "Lượng vé" },
+                new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe }, canAccessAdminTools);
 
-		addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga & Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
-				new JPanel[] { tab_Ga_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, true);
+        sidebar.add(Box.createVerticalGlue());
+    }
 
-		// Quản lý Nhân viên: CHỈ Quản lý được vào
-		addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, isAdmin);
+    private void addTabButton(JPanel sidebar, String title, JPanel target, boolean canAccess) {
+        JButton btn = createStyledButton(title, false);
+        btn.setEnabled(canAccess);
+        if (canAccess) {
+            btn.addActionListener(e -> {
+                updateActiveButton(btn);
+                showTab(target);
+            });
+        } else {
+            btn.setForeground(new Color(200, 200, 200));
+            btn.setToolTipText("Chức năng này chỉ dành cho Quản lý");
+        }
+        sidebar.add(btn);
+        if (title.equals("Màn hình chính")) {
+            activeButton = btn;
+            btn.setBackground(SIDEBAR_ACTIVE);
+        }
+    }
 
-		addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, true);
-		addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, true);
+    private void addDropdownMenu(JPanel sidebar, String title, String[] subTitles, JPanel[] targets,
+                                 boolean canAccess) {
+        JButton parentBtn = createStyledButton("▼ " + title, false);
+        parentBtn.setEnabled(canAccess);
+        JPanel subMenuPanel = new JPanel();
+        subMenuPanel.setLayout(new BoxLayout(subMenuPanel, BoxLayout.Y_AXIS));
+        subMenuPanel.setOpaque(false);
+        subMenuPanel.setVisible(false);
 
-		// BÁO CÁO - CHỈ Quản lý được vào
-		sidebar.add(createSideTitle("BÁO CÁO"));
-		addDropdownMenu(sidebar, "Thống kê", new String[] { "Doanh thu", "Lượng vé" },
-				new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe }, isAdmin);
+        if (canAccess) {
+            for (int i = 0; i < subTitles.length; i++) {
+                final int index = i;
+                JButton subBtn = createStyledButton("      " + subTitles[i], true);
+                subBtn.addActionListener(e -> {
+                    updateActiveButton(parentBtn);
+                    showTab(targets[index]);
+                });
+                subMenuPanel.add(subBtn);
+            }
+            parentBtn.addActionListener(e -> {
+                subMenuPanel.setVisible(!subMenuPanel.isVisible());
+                sidebar.revalidate();
+            });
+        } else {
+            parentBtn.setForeground(new Color(200, 200, 200));
+        }
+        sidebar.add(parentBtn);
+        sidebar.add(subMenuPanel);
+    }
 
-		sidebar.add(Box.createVerticalGlue());
-	}
+    private JButton createStyledButton(String text, boolean isSubMenu) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", isSubMenu ? Font.PLAIN : Font.BOLD, 16));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(isSubMenu ? SUB_MENU_BG : SIDEBAR_BG);
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setMaximumSize(new Dimension(280, 50));
+        btn.setPreferredSize(new Dimension(280, 50));
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 0));
 
-	private void addTabButton(JPanel sidebar, String title, JPanel target, boolean canAccess) {
-		JButton btn = createStyledButton(title, false);
-		btn.setEnabled(canAccess);
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                if (btn.isEnabled() && btn != activeButton)
+                    btn.setBackground(SIDEBAR_ACTIVE.brighter());
+            }
 
-		if (canAccess) {
-			btn.addActionListener(e -> {
-				updateActiveButton(btn);
-				showTab(target);
-			});
-		} else {
-			btn.setForeground(new Color(200, 200, 200));
-			btn.setToolTipText("Chức năng này chỉ dành cho Quản lý");
-		}
+            public void mouseExited(MouseEvent e) {
+                if (btn.isEnabled() && btn != activeButton)
+                    btn.setBackground(isSubMenu ? SUB_MENU_BG : SIDEBAR_BG);
+                else if (btn.isEnabled())
+                    btn.setBackground(SIDEBAR_ACTIVE);
+            }
+        });
+        return btn;
+    }
 
-		sidebar.add(btn);
-		if (title.equals("Màn hình chính")) {
-			activeButton = btn;
-			btn.setBackground(SIDEBAR_ACTIVE);
-		}
-	}
+    private void updateActiveButton(JButton newBtn) {
+        if (activeButton != null) {
+            activeButton.setBackground(activeButton.getText().startsWith("      ") ? SUB_MENU_BG : SIDEBAR_BG);
+        }
+        activeButton = newBtn;
+        activeButton.setBackground(SIDEBAR_ACTIVE);
+    }
 
-	private void addDropdownMenu(JPanel sidebar, String title, String[] subTitles, JPanel[] targets,
-			boolean canAccess) {
-		JButton parentBtn = createStyledButton("▼ " + title, false);
-		parentBtn.setEnabled(canAccess);
+    private JLabel createSideTitle(String title) {
+        JLabel lbl = new JLabel("  " + title);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(new Color(180, 210, 255));
+        lbl.setBorder(BorderFactory.createEmptyBorder(15, 10, 5, 0));
+        return lbl;
+    }
 
-		JPanel subMenuPanel = new JPanel();
-		subMenuPanel.setLayout(new BoxLayout(subMenuPanel, BoxLayout.Y_AXIS));
-		subMenuPanel.setOpaque(false);
-		subMenuPanel.setVisible(false);
+    public void showTab(JPanel tabPanel) {
+        if (currentTabPanel != null)
+            contentPanel.remove(currentTabPanel);
+        currentTabPanel = tabPanel;
+        contentPanel.add(currentTabPanel, BorderLayout.CENTER);
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
 
-		if (canAccess) {
-			for (int i = 0; i < subTitles.length; i++) {
-				final int index = i;
-				JButton subBtn = createStyledButton("      " + subTitles[i], true);
-				subBtn.addActionListener(e -> {
-					updateActiveButton(parentBtn);
-					showTab(targets[index]);
-				});
-				subMenuPanel.add(subBtn);
-			}
+    public TAB_BanVe getTabBanVe() {
+        return this.tab_BanVe;
+    }
 
-			parentBtn.addActionListener(e -> {
-				subMenuPanel.setVisible(!subMenuPanel.isVisible());
-				sidebar.revalidate();
-			});
-		} else {
-			parentBtn.setForeground(new Color(200, 200, 200));
-		}
+    private void addUserInfoSection(JPanel sidebar, NhanVien nv) {
+        JPanel pnlUser = new JPanel();
+        pnlUser.setLayout(new BoxLayout(pnlUser, BoxLayout.Y_AXIS));
+        pnlUser.setOpaque(false);
+        pnlUser.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 10));
 
-		sidebar.add(parentBtn);
-		sidebar.add(subMenuPanel);
-	}
+        JLabel lblName = new JLabel(nv.getTenNV());
+        lblName.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblName.setForeground(Color.WHITE);
+        lblName.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-	private JButton createStyledButton(String text, boolean isSubMenu) {
-		JButton btn = new JButton(text);
-		btn.setFont(new Font("Segoe UI", isSubMenu ? Font.PLAIN : Font.BOLD, 16));
-		btn.setForeground(Color.WHITE);
-		btn.setBackground(isSubMenu ? SUB_MENU_BG : SIDEBAR_BG);
-		btn.setHorizontalAlignment(SwingConstants.LEFT);
-		btn.setMaximumSize(new Dimension(280, 50));
-		btn.setPreferredSize(new Dimension(280, 50));
-		btn.setFocusPainted(false);
-		btn.setBorderPainted(false);
-		btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-		btn.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 0));
+        lblName.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(GUI_General.this);
+                GD_ThongTinCaNhan dialog = new GD_ThongTinCaNhan(parentFrame, nv);
+                dialog.setVisible(true);
+                lblName.setText(nv.getTenNV());
+            }
 
-		btn.addMouseListener(new MouseAdapter() {
-			public void mouseEntered(MouseEvent e) {
-				if (btn.isEnabled() && btn != activeButton)
-					btn.setBackground(SIDEBAR_ACTIVE.brighter());
-			}
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                lblName.setForeground(new Color(200, 230, 255));
+            }
 
-			public void mouseExited(MouseEvent e) {
-				if (btn.isEnabled() && btn != activeButton)
-					btn.setBackground(isSubMenu ? SUB_MENU_BG : SIDEBAR_BG);
-				else if (btn.isEnabled())
-					btn.setBackground(SIDEBAR_ACTIVE);
-			}
-		});
-		return btn;
-	}
+            @Override
+            public void mouseExited(MouseEvent e) {
+                lblName.setForeground(Color.WHITE);
+            }
+        });
 
-	private void updateActiveButton(JButton newBtn) {
-		if (activeButton != null) {
-			activeButton.setBackground(activeButton.getText().startsWith("      ") ? SUB_MENU_BG : SIDEBAR_BG);
-		}
-		activeButton = newBtn;
-		activeButton.setBackground(SIDEBAR_ACTIVE);
-	}
+        JLabel lblRole = new JLabel(nv.getChucVu().getLabel());
+        lblRole.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblRole.setForeground(new Color(220, 230, 255));
 
-	private JLabel createSideTitle(String title) {
-		JLabel lbl = new JLabel("  " + title);
-		lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-		lbl.setForeground(new Color(180, 210, 255));
-		lbl.setBorder(BorderFactory.createEmptyBorder(15, 10, 5, 0));
-		return lbl;
-	}
+        pnlUser.add(lblName);
+        pnlUser.add(lblRole);
+        sidebar.add(pnlUser);
 
-	public void showTab(JPanel tabPanel) {
-		if (currentTabPanel != null)
-			contentPanel.remove(currentTabPanel);
-		currentTabPanel = tabPanel;
-		contentPanel.add(currentTabPanel, BorderLayout.CENTER);
-		contentPanel.revalidate();
-		contentPanel.repaint();
-	}
+        JSeparator sep = new JSeparator();
+        sep.setMaximumSize(new Dimension(240, 1));
+        sidebar.add(sep);
+    }
 
-	public TAB_BanVe getTabBanVe() {
-		return this.tab_BanVe;
-	}
+    private JPanel createHeader(NhanVien nv) {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(Color.WHITE);
+        header.setPreferredSize(new Dimension(0, 60));
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
 
-	private void addUserInfoSection(JPanel sidebar, NhanVien nv) {
-		JPanel pnlUser = new JPanel();
-		pnlUser.setLayout(new BoxLayout(pnlUser, BoxLayout.Y_AXIS));
-		pnlUser.setOpaque(false);
-		pnlUser.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 10));
+        JPanel pnlLogoTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        pnlLogoTitle.setOpaque(false);
 
-		JLabel lblName = new JLabel(nv.getTenNV());
-		lblName.setFont(new Font("Segoe UI", Font.BOLD, 18));
-		lblName.setForeground(Color.WHITE);
+        try {
+            ImageIcon logoIcon = new ImageIcon(getClass().getResource("/com/img/logo.png"));
+            Image scaledLogo = logoIcon.getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
+            JLabel lblLogo = new JLabel(new ImageIcon(scaledLogo));
+            pnlLogoTitle.add(lblLogo);
+        } catch (Exception e) {
+        }
 
-		JLabel lblRole = new JLabel(nv.getChucVu().getLabel());
-		lblRole.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-		lblRole.setForeground(new Color(220, 230, 255));
+        JLabel lblTitle = new JLabel("HỆ THỐNG QUẢN LÝ BÁN VÉ");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(SIDEBAR_BG);
+        pnlLogoTitle.add(lblTitle);
+        header.add(pnlLogoTitle, BorderLayout.WEST);
 
-		pnlUser.add(lblName);
-		pnlUser.add(lblRole);
-		sidebar.add(pnlUser);
+        // --- NÚT ĐĂNG XUẤT ---
+        JButton btnLogout = new JButton("Đăng xuất");
+        btnLogout.setBackground(new Color(220, 53, 69));
+        btnLogout.setForeground(Color.WHITE);
+        btnLogout.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnLogout.setFocusPainted(false);
+        btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-		JSeparator sep = new JSeparator();
-		sep.setMaximumSize(new Dimension(240, 1));
-		sidebar.add(sep);
-	}
+        btnLogout.addActionListener(e -> {
+            // Hiển thị thông báo xác nhận
+            int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn đăng xuất không?",
+                    "Xác nhận đăng xuất", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
-	private JPanel createHeader(NhanVien nv) {
-		JPanel header = new JPanel(new BorderLayout());
-		header.setBackground(Color.WHITE);
-		header.setPreferredSize(new Dimension(0, 60));
-		header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
+            if (confirm == JOptionPane.YES_OPTION) {
+                // 1. Đóng cửa sổ hiện tại (MainFrame của GUI_General)
+                Window currentWindow = SwingUtilities.getWindowAncestor(this);
+                if (currentWindow != null) {
+                    currentWindow.dispose();
+                }
 
-		JPanel pnlLogoTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
-		pnlLogoTitle.setOpaque(false);
+                // 2. Chạy lại cấu hình giống hệt trong file Main.java
+                SwingUtilities.invokeLater(() -> {
+                    JFrame loginFrame = new JFrame("Hệ thống quản lý bán vé ga tàu - Đăng nhập");
+                    GUI_Login loginPanel = new GUI_Login();
 
-		try {
-			ImageIcon logoIcon = new ImageIcon(getClass().getResource("/com/img/logo.png"));
-			Image scaledLogo = logoIcon.getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
-			JLabel lblLogo = new JLabel(new ImageIcon(scaledLogo));
-			pnlLogoTitle.add(lblLogo);
-		} catch (Exception e) {
-		}
+                    // Thiết lập quan hệ giữa Panel và Frame
+                    loginPanel.setParentFrame(loginFrame);
 
-		JLabel lblTitle = new JLabel("HỆ THỐNG QUẢN LÝ BÁN VÉ");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
-		lblTitle.setForeground(SIDEBAR_BG);
-		pnlLogoTitle.add(lblTitle);
+                    loginFrame.setContentPane(loginPanel);
+                    loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		header.add(pnlLogoTitle, BorderLayout.WEST);
+                    // Sử dụng pack() và setResizable(false) để giống hệt lúc khởi động app
+                    loginFrame.pack();
+                    loginFrame.setResizable(false);
+                    loginFrame.setLocationRelativeTo(null);
+                    loginFrame.setVisible(true);
+                });
+            }
+        });
 
-		JButton btnLogout = new JButton("Đăng xuất");
-		btnLogout.setBackground(new Color(220, 53, 69));
-		btnLogout.setForeground(Color.WHITE);
-		btnLogout.setFont(new Font("Segoe UI", Font.BOLD, 13));
-		btnLogout.setFocusPainted(false);
-		btnLogout.addActionListener(e -> {
-			if (JOptionPane.showConfirmDialog(this, "Bạn có muốn đăng xuất?") == 0)
-				System.exit(0);
-		});
+        JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 12));
+        pnlRight.setOpaque(false);
+        pnlRight.add(btnLogout);
+        header.add(pnlRight, BorderLayout.EAST);
 
-		JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 12));
-		pnlRight.setOpaque(false);
-		pnlRight.add(btnLogout);
-		header.add(pnlRight, BorderLayout.EAST);
-
-		return header;
-	}
+        return header;
+    }
 }

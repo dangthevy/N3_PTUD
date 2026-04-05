@@ -1,6 +1,5 @@
 package com.dao;
 
-import com.connectDB.ConnectDB;
 import com.entities.NhanVien;
 import com.enums.ChucVu;
 import com.enums.TrangThaiNhanVien;
@@ -15,9 +14,6 @@ public class DAO_NhanVien {
 
     public DAO_NhanVien(Connection conn) {
         this.conn = conn;
-    }
-
-    public DAO_NhanVien() {
     }
 
     // ================= GET ALL =================
@@ -173,61 +169,74 @@ public class DAO_NhanVien {
         );
     }
 
-    /**
-     * --- HÀM ĐĂNG NHẬP --- Kiểm tra tài khoản, mật khẩu và trạng thái hoạt động
-     */
-    public boolean checkLogin(String username, String password) {
-        // Lưu ý: Tên cột 'trangThai' phải khớp với DB của bạn (có thể là trangThaiNV)
-        String sql = "SELECT maNV FROM NhanVien WHERE maNV = ? AND matKhau = ? AND (trangThai = 'HOATDONG' OR trangThai = 'HOAT DONG')";
-
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
-
-            stmt.setString(1, username);
-            stmt.setString(2, password);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
+    // Kiểm tra đăng nhập
+    public NhanVien checkLogin(String username, String password) {
+        String sql = "SELECT * FROM NhanVien WHERE taiKhoan = ? AND matKhau = ? AND trangThai = 'HOATDONG'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, username);
+            ps.setString(2, password);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next())
+                    return mapResultSet(rs);
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+        return null;
     }
 
-    public boolean create(String maNV, String tenNV, String matKhau, String chucVu) {
-        String sql = "INSERT INTO NhanVien (maNV, tenNV, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?)";
+    public boolean create(String taiKhoan, String tenNV, String matKhau, String chucVu) {
+        String sql = "INSERT INTO NhanVien (maNV, tenNV, taiKhoan, matKhau, chucVu, trangThai, ngayVaoLam) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            // Vì là đăng ký mới, ta tạm lấy maNV trùng với taiKhoan hoặc dùng cơ chế sinh
+            // mã
+            ps.setString(1, taiKhoan);
+            ps.setString(2, tenNV);
+            ps.setString(3, taiKhoan);
+            ps.setString(4, matKhau);
 
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
+            // Chuyển đổi String sang Enum (Giả sử bạn dùng chuẩn Tiếng Việt hoặc map tương
+            // ứng)
+            ps.setString(5, chucVu.equals("Quản lý") ? "QUANLY" : "NHANVIEN");
+            ps.setString(6, "HOATDONG");
+            ps.setDate(7, new java.sql.Date(System.currentTimeMillis()));
 
-            stmt.setString(1, maNV);
-            stmt.setString(2, tenNV);
-            stmt.setString(3, matKhau);
-            // Chuẩn hóa chức vụ để phân quyền dễ hơn
-            stmt.setString(4, chucVu);
-            stmt.setString(5, "HOATDONG");
-
-            return stmt.executeUpdate() > 0;
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    /**
-     * --- KIỂM TRA MÃ NV TỒN TẠI ---
-     */
-    public boolean isIdExists(String id) {
-        String sql = "SELECT COUNT(*) FROM NhanVien WHERE maNV = ? AND (trangThai = 'HOATDONG' OR trangThai = 'HOAT DONG')";
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
+    public boolean verifyUserByEmail(String taiKhoan, String email) {
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE taiKhoan = ? AND email = ?";
+        // Sử dụng try-with-resources để tự động đóng kết nối, tránh rò rỉ bộ nhớ
+        try (Connection con = com.connectDB.ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-            if (con == null)
-                return false;
+            ps.setString(1, taiKhoan);
+            ps.setString(2, email);
 
-            stmt.setString(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt(1) > 0;
                 }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi truy vấn verifyUserByEmail: " + e.getMessage());
+        }
+        return false;
+    }
+
+    // Kiểm tra mã tồn tại
+    public boolean isIdExists(String id) {
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE maNV = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next())
+                    return rs.getInt(1) > 0;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -235,31 +244,34 @@ public class DAO_NhanVien {
         return false;
     }
 
-    /**
-     * --- HÀM LẤY ĐỐI TƯỢNG NHÂN VIÊN THEO ID --- Dùng để lấy Tên và Chức vụ sau
-     * khi đăng nhập thành công
-     */
-    public NhanVien getNhanVienById(String id) {
-        NhanVien nv = null;
-        String sql = "SELECT * FROM NhanVien WHERE maNV = ? AND (trangThai = 'HOATDONG' OR trangThai = 'HOAT DONG')";
-
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
-
-            stmt.setString(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    nv = new NhanVien();
-                    nv.setMaNV(rs.getString("maNV"));
-                    nv.setTenNV(rs.getString("tenNV"));
-                    nv.setChucVu(ChucVu.fromString(rs.getString("chucVu"))  );
-                    nv.setMatKhau(rs.getString("matKhau"));
-
-                    nv.setTrangThai(TrangThaiNhanVien.fromString(rs.getString("trangThai")));
-                }
-            }
+    // Cập nhật Profile (Dùng cho trang cá nhân - chỉ sửa thông tin cơ bản)
+    public boolean updateProfile(NhanVien nv) {
+        String sql = "UPDATE NhanVien SET tenNV=?, sdt=?, email=? WHERE maNV=?";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setString(1, nv.getTenNV());
+            pst.setString(2, nv.getSdt());
+            pst.setString(3, nv.getEmail());
+            pst.setString(4, nv.getMaNV());
+            return pst.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
-        return nv;
+    }
+
+    // Đổi mật khẩu
+    public boolean updatePassword(String taiKhoan, String newPassword) {
+        String sql = "UPDATE NhanVien SET matKhau = ? WHERE taiKhoan = ?";
+        try (Connection con = com.connectDB.ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, newPassword);
+            ps.setString(2, taiKhoan);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Lỗi cập nhật mật khẩu: " + e.getMessage());
+            return false;
+        }
     }
 }
