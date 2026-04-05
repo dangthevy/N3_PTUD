@@ -3,14 +3,13 @@ package com.gui;
 import com.connectDB.ConnectDB;
 import com.dao.DAO_KhuyenMai;
 import com.dao.DAO_KhuyenMaiDetail;
-import com.entities.KhuyenMai;
-import com.entities.KhuyenMaiDetail;
-import com.entities.Tuyen;
+import com.entities.*;
 import com.enums.LoaiKhuyenMai;
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -41,6 +40,10 @@ public class TAB_KhuyenMai extends JPanel {
     private static final Color BTN_RED_HVR = new Color(0xE74C3C);
     private static final Color BG_RIGHT    = new Color(0xF7FAFF);
 
+    // [THÊM MỚI] Màu dùng cho stat card (đồng bộ với TAB_QLNhanVien)
+    private static final Color COLOR_BORDER     = new Color(0xE2EAF4);
+    private static final Color COLOR_TEXT_MUTED = new Color(0x5A6A7D);
+
     // ================= FONT =================
     private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
@@ -57,15 +60,22 @@ public class TAB_KhuyenMai extends JPanel {
 
     // ===== Cột KhuyenMaiDetail – CÓ loaiKM, giaTri =====
     private static final String[] COLS_KMD = {
-            "Mã", "Tuyến", "Loại vé", "Đối tượng", "Loại KM", "Giá trị", "Trạng thái"
+            "Mã", "Tuyến", "Loại ghế", "Loại vé", "Loại KM", "Giá trị", "Trạng thái"
     };
-
-    private static final String[] LOAI_VE   = { "Ghế cứng", "Ghế mềm điều hoà", "Giường nằm"};
-    private static final String[] DOI_TUONG = { "Tất cả", "Sinh viên", "Người lớn", "Trẻ em" };
 
     // ================= FIELDS =================
     Connection conn;
     JTextField txtSearch;
+
+    // [THÊM MỚI] Filter ngày
+    JDateChooser dateFilterBD;
+    JDateChooser dateFilterKT;
+
+    // [THÊM MỚI] Stat labels – đếm số KM theo trạng thái
+    JLabel lblStatTotal   = new JLabel("0");
+    JLabel lblStatActive  = new JLabel("0");
+    JLabel lblStatStopped = new JLabel("0");
+    JLabel lblStatUsed    = new JLabel("0");
 
     private JTable tableKM;
     private DefaultTableModel modelKM;
@@ -80,6 +90,9 @@ public class TAB_KhuyenMai extends JPanel {
     DAO_KhuyenMai daoKM;
     DAO_KhuyenMaiDetail daoKMD;
     private KhuyenMai selectedKM = null;
+    // [THÊM MỚI] Cache danh sách LoaiVe load 1 lần từ DAO
+    private List<LoaiVe> dsLoaiVe = new java.util.ArrayList<>();
+    private List<LoaiToa> dsLoaiToa = new java.util.ArrayList<>();
 
     // ================= CONSTRUCTOR =================
     public TAB_KhuyenMai() {
@@ -101,6 +114,10 @@ public class TAB_KhuyenMai extends JPanel {
         daoKM  = new DAO_KhuyenMai(conn);
         daoKMD = new DAO_KhuyenMaiDetail(conn);
 
+        // [THÊM MỚI] Load danh sách LoaiVe 1 lần khi khởi tạo
+        dsLoaiVe = daoKM.getAllLoaiVe();
+        dsLoaiToa = daoKM.getAllLoaiToa();
+
         lblKMDTitle = new JLabel();
 
         loadDataKhuyenMai();
@@ -110,8 +127,10 @@ public class TAB_KhuyenMai extends JPanel {
         topPanel.setOpaque(false);
 
         topPanel.add(buildHeader());
-        topPanel.add(Box.createVerticalStrut(10)); // khoảng cách
-        topPanel.add(buildFilterCard());
+        topPanel.add(Box.createVerticalStrut(10));
+        topPanel.add(buildStatsBar());      // [THÊM MỚI] thanh stats riêng bên dưới header
+        topPanel.add(Box.createVerticalStrut(10));
+        topPanel.add(buildFilterCard());    // filter đã được mở rộng thêm ngày
 
         add(topPanel, BorderLayout.NORTH);
         add(buildMainCard(), BorderLayout.CENTER); // ⬅️ đổi thành CENTER
@@ -126,67 +145,134 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // ========== FILTER ==========
+    // [SỬA] Thêm filter ngày bắt đầu và ngày kết thúc
     private JPanel buildFilterCard() {
-        JPanel card = buildCard(new FlowLayout(FlowLayout.LEFT, 14, 14));
+        JPanel card = buildCard(new FlowLayout(FlowLayout.LEFT, 12, 12));
+
         txtSearch = makeField("Tên khuyến mãi...");
+
+        // [THÊM MỚI] JDateChooser filter ngày bắt đầu
+        dateFilterBD = new JDateChooser();
+        dateFilterBD.setDateFormatString(DATE_FORMAT);
+        dateFilterBD.setPreferredSize(new Dimension(130, 34));
+        dateFilterBD.setToolTipText("Lọc từ ngày bắt đầu");
+
+        // [THÊM MỚI] JDateChooser filter ngày kết thúc
+        dateFilterKT = new JDateChooser();
+        dateFilterKT.setDateFormatString(DATE_FORMAT);
+        dateFilterKT.setPreferredSize(new Dimension(130, 34));
+        dateFilterKT.setToolTipText("Lọc đến ngày kết thúc");
+
         JButton btnSearch = makeBtn("Tìm kiếm", BtnStyle.PRIMARY);
         JButton btnReset  = makeBtn("Làm mới",  BtnStyle.SECONDARY);
-        card.add(makeLabel("Tên:")); card.add(txtSearch);
-        card.add(btnSearch); card.add(btnReset);
-        btnSearch.addActionListener(e -> findKhuyenMaiByTen());
-        btnReset.addActionListener(e -> { txtSearch.setText(""); loadDataKhuyenMai(); });
+
+        card.add(makeLabel("Tên:"));         card.add(txtSearch);
+        card.add(makeLabel("Từ ngày:"));     card.add(dateFilterBD);   // [THÊM MỚI]
+        card.add(makeLabel("Đến ngày:"));    card.add(dateFilterKT);   // [THÊM MỚI]
+        card.add(btnSearch);
+        card.add(btnReset);
+
+        // [SỬA] tìm kiếm kết hợp cả tên + ngày
+        btnSearch.addActionListener(e -> findKhuyenMai());
+        btnReset.addActionListener(e -> {
+            txtSearch.setText("");
+            dateFilterBD.setDate(null);   // [THÊM MỚI] reset ngày
+            dateFilterKT.setDate(null);   // [THÊM MỚI]
+            loadDataKhuyenMai();
+        });
         return card;
     }
 
-    // ========== MAIN CARD ==========
-    private JPanel buildMainCard() {
-        JPanel card = buildCard(new BorderLayout());
-        card.add(buildKMActionBar(), BorderLayout.NORTH);
-        card.add(buildSplitBody(),   BorderLayout.CENTER);
-        return card;
-    }
-
-    // ========== ACTION BAR – KM ==========
-    private JPanel buildKMActionBar() {
-        JPanel bar = new JPanel(new BorderLayout()); bar.setOpaque(false);
-        bar.setBorder(BorderFactory.createEmptyBorder(12, 18, 10, 18));
-        JLabel lbl = new JLabel("Danh sách khuyến mãi");
-        lbl.setFont(F_LABEL); lbl.setForeground(TEXT_DARK);
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)); right.setOpaque(false);
-        right.setBorder(BorderFactory.createEmptyBorder(0, 80, 0, 0));
-        JButton btnAdd = makeBtn("+ Thêm KM", BtnStyle.PRIMARY);
-        JButton btnDel = makeBtn("Dừng KM",    BtnStyle.DANGER);
-        btnAdd.addActionListener(e -> openDialogKM(null));
-        btnDel.addActionListener(e -> deleteKhuyenMai());
-        right.add(btnAdd); right.add(btnDel);
-        bar.add(lbl, BorderLayout.WEST); bar.add(right, BorderLayout.CENTER);
+    // [THÊM MỚI] Thanh stats – đếm KM đang áp dụng / đã dừng / đã dùng
+    private JPanel buildStatsBar() {
+        JPanel bar = new JPanel(new GridLayout(1, 4, 12, 0));
+        bar.setOpaque(false);
+        bar.add(createStatCard("TỔNG KHUYẾN MÃI",  lblStatTotal,   ACCENT));
+        bar.add(createStatCard("ĐANG ÁP DỤNG",     lblStatActive,  new Color(34, 197, 94)));
+        bar.add(createStatCard("ĐÃ DỪNG",           lblStatStopped, new Color(239, 68, 68)));
+        bar.add(createStatCard("ĐÃ ĐƯỢC DÙNG",      lblStatUsed,    new Color(245, 158, 11)));
         return bar;
     }
 
+    // [THÊM MỚI] Tạo 1 stat card (đồng bộ với TAB_QLNhanVien)
+    private JPanel createStatCard(String title, JLabel lblValue, Color accent) {
+        JPanel p = new JPanel(new BorderLayout(5, 5));
+        p.setBackground(BG_CARD);
+        p.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(COLOR_BORDER, 1, true),
+                new EmptyBorder(15, 20, 15, 20)));
+        JLabel lblT = new JLabel(title);
+        lblT.setForeground(COLOR_TEXT_MUTED);
+        lblT.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblValue.setForeground(accent);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        p.add(lblT,     BorderLayout.NORTH);
+        p.add(lblValue, BorderLayout.CENTER);
+        return p;
+    }
+
+    // ========== MAIN CARD ==========
+    // [SỬA] bỏ buildKMActionBar ở đây – nút Thêm/Xóa KM đã nằm trong buildKMPanel
+    private JPanel buildMainCard() {
+        JPanel card = buildCard(new BorderLayout());
+        card.add(buildSplitBody(), BorderLayout.CENTER);
+        return card;
+    }
+
     // ========== SPLIT ==========
+    // [SỬA] setDividerLocation(0.5) để split về giữa màn hình
     private JSplitPane buildSplitBody() {
         JSplitPane sp = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
                 buildKMPanel(), buildKMDPanel());
-        sp.setDividerLocation(0.55);
-        sp.setResizeWeight(0.55);
+        sp.setDividerLocation(0.5);   // [SỬA] 0.55 → 0.5 để hai panel bằng nhau
+        sp.setResizeWeight(0.5);      // [SỬA] giữ tỉ lệ khi resize cửa sổ
         sp.setBorder(BorderFactory.createEmptyBorder());
         sp.setOpaque(false); sp.setDividerSize(6);
         return sp;
     }
 
     // ========== PANEL TRÁI – KM ==========
+    // [SỬA] Gộp action bar (label + nút Thêm KM / Xóa KM) vào chính panel này
+    // → các nút không còn bị lệch khi kéo split
     private JPanel buildKMPanel() {
         JPanel p = new JPanel(new BorderLayout()); p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 18, 18, 4));
+
+        // ── Action bar nằm trong panel trái ──────────────────────────────────
+        JPanel actionBar = new JPanel(new BorderLayout()); actionBar.setOpaque(false);
+        actionBar.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
+
+        JLabel lbl = new JLabel("Danh sách khuyến mãi");
+        lbl.setFont(F_LABEL); lbl.setForeground(TEXT_DARK);
+
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btnRow.setOpaque(false);
+        JButton btnAdd = makeBtn("+ Thêm KM", BtnStyle.PRIMARY);
+        // [SỬA] Enable xóa mềm – set disable=1 trong DB, không xóa thật
+//        JButton btnDelKM = makeBtn("Xóa KM", BtnStyle.DANGER);
+        btnAdd.addActionListener(e -> openDialogKM(null));
+//        btnDelKM.addActionListener(e -> deleteKhuyenMai());
+        btnRow.add(btnAdd);
+//        btnRow.add(btnDelKM); // [SỬA] đã bật lại
+
+        actionBar.add(lbl,    BorderLayout.WEST);
+        actionBar.add(btnRow, BorderLayout.EAST);
+        // ─────────────────────────────────────────────────────────────────────
+
         JSeparator sep = new JSeparator(); sep.setForeground(BORDER);
+
         JScrollPane scroll = new JScrollPane(tableKM);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(BG_CARD);
-        scroll.setPreferredSize(new Dimension(0, 400));
+        // [SỬA] Bỏ setPreferredSize cứng → scroll tự lấp đầy không gian còn lại
         styleScrollBar(scroll.getVerticalScrollBar());
         styleScrollBar(scroll.getHorizontalScrollBar());
-        p.add(sep,    BorderLayout.NORTH);
-        p.add(scroll, BorderLayout.CENTER);
+
+        p.add(actionBar, BorderLayout.NORTH);
+        JPanel inner = new JPanel(new BorderLayout()); inner.setOpaque(false);
+        inner.add(sep,    BorderLayout.NORTH);
+        inner.add(scroll, BorderLayout.CENTER);
+        p.add(inner, BorderLayout.CENTER);
         return p;
     }
 
@@ -200,7 +286,7 @@ public class TAB_KhuyenMai extends JPanel {
         JScrollPane scroll = new JScrollPane(tableKMD);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(BG_CARD);
-        scroll.setPreferredSize(new Dimension(0, 400));
+        // [SỬA] Bỏ setPreferredSize cứng → scroll tự lấp đầy không gian còn lại
         styleScrollBar(scroll.getVerticalScrollBar());
         styleScrollBar(scroll.getHorizontalScrollBar());
         JPanel inner = new JPanel(new BorderLayout()); inner.setOpaque(false);
@@ -211,9 +297,11 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // ========== ACTION BAR – KMD ==========
+    // [SỬA] Comment nút "Dừng áp dụng" – chưa hiển thị trên giao diện
     private JPanel buildKMDActionBar() {
         JPanel bar = new JPanel(new BorderLayout()); bar.setOpaque(false);
         bar.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
+        bar.setBackground(BG_CARD);
 
         lblKMDTitle.setText("Chi tiết — (chưa chọn khuyến mãi)");
         lblKMDTitle.setFont(F_LABEL); lblKMDTitle.setForeground(TEXT_LIGHT);
@@ -221,28 +309,24 @@ public class TAB_KhuyenMai extends JPanel {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         btnPanel.setOpaque(false);
 
-        btnAddDetail  = makeBtn("+ Thêm", BtnStyle.PRIMARY);
-//        btnEditDetail = makeBtn("✎ Sửa",  BtnStyle.SECONDARY);
-        btnDelDetail  = makeBtn("Dừng áp dụng",  BtnStyle.DANGER);
+        btnAddDetail = makeBtn("+ Thêm", BtnStyle.PRIMARY);
+        // [SỬA] Enable xóa mềm KMD
+//        btnDelDetail = makeBtn("✕ Xóa", BtnStyle.DANGER);
         setDetailBtnsEnabled(false);
 
         btnAddDetail.addActionListener(e -> openDialogKMD(null));
-//        btnEditDetail.addActionListener(e -> {
-//            int row = tableKMD.getSelectedRow();
-//            if (row < 0) { JOptionPane.showMessageDialog(this, "Chọn một dòng để sửa!"); return; }
-//            int id = Integer.parseInt(modelKMD.getValueAt(row, 0).toString());
-//            openDialogKMD(daoKMD.getKhuyenMaiDetailByID(id));
-//        });
-        btnDelDetail.addActionListener(e -> deleteKMDetail());
+//        btnDelDetail.addActionListener(e -> deleteKMDetail()); // [SỬA] đã bật lại
 
         btnPanel.add(btnAddDetail);
-//        btnPanel.add(btnEditDetail);
-        btnPanel.add(btnDelDetail);
-        bar.add(lblKMDTitle, BorderLayout.WEST); bar.add(btnPanel, BorderLayout.EAST);
+//        btnPanel.add(btnDelDetail); // [SỬA] đã bật lại
+
+        bar.add(lblKMDTitle, BorderLayout.WEST);
+        bar.add(btnPanel,    BorderLayout.EAST);
         return bar;
     }
 
     // ========== TABLE – KM ==========
+    // [SỬA] AUTO_RESIZE_OFF + tooltip cell để cột không bị cắt chữ
     private JTable buildTableKM() {
         JTable t = new JTable(modelKM) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -251,8 +335,15 @@ public class TAB_KhuyenMai extends JPanel {
                 if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
                 return c;
             }
+            // [THÊM MỚI] tooltip khi text bị cắt
+            @Override public String getToolTipText(java.awt.event.MouseEvent e) {
+                int col = columnAtPoint(e.getPoint());
+                int row = rowAtPoint(e.getPoint());
+                if (row < 0 || col < 0) return null;
+                Object val = getValueAt(row, col);
+                return val != null ? val.toString() : null;
+            }
         };
-        // Click đơn → load detail
         t.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int row = t.getSelectedRow();
@@ -267,7 +358,6 @@ public class TAB_KhuyenMai extends JPanel {
                 }
             }
         });
-        // Đôi click → sửa KM
         t.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (e.getClickCount() == 2) {
@@ -277,18 +367,19 @@ public class TAB_KhuyenMai extends JPanel {
                 }
             }
         });
-        t.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN); // cột cuối fill phần còn lại
+        // [SỬA] AUTO_RESIZE_OFF thay vì AUTO_RESIZE_LAST_COLUMN
+        // → mỗi cột giữ đúng width đã set, không bị co giãn làm mất chữ
+//        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         styleTable(t);
-        int[] w = { 80, 180, 120, 120, 120 };  // Mã | Tên | Ngày BĐ | Ngày KT | Trạng thái
-        for (int i = 0; i < w.length && i < t.getColumnCount(); i++) {
+        int[] w = { 80, 180, 110, 110, 120 };
+        for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
             t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
-            t.getColumnModel().getColumn(3).setMinWidth(115); // đảm bảo "Ngày kết thúc" không bị cắt
-        }
         applyRenderers(t, COLS_KM.length);
         return t;
     }
 
     // ========== TABLE – KMD ==========
+    // [SỬA] AUTO_RESIZE_OFF + tooltip cell để cột không bị cắt chữ
     private JTable buildTableKMD() {
         JTable t = new JTable(modelKMD) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -297,8 +388,15 @@ public class TAB_KhuyenMai extends JPanel {
                 if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
                 return c;
             }
+            // [THÊM MỚI] tooltip khi text bị cắt
+            @Override public String getToolTipText(java.awt.event.MouseEvent e) {
+                int col = columnAtPoint(e.getPoint());
+                int row = rowAtPoint(e.getPoint());
+                if (row < 0 || col < 0) return null;
+                Object val = getValueAt(row, col);
+                return val != null ? val.toString() : null;
+            }
         };
-        // Đôi click → sửa detail
         t.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (e.getClickCount() == 2 && selectedKM != null) {
@@ -310,9 +408,10 @@ public class TAB_KhuyenMai extends JPanel {
                 }
             }
         });
-        t.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
+        // [SỬA] AUTO_RESIZE_OFF để cột không bị co làm mất chữ
+//        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         styleTable(t);
-        int[] w = { 80, 160, 90, 90, 80, 70, 90 }; // Mã | Tuyến | Loại vé | Đối tượng | Loại KM | Giá trị | Trạng thái
+        int[] w = { 70, 170, 90, 90, 80, 70, 100 };
         for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
             t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KMD.length);
@@ -320,12 +419,29 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // ========== LOAD DATA ==========
+    // [SỬA] Thêm đếm stats khi load dữ liệu
     private void loadDataKhuyenMai() {
         modelKM.setRowCount(0); modelKMD.setRowCount(0);
         selectedKM = null; setDetailBtnsEnabled(false);
         lblKMDTitle.setText("Chi tiết — (chưa chọn khuyến mãi)");
         lblKMDTitle.setForeground(TEXT_LIGHT);
-        for (KhuyenMai km : daoKM.getAllKhuyenMai()) addKhuyenMaiToTable(km);
+
+        List<KhuyenMai> list = daoKM.getAllKhuyenMai();
+
+        // [THÊM MỚI] Đếm stats
+        int total = list.size(), active = 0, stopped = 0;
+        for (KhuyenMai km : list) {
+            if (km.isTrangThai()) active++; else stopped++;
+            addKhuyenMaiToTable(km);
+        }
+        // [THÊM MỚI] Số KM đã được dùng – lấy từ DAO (đếm KMDetail có lượt dùng > 0)
+        int used = daoKM.countKhuyenMaiDaDung();
+
+        // [THÊM MỚI] Cập nhật stat labels
+        lblStatTotal.setText(String.valueOf(total));
+        lblStatActive.setText(String.valueOf(active));
+        lblStatStopped.setText(String.valueOf(stopped));
+        lblStatUsed.setText(String.valueOf(used));
     }
 
     private void loadDataKMDetail(String maKM) {
@@ -333,14 +449,32 @@ public class TAB_KhuyenMai extends JPanel {
         for (KhuyenMaiDetail d : daoKMD.getKhuyenMaiDetailByMaKM(maKM)) addKMDetailToTable(d);
     }
 
-    private void findKhuyenMaiByTen() {
+    // [SỬA] Đổi tên + mở rộng: tìm theo tên VÀ/HOẶC ngày bắt đầu, ngày kết thúc
+    private void findKhuyenMai() {
+        String ten   = txtSearch.getText().trim();
+        Date ngayBD = dateFilterBD.getDate();  // null nếu chưa chọn
+        Date ngayKT = dateFilterKT.getDate();  // null nếu chưa chọn
+
         modelKM.setRowCount(0); modelKMD.setRowCount(0);
         selectedKM = null; setDetailBtnsEnabled(false);
         lblKMDTitle.setText("Chi tiết — (chưa chọn khuyến mãi)");
         lblKMDTitle.setForeground(TEXT_LIGHT);
-        for (KhuyenMai km : daoKM.findKhuyenMaiByTen(txtSearch.getText().trim()))
-            addKhuyenMaiToTable(km);
+
+        // [THÊM MỚI] Gọi DAO với 3 tham số, null = bỏ qua điều kiện đó
+        List<KhuyenMai> result = daoKM.searchKhuyenMai(ten, ngayBD, ngayKT);
+
+        // Cập nhật stats theo kết quả tìm kiếm
+//        int total = result.size(), active = 0, stopped = 0;
+        for (KhuyenMai km : result) {
+            if (km.isTrangThai()) //active++; else stopped++;
+                addKhuyenMaiToTable(km);
+        }
+//        lblStatTotal.setText(String.valueOf(total));
+//        lblStatActive.setText(String.valueOf(active));
+//        lblStatStopped.setText(String.valueOf(stopped));
     }
+
+    private void findKhuyenMaiByTen() { findKhuyenMai(); } // [THÊM] backward compat
 
     // ========== ADD ROWS ==========
     private void addKhuyenMaiToTable(KhuyenMai km) {
@@ -354,16 +488,17 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     private void addKMDetailToTable(KhuyenMaiDetail d) {
+        // [SỬA] loaiVe nay là entity LoaiVe, lấy tenLoai để hiển thị
+        String tenLoaiVe = (d.getLoaiVe() != null) ? d.getLoaiVe().getTenLoai() : "";
         modelKMD.addRow(new Object[]{
                 d.getMaKMDetail()
-                , d.getTuyen().getMaTuyen()+ " : " + d.getTuyen().getTenTuyen()
-                , d.getLoaiVe()
-                , d.getDoiTuong()
+                , d.getTuyen().getMaTuyen() + " : " + d.getTuyen().getTenTuyen()
+                , d.getLoaiToa().getTenLoaiToa()
+                , tenLoaiVe
                 , d.getLoaiKM().getLabel()
                 , formatGiaTri(d.getLoaiKM().getLabel(), d.getGiaTri())
-                , d.isTrangThai() ?  "Đang áp dụng" : "Dừng áp dụng"
+                , d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng"
         });
-        System.out.println("TrangThai = " + d.isTrangThai());
     }
 
     private String formatGiaTri(String loai, double v) {
@@ -387,16 +522,17 @@ public class TAB_KhuyenMai extends JPanel {
 
     private void updateTableRowKMD(KhuyenMaiDetail d) {
         String id = String.valueOf(d.getMaKMDetail());
+        // [SỬA] loaiVe nay là entity LoaiVe
+        String tenLoaiVe = (d.getLoaiVe() != null) ? d.getLoaiVe().getTenLoai() : "";
         for (int i = 0; i < modelKMD.getRowCount(); i++) {
             if (!modelKMD.getValueAt(i, 0).toString().equals(id)) continue;
             modelKMD.setValueAt(d.getMaKMDetail(), i, 0);
-            modelKMD.setValueAt(d.getTuyen().getMaTuyen()+ " : " + d.getTuyen().getTenTuyen(),    i, 1);
-            modelKMD.setValueAt(d.getLoaiVe(),     i, 2);
-            modelKMD.setValueAt(d.getDoiTuong(),   i, 3);
-            modelKMD.setValueAt(d.getLoaiKM().getLabel(),     i, 4);
+            modelKMD.setValueAt(d.getTuyen().getMaTuyen() + " : " + d.getTuyen().getTenTuyen(), i, 1);
+            modelKMD.setValueAt(d.getLoaiToa().getTenLoaiToa(),                    i, 2);
+            modelKMD.setValueAt(tenLoaiVe,                          i, 3);
+            modelKMD.setValueAt(d.getLoaiKM().getLabel(),           i, 4);
             modelKMD.setValueAt(formatGiaTri(d.getLoaiKM().getLabel(), d.getGiaTri()), i, 5);
-            modelKMD.setValueAt(d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng",     i, 6);
-
+            modelKMD.setValueAt(d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng",   i, 6);
             break;
         }
     }
@@ -404,30 +540,30 @@ public class TAB_KhuyenMai extends JPanel {
     // ========== DELETE ==========
     private void deleteKhuyenMai() {
         int row = tableKM.getSelectedRow();
-        if (row < 0) { JOptionPane.showMessageDialog(this, "Chọn một Khuyến mãi để dừng áp dụng!"); return; }
+        if (row < 0) { JOptionPane.showMessageDialog(this, "Chọn một Khuyến mãi để xoá!"); return; }
         String maKM = modelKM.getValueAt(row, 0).toString();
         String tenKM = modelKM.getValueAt(row, 1).toString();
         if (JOptionPane.showConfirmDialog(this,
-                "Dừng áp dụng \"" + tenKM + "\"",
+                "Xoá khuyến mãi \"" + tenKM + "\"?",
                 "Xác nhận", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
                 != JOptionPane.YES_OPTION) return;
-        if (daoKM.setActiveKhuyenMai(maKM, false)) {
+        if (daoKM.setAnKhuyenMai(maKM)) {
             selectedKM = null; setDetailBtnsEnabled(false);
             lblKMDTitle.setText("Chi tiết — (chưa chọn khuyến mãi)");
             lblKMDTitle.setForeground(TEXT_LIGHT);
             loadDataKhuyenMai();
-        } else JOptionPane.showMessageDialog(this, "Không thể dừng áp dụng!");
+        } else JOptionPane.showMessageDialog(this, "Không thể xoá khuyến mãi này!");
     }
 
     private void deleteKMDetail() {
         int row = tableKMD.getSelectedRow();
-        if (row < 0) { JOptionPane.showMessageDialog(this, "Chọn một dòng để dừng hoạt động!"); return; }
+        if (row < 0) { JOptionPane.showMessageDialog(this, "Chọn một dòng để xoá!"); return; }
         String id = modelKMD.getValueAt(row, 0).toString();
-        if (JOptionPane.showConfirmDialog(this, "Dừng chi tiết KM #" + id + "?",
+        if (JOptionPane.showConfirmDialog(this, "Xoá chi tiết khuyến mãi #" + id + "?",
                 "Xác nhận", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
                 != JOptionPane.YES_OPTION) return;
-        if (daoKMD.setActiveKMD(id, false))            loadDataKMDetail(selectedKM.getMaKM());
-        else JOptionPane.showMessageDialog(this, "Thất bại!");
+        if (daoKMD.setAnKMD(id))            loadDataKMDetail(selectedKM.getMaKM());
+        else JOptionPane.showMessageDialog(this, "Không thể xoá chi tiết khuyến mãi này!");
     }
 
     // ========== DIALOG – KhuyenMai ==========
@@ -508,7 +644,6 @@ public class TAB_KhuyenMai extends JPanel {
 
             if (isEdit) {
                 if (daoKM.updateKhuyenMai(obj)) {
-                    System.out.println(chkActive.isSelected());
                     updateTableRowKM(obj); dlg.dispose(); }
                 else JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
             } else {
@@ -521,7 +656,7 @@ public class TAB_KhuyenMai extends JPanel {
         bottom.setBackground(BG_CARD);
         bottom.add(btnSave);
         if (isEdit) {
-            JButton btnDel = makeBtn("Dừng KM", BtnStyle.DANGER);
+            JButton btnDel = makeBtn("Xoá KM", BtnStyle.DANGER);
             btnDel.addActionListener(e -> { dlg.dispose(); deleteKhuyenMai(); });
             bottom.add(btnDel);
         }
@@ -588,7 +723,7 @@ public class TAB_KhuyenMai extends JPanel {
         btnAll.setContentAreaFilled(false); btnAll.setBorderPainted(false);
         btnAll.setFocusPainted(false);
         btnAll.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnAll.setPreferredSize(new Dimension(70, 28));
+        btnAll.setPreferredSize(new Dimension(140, 28));
         leftTop.add(lblTuyen, BorderLayout.WEST);
         leftTop.add(btnAll,   BorderLayout.EAST);
 
@@ -701,8 +836,26 @@ public class TAB_KhuyenMai extends JPanel {
         JLabel lblKM = new JLabel(selectedKM.getTenKM());
         lblKM.setFont(F_LABEL); lblKM.setForeground(ACCENT);
 
-        JComboBox<String> cbLoaiVe   = new JComboBox<>(LOAI_VE);
-        JComboBox<String> cbDoiTuong = new JComboBox<>(DOI_TUONG);
+        // [SỬA] JComboBox<LoaiVe> thay vì JComboBox<String>
+        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
+        cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            return lbl;
+        });
+
+        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
+        cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            return lbl;
+        });
+
+//        JComboBox<String> cbDoiTuong = new JComboBox<>(DOI_TUONG);
         JComboBox<LoaiKhuyenMai> cbLoaiKM = new JComboBox<>(LoaiKhuyenMai.values());
         cbLoaiKM.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel()); lbl.setOpaque(true);
@@ -728,8 +881,8 @@ public class TAB_KhuyenMai extends JPanel {
         gc.gridx=1;                gc.weightx=1; rightPanel.add(lblKM,                   gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; rightPanel.add(makeLabel("Loại vé"),    gc);
         gc.gridx=1;                gc.weightx=1; rightPanel.add(cbLoaiVe,                gc);
-        gc.gridx=0; gc.gridy=++r; gc.weightx=0; rightPanel.add(makeLabel("Đối tượng"),  gc);
-        gc.gridx=1;                gc.weightx=1; rightPanel.add(cbDoiTuong,              gc);
+        gc.gridx=0; gc.gridy=++r; gc.weightx=0; rightPanel.add(makeLabel("Loại ghế"),  gc);
+        gc.gridx=1;                gc.weightx=1; rightPanel.add(cbLoaiToa,              gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; rightPanel.add(makeLabel("Loại KM"),    gc);
         gc.gridx=1;                gc.weightx=1; rightPanel.add(cbLoaiKM,                gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; rightPanel.add(makeLabel("Giá trị"),    gc);
@@ -765,9 +918,22 @@ public class TAB_KhuyenMai extends JPanel {
             }
             double giaTri = 0;
             if (!LoaiKhuyenMai.MIEN_PHI.equals(cbLoaiKM.getSelectedItem())) {
-                try { giaTri = Double.parseDouble(txtGiaTri.getText().trim()); }
-                catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!"); return;
+                String txt = txtGiaTri.getText().trim();
+                if (txt.isEmpty()) {
+                    JOptionPane.showMessageDialog(dlg, "Vui lòng nhập giá trị!");
+                    return;
+                }
+
+                try {
+                    giaTri = Double.parseDouble(txt);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!");
+                    return;
+                }
+
+                if (LoaiKhuyenMai.GIAM_PHAN_TRAM.equals(cbLoaiKM.getSelectedItem()) && (giaTri > 100.0 || giaTri < 0.0)) {
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải từ 0 đến 100!");
+                    return;
                 }
             }
             final double giaTriFinal = giaTri;
@@ -777,8 +943,9 @@ public class TAB_KhuyenMai extends JPanel {
                 KhuyenMaiDetail obj = new KhuyenMaiDetail();
                 obj.setKhuyenMai(selectedKM);
                 obj.setTuyen(tuyen);
-                obj.setLoaiVe((String) cbLoaiVe.getSelectedItem());
-                obj.setDoiTuong((String) cbDoiTuong.getSelectedItem());
+                // [SỬA] set LoaiVe object thay vì String
+                obj.setLoaiVe((LoaiVe) cbLoaiVe.getSelectedItem());
+                obj.setLoaiToa((LoaiToa) cbLoaiToa.getSelectedItem());
                 obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
                 obj.setGiaTri(giaTriFinal);
                 obj.setTrangThai(chkActiveKMD.isSelected());
@@ -841,8 +1008,23 @@ public class TAB_KhuyenMai extends JPanel {
         txtTuyen.setEditable(false);
         txtTuyen.setBackground(new Color(0xF0F4FA));
 
-        JComboBox<String> cbLoaiVe   = new JComboBox<>(LOAI_VE);
-        JComboBox<String> cbDoiTuong = new JComboBox<>(DOI_TUONG);
+        // [SỬA] JComboBox<LoaiVe> thay vì JComboBox<String>
+        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
+        cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            return lbl;
+        });
+        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
+        cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            return lbl;
+        });
         JComboBox<LoaiKhuyenMai> cbLoaiKM = new JComboBox<>(LoaiKhuyenMai.values());
         cbLoaiKM.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel()); lbl.setOpaque(true);
@@ -850,8 +1032,24 @@ public class TAB_KhuyenMai extends JPanel {
         });
         JTextField txtGiaTri = makeField("0");
 
-        cbLoaiVe.setSelectedItem(kmd.getLoaiVe());
-        cbDoiTuong.setSelectedItem(kmd.getDoiTuong());
+        // [SỬA] setSelectedItem bằng LoaiVe object (so sánh theo maLoai)
+        if (kmd.getLoaiVe() != null) {
+            for (int i = 0; i < cbLoaiVe.getItemCount(); i++) {
+                if (cbLoaiVe.getItemAt(i).getMaLoai().equals(kmd.getLoaiVe().getMaLoai())) {
+                    cbLoaiVe.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+        if (kmd.getLoaiToa() != null) {
+            for (int i = 0; i < cbLoaiToa.getItemCount(); i++) {
+                if (cbLoaiToa.getItemAt(i).getMaLoaiToa().equals(kmd.getLoaiToa().getMaLoaiToa())) {
+                    cbLoaiToa.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+
         cbLoaiKM.setSelectedItem(kmd.getLoaiKM());
         txtGiaTri.setText(String.valueOf(kmd.getGiaTri()));
 
@@ -873,10 +1071,10 @@ public class TAB_KhuyenMai extends JPanel {
         gc.gridx=1;                gc.weightx=1; form.add(lblKM,                   gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Mã tuyến"),   gc);
         gc.gridx=1;                gc.weightx=1; form.add(txtTuyen,                gc);
+        gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Loại Toa"),  gc);
+        gc.gridx=1;                gc.weightx=1; form.add(cbLoaiToa,              gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Loại vé"),    gc);
         gc.gridx=1;                gc.weightx=1; form.add(cbLoaiVe,                gc);
-        gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Đối tượng"),  gc);
-        gc.gridx=1;                gc.weightx=1; form.add(cbDoiTuong,              gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Loại KM"),    gc);
         gc.gridx=1;                gc.weightx=1; form.add(cbLoaiKM,                gc);
         gc.gridx=0; gc.gridy=++r; gc.weightx=0; form.add(makeLabel("Giá trị"),    gc);
@@ -888,17 +1086,31 @@ public class TAB_KhuyenMai extends JPanel {
         btnSave.addActionListener(e -> {
             double giaTri = 0;
             if (!LoaiKhuyenMai.MIEN_PHI.equals(cbLoaiKM.getSelectedItem())) {
-                try { giaTri = Double.parseDouble(txtGiaTri.getText().trim()); }
-                catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!"); return;
+                String txt = txtGiaTri.getText().trim();
+                if (txt.isEmpty()) {
+                    JOptionPane.showMessageDialog(dlg, "Vui lòng nhập giá trị!");
+                    return;
+                }
+
+                try {
+                    giaTri = Double.parseDouble(txt);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!");
+                    return;
+                }
+
+                if (LoaiKhuyenMai.GIAM_PHAN_TRAM.equals(cbLoaiKM.getSelectedItem()) && (giaTri > 100.0 || giaTri < 0.0)) {
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải từ 0 đến 100!");
+                    return;
                 }
             }
             KhuyenMaiDetail obj = new KhuyenMaiDetail();
             obj.setMaKMDetail(kmd.getMaKMDetail());
             obj.setKhuyenMai(selectedKM);
             obj.setTuyen(kmd.getTuyen());
-            obj.setLoaiVe((String) cbLoaiVe.getSelectedItem());
-            obj.setDoiTuong((String) cbDoiTuong.getSelectedItem());
+            // [SỬA] set LoaiVe object thay vì String
+            obj.setLoaiVe((LoaiVe) cbLoaiVe.getSelectedItem());
+            obj.setLoaiToa((LoaiToa) cbLoaiToa.getSelectedItem());
             obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
             obj.setGiaTri(giaTri);
             obj.setTrangThai(chkActiveKMD.isSelected());
@@ -960,10 +1172,10 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // ========== UTILS ==========
+    // [SỬA] Enable lại btnDelDetail vì xóa mềm đã được bật
     private void setDetailBtnsEnabled(boolean on) {
-        if (btnAddDetail  != null) btnAddDetail.setEnabled(on);
-//        if (btnEditDetail != null) btnEditDetail.setEnabled(on);
-        if (btnDelDetail  != null) btnDelDetail.setEnabled(on);
+        if (btnAddDetail != null) btnAddDetail.setEnabled(on);
+        if (btnDelDetail != null) btnDelDetail.setEnabled(on); // [SỬA] đã bật lại
     }
 
     // ========== UI HELPERS ==========

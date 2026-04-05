@@ -7,8 +7,8 @@ public class KhuyenMaiDetail {
     private KhuyenMai khuyenMai;
     private boolean trangThai;
     private Tuyen    tuyen;
-    private String    loaiVe;
-    private String    doiTuong;
+    private LoaiVe    loaiVe;
+    private LoaiToa loaiToa;
     private LoaiKhuyenMai loaiKM;   // "Giảm %", "Giảm tiền", "Miễn phí"
     private double    giaTri;   // số %, số tiền, hoặc 0 nếu miễn phí
 
@@ -23,11 +23,21 @@ public class KhuyenMaiDetail {
     public Tuyen    getTuyen()     { return tuyen; }
     public void      setTuyen(Tuyen v) { this.tuyen = v; }
 
-    public String    getLoaiVe()      { return loaiVe; }
-    public void      setLoaiVe(String v) { this.loaiVe = v; }
+    public LoaiVe getLoaiVe() {
+        return loaiVe;
+    }
 
-    public String    getDoiTuong()    { return doiTuong; }
-    public void      setDoiTuong(String v) { this.doiTuong = v; }
+    public void setLoaiVe(LoaiVe loaiVe) {
+        this.loaiVe = loaiVe;
+    }
+
+    public LoaiToa getLoaiToa() {
+        return loaiToa;
+    }
+
+    public void setLoaiToa(LoaiToa loaiToa) {
+        this.loaiToa = loaiToa;
+    }
 
     public LoaiKhuyenMai getLoaiKM() {
         return loaiKM;

@@ -1,6 +1,8 @@
 package com.dao;
 
 import com.entities.KhuyenMai;
+import com.entities.LoaiToa;
+import com.entities.LoaiVe;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -21,7 +23,7 @@ public class DAO_KhuyenMai {
     // ---- READ ----
     public List<KhuyenMai> getAllKhuyenMai() {
         List<KhuyenMai> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhuyenMai ORDER BY maKM";
+        String sql = "SELECT * FROM KhuyenMai WHERE An = 0 ORDER BY maKM";
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) list.add(mapRow(rs));
@@ -30,7 +32,7 @@ public class DAO_KhuyenMai {
     }
 
     public KhuyenMai getKhuyenMaiByID(String maKM) {
-        String sql = "SELECT * FROM KhuyenMai WHERE maKM = ?";
+        String sql = "SELECT * FROM KhuyenMai WHERE An = 0 AND maKM = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKM);
             try (ResultSet rs = ps.executeQuery()) {
@@ -40,16 +42,101 @@ public class DAO_KhuyenMai {
         return null;
     }
 
-    public List<KhuyenMai> findKhuyenMaiByTen(String ten) {
-        List<KhuyenMai> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhuyenMai WHERE tenKM LIKE ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, "%" + ten + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs));
+//    public List<KhuyenMai> findKhuyenMaiByTen(String ten) {
+//        List<KhuyenMai> list = new ArrayList<>();
+//        String sql = "SELECT * FROM KhuyenMai WHERE tenKM LIKE ?";
+//        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+//            ps.setString(1, "%" + ten + "%");
+//            try (ResultSet rs = ps.executeQuery()) {
+//                while (rs.next()) list.add(mapRow(rs));
+//            }
+//        } catch (SQLException e) { e.printStackTrace(); }
+//        return list;
+//    }
+
+    public List<LoaiVe> getAllLoaiVe(){
+        List<LoaiVe> list = new ArrayList<>();
+        String sql = "SELECT * FROM LoaiVe ORDER BY maLoai";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                LoaiVe lv = new LoaiVe();
+                lv.setMaLoai(rs.getString("maLoai"));
+                lv.setTenLoai(rs.getString("tenLoai"));
+                list.add(lv);
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return list;
+    }
+
+    public List<LoaiToa> getAllLoaiToa(){
+        List<LoaiToa> list = new ArrayList<>();
+        String sql = "SELECT * FROM LoaiToa ORDER BY maLoaiToa";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                LoaiToa lt  = new LoaiToa();
+                lt.setMaLoaiToa(rs.getString("maLoaiToa"));
+                lt.setTenLoaiToa(rs.getString("tenLoaiToa"));
+                list.add(lt);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    // Tìm kiếm kết hợp tên + ngày
+    public List<KhuyenMai> searchKhuyenMai(String ten, java.util.Date ngayBD, java.util.Date ngayKT) {
+        List<KhuyenMai> list = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder(
+                "SELECT * FROM KhuyenMai WHERE 1=1 "
+        );
+
+        List<Object> params = new ArrayList<>();
+
+        // ===== FILTER TÊN =====
+        if (ten != null && !ten.trim().isEmpty()) {
+            sql.append("AND TenKM LIKE ? ");
+            params.add("%" + ten.trim() + "%");
+        }
+
+        // ===== FILTER NGÀY BẮT ĐẦU =====
+        if (ngayBD != null) {
+            sql.append("AND NgayBatDau >= ? ");
+            params.add(new java.sql.Date(ngayBD.getTime()));
+        }
+
+        // ===== FILTER NGÀY KẾT THÚC =====
+        if (ngayKT != null) {
+            sql.append("AND NgayKetThuc <= ? ");
+            params.add(new java.sql.Date(ngayKT.getTime()));
+        }
+
+        sql.append("AND An = 0 ORDER BY maKM");
+
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            // ===== SET PARAM =====
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return list;
+    }
+
+    // Đếm số KM đã có lượt sử dụng
+    public int countKhuyenMaiDaDung(){
+        return 0; // Cần JOIN với bảng Hóa Đơn để đếm số KM đã được áp dụng
     }
 
     // ---- CREATE ----
@@ -75,14 +162,31 @@ public class DAO_KhuyenMai {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    // ---- DELETE ----
-    public boolean setActiveKhuyenMai(String maKM, boolean active) {
-        String sql = "UPDATE KhuyenMai SET trangThai = ? WHERE maKM = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setBoolean(1, active);
-            ps.setString(2, maKM);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+    public boolean setAnKhuyenMai(String maKM) {
+        String sqlKM  = "UPDATE KhuyenMai SET An = 1, TrangThai = 0 WHERE MaKM = ?";
+        String sqlKMD = "UPDATE KhuyenMaiDetail SET An = 1, TrangThai = 0 WHERE MaKM = ?";
+        try {
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement psKM  = conn.prepareStatement(sqlKM);
+                 PreparedStatement psKMD = conn.prepareStatement(sqlKMD)) {
+
+                psKM.setString(1, maKM);
+                psKM.executeUpdate();
+
+                psKMD.setString(1, maKM);
+                psKMD.executeUpdate(); // không cần > 0 vì KM có thể chưa có detail nào
+
+                conn.commit();
+                return true;
+            }
+        } catch (SQLException e) {
+            try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            e.printStackTrace();
+            return false;
+        } finally {
+            try { conn.setAutoCommit(true); } catch (SQLException e) { e.printStackTrace(); }
+        }
     }
 
     // ---- HELPER ----

@@ -1,8 +1,6 @@
 package com.dao;
 
-import com.entities.KhuyenMai;
-import com.entities.KhuyenMaiDetail;
-import com.entities.Tuyen;
+import com.entities.*;
 import com.enums.LoaiKhuyenMai;
 
 import java.sql.*;
@@ -23,7 +21,11 @@ public class DAO_KhuyenMaiDetail {
     // ---- READ ----
     public List<KhuyenMaiDetail> getKhuyenMaiDetailByMaKM(String maKM) {
         List<KhuyenMaiDetail> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhuyenMaiDetail kmd LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen WHERE maKM = ?";
+        String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
+                "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
+                "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
+                "WHERE An = 0 AND maKM = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKM);
             try (ResultSet rs = ps.executeQuery()) {
@@ -34,7 +36,11 @@ public class DAO_KhuyenMaiDetail {
     }
 
     public KhuyenMaiDetail getKhuyenMaiDetailByID(String maKMDetail) {
-        String sql = "SELECT * FROM KhuyenMaiDetail kmd LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen WHERE maKMDetail = ?";
+        String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
+                "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
+                "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
+                "WHERE An = 0 AND maKMDetail = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKMDetail);
             try (ResultSet rs = ps.executeQuery()) {
@@ -64,14 +70,14 @@ public class DAO_KhuyenMaiDetail {
 
     // ---- CREATE ----
     public boolean insertKhuyenMaiDetail(KhuyenMaiDetail kmd) {
-        String sql = "INSERT INTO KhuyenMaiDetail(maKM,maTuyen,loaiKM,giaTri,loaiVe,doiTuong,trangThai) VALUES(?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhuyenMaiDetail(maKM,maTuyen,loaiKM,giaTri,maLoai,maLoaiToa,trangThai) VALUES(?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, kmd.getKhuyenMai() != null ? kmd.getKhuyenMai().getMaKM() : null);
             ps.setString(2, kmd.getTuyen().getMaTuyen());
             ps.setString(3, kmd.getLoaiKM().name());
             ps.setDouble(4, kmd.getGiaTri());
-            ps.setString(5, kmd.getLoaiVe());
-            ps.setString(6, kmd.getDoiTuong());
+            ps.setString(5, kmd.getLoaiVe().getMaLoai());
+            ps.setString(6, kmd.getLoaiToa().getMaLoaiToa());
             ps.setInt(7, kmd.isTrangThai() ? 1 : 0);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
@@ -79,13 +85,13 @@ public class DAO_KhuyenMaiDetail {
 
     // ---- UPDATE ----
     public boolean updateKhuyenMaiDetail(KhuyenMaiDetail kmd) {
-        String sql = "UPDATE KhuyenMaiDetail SET maTuyen=?,loaiKM=?,giaTri=?,loaiVe=?,doiTuong=?, trangThai=? WHERE maKMDetail=?";
+        String sql = "UPDATE KhuyenMaiDetail SET maTuyen=?,loaiKM=?,giaTri=?,maLoai=?,maLoaiToa=?, trangThai=? WHERE maKMDetail=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, kmd.getTuyen().getMaTuyen());
             ps.setString(2, kmd.getLoaiKM().name());
             ps.setDouble(3, kmd.getGiaTri());
-            ps.setString(4, kmd.getLoaiVe());
-            ps.setString(5, kmd.getDoiTuong());
+            ps.setString(4, kmd.getLoaiVe().getMaLoai());
+            ps.setString(5, kmd.getLoaiToa().getMaLoaiToa());
             ps.setInt(6, kmd.isTrangThai() ? 1 : 0);
             System.out.println(kmd.isTrangThai() ? 1 : 0);
             ps.setString(7,    kmd.getMaKMDetail());
@@ -94,20 +100,11 @@ public class DAO_KhuyenMaiDetail {
     }
 
     // ---- DELETE ----
-    public boolean setActiveKMD(String maKMDetail, boolean active) {
-        String sql = "UPDATE KhuyenMaiDetail SET trangThai = ? WHERE maKMDetail = ?";
+    public boolean setAnKMD(String maKMDetail) {
+        String sql = "UPDATE KhuyenMaiDetail SET an = 1, trangThai=0 WHERE maKMDetail = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setBoolean(1, active);
-            ps.setString(2, maKMDetail);
+            ps.setString(1, maKMDetail);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
-    }
-
-    public boolean deleteAllByMaKM(String maKM) {
-        String sql = "DELETE FROM KhuyenMaiDetail WHERE maKM = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maKM);
-            return ps.executeUpdate() >= 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
@@ -121,8 +118,11 @@ public class DAO_KhuyenMaiDetail {
         ));
         kmd.setLoaiKM(LoaiKhuyenMai.fromString(rs.getString("loaiKM")));
         kmd.setGiaTri(rs.getDouble("giaTri"));
-        kmd.setLoaiVe(rs.getString("loaiVe"));
-        kmd.setDoiTuong(rs.getString("doiTuong"));
+        LoaiVe loaiVe = new LoaiVe();
+        loaiVe.setMaLoai(rs.getString("maLoai"));
+        loaiVe.setTenLoai(rs.getString("tenLoai"));
+        kmd.setLoaiVe(loaiVe);
+        kmd.setLoaiToa( new LoaiToa(rs.getString("maLoaiToa"), rs.getString("tenLoaiToa")) );
         kmd.setTrangThai(rs.getBoolean("trangThai"));
         // gán KhuyenMai stub chỉ chứa maKM (đủ để dùng trong UI)
         KhuyenMai km = new KhuyenMai();
