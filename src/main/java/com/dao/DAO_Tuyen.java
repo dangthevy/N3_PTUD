@@ -11,40 +11,58 @@ import com.entities.Ga;
 public class DAO_Tuyen {
     public List<Tuyen> getAllTuyen() {
         List<Tuyen> dsTuyen = new ArrayList<>();
-        String sql = "SELECT * FROM Tuyen ORDER BY maTuyen ASC";
+        // CHỈ LẤY TUYẾN ĐANG HOẠT ĐỘNG
+        String sql = "SELECT * FROM Tuyen WHERE trangThai = 1 OR trangThai IS NULL ORDER BY maTuyen ASC";
 
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-
             while (rs.next()) {
-                // Lấy thông tin Ga Đi
-                String GaDi = rs.getString("gaDi");
-                Ga gaDi = null;
-                if (GaDi != null) {
-                    DAO_Ga daoGa = new DAO_Ga();
-                    gaDi = daoGa.getGaByMa(GaDi);
-                }
+                String maGaDi = rs.getString("gaDi");
+                Ga gaDi = (maGaDi != null) ? new DAO_Ga().getGaByMa(maGaDi) : null;
 
-                // Lấy thông tin Ga Đến
                 String maGaDen = rs.getString("gaDen");
-                Ga gaDen = null;
-                if (maGaDen != null) {
-                    DAO_Ga daoGa = new DAO_Ga();
-                    gaDen = daoGa.getGaByMa(maGaDen);
-                }
+                Ga gaDen = (maGaDen != null) ? new DAO_Ga().getGaByMa(maGaDen) : null;
 
                 dsTuyen.add(new Tuyen(
-                        rs.getString("maTuyen"),
-                        rs.getString("tenTuyen"),
-                        rs.getInt("thoiGianChay"),
-                        gaDi,
-                        gaDen
+                        rs.getString("maTuyen"), rs.getString("tenTuyen"),
+                        rs.getInt("thoiGianChay"), gaDi, gaDen
                 ));
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return dsTuyen;
+    }
+
+    // ==========================================================
+    // HÀM TÌM KIẾM MỚI THÊM VÀO
+    // ==========================================================
+    public List<Tuyen> timKiemTuyen(String tuKhoa) {
+        List<Tuyen> dsTuyen = new ArrayList<>();
+        // Lấy tuyến hoạt động có mã hoặc tên chứa từ khóa
+        String sql = "SELECT * FROM Tuyen WHERE (trangThai = 1 OR trangThai IS NULL) AND (maTuyen LIKE ? OR tenTuyen LIKE ?) ORDER BY maTuyen ASC";
+
+        try (Connection conn = ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            String searchPattern = "%" + tuKhoa + "%";
+            ps.setString(1, searchPattern);
+            ps.setString(2, searchPattern);
+
+            try(ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String maGaDi = rs.getString("gaDi");
+                    Ga gaDi = (maGaDi != null) ? new DAO_Ga().getGaByMa(maGaDi) : null;
+
+                    String maGaDen = rs.getString("gaDen");
+                    Ga gaDen = (maGaDen != null) ? new DAO_Ga().getGaByMa(maGaDen) : null;
+
+                    dsTuyen.add(new Tuyen(
+                            rs.getString("maTuyen"), rs.getString("tenTuyen"),
+                            rs.getInt("thoiGianChay"), gaDi, gaDen
+                    ));
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
         return dsTuyen;
     }
 
@@ -67,9 +85,7 @@ public class DAO_Tuyen {
         }
     }
 
-    // Cập nhật thông tin Tuyến
     public boolean updateTuyen(Tuyen tuyen) {
-        // Cập nhật tất cả trừ Mã Tuyến (Vì Mã Tuyến là khóa chính, không được đổi)
         String sql = "UPDATE Tuyen SET tenTuyen = ?, thoiGianChay = ?, gaDi = ?, gaDen = ? WHERE maTuyen = ?";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -87,7 +103,6 @@ public class DAO_Tuyen {
         }
     }
 
-    // Lấy thông tin chi tiết của 1 Tuyến dựa vào Mã Tuyến
     public Tuyen getTuyenByMa(String maTuyen) {
         String sql = "SELECT * FROM Tuyen WHERE maTuyen = ?";
         try (Connection conn = ConnectDB.getConnection();
@@ -115,13 +130,13 @@ public class DAO_Tuyen {
         return null;
     }
 
-    // Phát sinh tự động mã chuyến
     public String phatSinhMaTuyen(){
         String maTuyen = "T001";
-        String sql = "SELECT MAX(CAST(SUBSTRING(maTuyen, 2, LEN(maTuyen)) AS INT)) FROM Tuyen";
+        // Phát sinh trên toàn bộ CSDL để tránh trùng lặp
+        String sql = "SELECT MAX(CAST(SUBSTRING(maTuyen, 2, LEN(maTuyen)) AS INT)) FROM Tuyen WHERE maTuyen LIKE 'T%'";
         try (Connection conn = ConnectDB.getConnection();
-        Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery(sql)){
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)){
 
             if (rs.next()){
                 int lastSo = rs.getInt(1);
@@ -130,11 +145,18 @@ public class DAO_Tuyen {
                     maTuyen = String.format("T%02d", lastSo);
                 }
             }
-
         } catch (Exception e) {
             System.err.println("Lỗi phát sinh mã tuyến: " + e.getMessage());
         }
         return maTuyen;
     }
-}
 
+    public boolean deleteTuyen(String maTuyen) {
+        String sql = "UPDATE Tuyen SET trangThai = 0 WHERE maTuyen = ?";
+        try (Connection conn = ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maTuyen);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { return false; }
+    }
+}
