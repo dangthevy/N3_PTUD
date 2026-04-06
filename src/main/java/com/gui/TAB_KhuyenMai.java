@@ -5,6 +5,7 @@ import com.dao.DAO_KhuyenMai;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
+import com.enums.TrangThaiNhanVien;
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
@@ -375,8 +376,54 @@ public class TAB_KhuyenMai extends JPanel {
         for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
             t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KM.length);
+        t.getColumnModel().getColumn(4).setCellRenderer(new TrangThaiRenderer());
         return t;
     }
+
+
+    private static class TrangThaiRenderer extends DefaultTableCellRenderer {
+
+        private static final Color CLR_ACTIVE  = new Color(0x16A34A); // xanh lá
+        private static final Color CLR_STOP    = new Color(0xDC2626); // đỏ
+        private static final Color CLR_OFF     = new Color(0xD97706); // vàng cam
+
+        private static final Color BG_ACTIVE   = new Color(0xDCFCE7);
+        private static final Color BG_STOP     = new Color(0xFEE2E2);
+        private static final Color BG_OFF      = new Color(0xFEF9C3);
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable t, Object v, boolean sel, boolean foc, int row, int col) {
+
+            JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, row, col);
+
+            String text = v != null ? v.toString() : "";
+
+            // Badge: text canh giữa, bo tròn giả lập bằng padding + màu nền
+            l.setHorizontalAlignment(CENTER);
+            l.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+
+            if (!sel) {
+                // Màu text + nền theo trạng thái
+                if (text.equalsIgnoreCase("Đang áp dụng")) {
+                    l.setForeground(CLR_ACTIVE);
+                    l.setBackground(BG_ACTIVE);
+                } else if (text.equalsIgnoreCase("Dừng áp dụng")) {
+                    l.setForeground(CLR_STOP);
+                    l.setBackground(BG_STOP);
+                } else {
+                    // fallback
+                    l.setForeground(new Color(0x5A6A7D));
+                    l.setBackground(new Color(0xF0F4FA));
+                }
+            }
+
+            l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            l.setOpaque(true);
+            return l;
+        }
+    }
+
 
     // ========== TABLE – KMD ==========
     // [SỬA] AUTO_RESIZE_OFF + tooltip cell để cột không bị cắt chữ
@@ -415,6 +462,7 @@ public class TAB_KhuyenMai extends JPanel {
         for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
             t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KMD.length);
+        t.getColumnModel().getColumn(6).setCellRenderer(new TrangThaiRenderer());
         return t;
     }
 
@@ -482,7 +530,7 @@ public class TAB_KhuyenMai extends JPanel {
                 km.getMaKM(), km.getTenKM(),
                 km.getNgayBatDau()  != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayBatDau()) : "",
                 km.getNgayKetThuc() != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayKetThuc()) : "",
-                km.isTrangThai() ? "Đang áp dụng" : "Dừng hoạt động",
+                km.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng",
 //                km.getMoTa() != null ? km.getMoTa() : ""
         });
     }
@@ -515,7 +563,7 @@ public class TAB_KhuyenMai extends JPanel {
             modelKM.setValueAt(km.getTenKM(),  i, 1);
             modelKM.setValueAt(km.getNgayBatDau()  != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayBatDau())  : "", i, 2);
             modelKM.setValueAt(km.getNgayKetThuc() != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayKetThuc()) : "", i, 3);
-            modelKM.setValueAt(km.isTrangThai() ? "Đang áp dụng" : "Đã hết hạn", i, 4);
+            modelKM.setValueAt(km.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng", i, 4);
             break;
         }
     }
@@ -644,7 +692,8 @@ public class TAB_KhuyenMai extends JPanel {
 
             if (isEdit) {
                 if (daoKM.updateKhuyenMai(obj)) {
-                    updateTableRowKM(obj); dlg.dispose(); }
+                    // updateTableRowKM(obj);
+                    loadDataKhuyenMai(); dlg.dispose(); }
                 else JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
             } else {
                 if (daoKM.insertKhuyenMai(obj)) { loadDataKhuyenMai(); dlg.dispose(); }
@@ -1115,7 +1164,7 @@ public class TAB_KhuyenMai extends JPanel {
             obj.setGiaTri(giaTri);
             obj.setTrangThai(chkActiveKMD.isSelected());
 
-            if (daoKMD.updateKhuyenMaiDetail(obj)) { updateTableRowKMD(obj); dlg.dispose(); }
+            if (daoKMD.updateKhuyenMaiDetail(obj)) { loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose(); }
             else JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
         });
 

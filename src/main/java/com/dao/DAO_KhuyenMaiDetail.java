@@ -123,7 +123,7 @@ public class DAO_KhuyenMaiDetail {
         loaiVe.setTenLoai(rs.getString("tenLoai"));
         kmd.setLoaiVe(loaiVe);
         kmd.setLoaiToa( new LoaiToa(rs.getString("maLoaiToa"), rs.getString("tenLoaiToa")) );
-        kmd.setTrangThai(rs.getBoolean("trangThai"));
+        kmd.setTrangThai(rs.getBoolean("TrangThai"));
         // gán KhuyenMai stub chỉ chứa maKM (đủ để dùng trong UI)
         KhuyenMai km = new KhuyenMai();
         km.setMaKM(maKM);
