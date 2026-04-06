@@ -1,10 +1,12 @@
 package com.gui;
 
+import com.dao.DAO_BanVe;
 import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import javax.swing.Timer;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -14,7 +16,10 @@ import java.util.*;
 import java.util.List;
 
 public class TAB_BanVe extends JPanel {
+
+    // =========================================================================
     // MÀU SẮC & FONT
+    // =========================================================================
     private static final Color BG_PAGE      = new Color(0xF4F7FB);
     private static final Color BG_CARD      = Color.WHITE;
     private static final Color ACCENT       = new Color(0x2D7AF1);
@@ -33,7 +38,9 @@ public class TAB_BanVe extends JPanel {
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
     private static final String DATE_FMT = "dd/MM/yyyy";
 
+    // =========================================================================
     // THÀNH PHẦN GIAO DIỆN CHÍNH
+    // =========================================================================
     private CardLayout cardLayout;
     private JPanel pnlCards;
     private StepProgressPanel stepProgress;
@@ -46,18 +53,28 @@ public class TAB_BanVe extends JPanel {
     private int timeLeft = 500;
     private JLabel lblTimer;
 
+    // DB Objects
+    private DAO_BanVe daoBanVe = new DAO_BanVe();
+    private Map<String, String> mapGa = new HashMap<>(); // Tên Ga -> Mã Ga
+
+    // Biến cho form Tìm kiếm
     private JComboBox<String> cbGaDi, cbGaDen;
     private JRadioButton rdoMotChieu, rdoKhuHoi;
     private DatePickerField dpNgayDi, dpNgayVe;
 
+    // Biến cho giao diện Chọn ghế
     private boolean isRoundTrip = false;
     private JPanel pnlDirectionToggle;
     private CardLayout routeCardLayout;
     private JPanel pnlRouteCards;
     private JToggleButton btnChieuDi, btnChieuVe;
-    private JLabel lblOutboundTitle, lblReturnTitle;
 
-    private List<String> selectedSeats = new ArrayList<>();
+    // Panel Động cho Chiều đi và Chiều về
+    private RoutePanel pnlOutbound;
+    private RoutePanel pnlReturn;
+
+    // Danh sách chứa Mã Ghế được chọn
+    private List<Map<String, String>> selectedSeatsData = new ArrayList<>(); // Lưu chi tiết: MÃ LỊCH TRÌNH, MÃ GHẾ, TÊN GHẾ, TÊN TOA, TÊN TÀU
     private JPanel pnlDSKhach;
 
     public TAB_BanVe() {
@@ -98,13 +115,26 @@ public class TAB_BanVe extends JPanel {
         btnBack.addActionListener(e -> prevStep());
 
         setupTimer();
+        loadDataToFormSearch();
     }
 
-    // TRANG TÌM KIẾM
+    // Load Database vào ComboBox Ga
+    private void loadDataToFormSearch() {
+        mapGa = daoBanVe.getDanhSachGa();
+        cbGaDi.removeAllItems();
+        cbGaDen.removeAllItems();
+        for (String tenGa : mapGa.keySet()) {
+            cbGaDi.addItem(tenGa);
+            cbGaDen.addItem(tenGa);
+        }
+    }
+
+    // =========================================================================
+    // BƯỚC 1: TÌM KIẾM
+    // =========================================================================
     private JPanel buildStep1_Search() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
-        // THÊM TIÊU ĐỀ TRANG CHO BƯỚC 1
         pnlMain.add(createPageTitle("TÌM KIẾM CHUYẾN TÀU", "Vui lòng nhập thông tin hành trình để tìm kiếm chuyến đi phù hợp"), BorderLayout.NORTH);
 
         JPanel pnlWrapper = new JPanel(new GridBagLayout());
@@ -114,8 +144,8 @@ public class TAB_BanVe extends JPanel {
         pnlSearch.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(30, 40, 30, 40)));
         GridBagConstraints gc = defaultGC();
 
-        cbGaDi = makeCombo(new String[]{"Hà Nội", "Đà Nẵng", "Sài Gòn"});
-        cbGaDen = makeCombo(new String[]{"Sài Gòn", "Nha Trang", "Huế"});
+        cbGaDi = makeCombo(new String[]{});
+        cbGaDen = makeCombo(new String[]{});
 
         rdoMotChieu = new JRadioButton("Một Chiều", true);
         rdoKhuHoi = new JRadioButton("Khứ Hồi");
@@ -161,6 +191,7 @@ public class TAB_BanVe extends JPanel {
         pnlMain.add(pnlWrapper, BorderLayout.CENTER);
 
         btnSearch.addActionListener(e -> {
+            if(cbGaDi.getSelectedItem() == null || cbGaDen.getSelectedItem() == null) return;
             if(cbGaDi.getSelectedItem().equals(cbGaDen.getSelectedItem())) {
                 JOptionPane.showMessageDialog(this, "Ga đi và Ga đến không được trùng nhau!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -174,44 +205,69 @@ public class TAB_BanVe extends JPanel {
                 return;
             }
 
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            java.time.LocalDate ngayDi = java.time.LocalDate.parse(strNgayDi, formatter);
+            isRoundTrip = rdoKhuHoi.isSelected();
+            String maGaDi = mapGa.get(cbGaDi.getSelectedItem().toString());
+            String maGaDen = mapGa.get(cbGaDen.getSelectedItem().toString());
 
-            if (rdoKhuHoi.isSelected()) {
+            // Chuyển Format Ngày cho SQL (dd/MM/yyyy -> yyyy-MM-dd)
+            String sqlNgayDi = formatSqlDate(strNgayDi);
+
+            // Xóa phiên làm việc cũ
+            selectedSeatsData.clear();
+            pnlOutbound.clearData();
+            pnlReturn.clearData();
+
+            // Load Dữ liệu từ DB cho Chiều Đi
+            pnlOutbound.lblTitle.setText("CHIỀU ĐI: " + cbGaDi.getSelectedItem() + " → " + cbGaDen.getSelectedItem());
+            boolean hasOutbound = pnlOutbound.fetchDataTrains(maGaDi, maGaDen, sqlNgayDi);
+
+            if (!hasOutbound) {
+                JOptionPane.showMessageDialog(this, "Không tìm thấy chuyến tàu nào cho Chiều Đi vào ngày này!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            // Nếu Khứ hồi, load dữ liệu cho Chiều Về
+            if (isRoundTrip) {
                 if (strNgayVe == null || strNgayVe.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Vui lòng chọn ngày về!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-                    return;
+                    JOptionPane.showMessageDialog(this, "Vui lòng chọn ngày về!", "Cảnh báo", JOptionPane.WARNING_MESSAGE); return;
+                }
+                String sqlNgayVe = formatSqlDate(strNgayVe);
+                if (sqlNgayVe.compareTo(sqlNgayDi) < 0) {
+                    JOptionPane.showMessageDialog(this, "Ngày về không được trước ngày đi!", "Lỗi", JOptionPane.ERROR_MESSAGE); return;
                 }
 
-                java.time.LocalDate ngayVe = java.time.LocalDate.parse(strNgayVe, formatter);
-                if (ngayVe.isBefore(ngayDi)) {
-                    JOptionPane.showMessageDialog(this, "Ngày về không được trước ngày đi!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                pnlReturn.lblTitle.setText("CHIỀU VỀ: " + cbGaDen.getSelectedItem() + " → " + cbGaDi.getSelectedItem());
+                boolean hasReturn = pnlReturn.fetchDataTrains(maGaDen, maGaDi, sqlNgayVe); // Đảo ngược ga cho chiều về
+
+                if (!hasReturn) {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy chuyến tàu nào cho Chiều Về vào ngày này!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
             }
-
-            isRoundTrip = rdoKhuHoi.isSelected();
-
-            // Mũi tên → chuẩn không bị lỗi font
-            lblOutboundTitle.setText("CHIỀU ĐI: " + cbGaDi.getSelectedItem() + " → " + cbGaDen.getSelectedItem());
-            lblReturnTitle.setText("CHIỀU VỀ: " + cbGaDen.getSelectedItem() + " → " + cbGaDi.getSelectedItem());
 
             pnlDirectionToggle.setVisible(isRoundTrip);
             btnChieuDi.setSelected(true);
             routeCardLayout.show(pnlRouteCards, "OUTBOUND");
 
-            selectedSeats.clear();
             nextStep();
         });
 
         return pnlMain;
     }
 
-    // TRANG CHỌN CHUYẾN & CHỌN GHẾ
+    private String formatSqlDate(String vnDate) {
+        try {
+            Date d = new SimpleDateFormat(DATE_FMT).parse(vnDate);
+            return new SimpleDateFormat("yyyy-MM-dd").format(d);
+        } catch (Exception e) { return ""; }
+    }
+
+    // =========================================================================
+    // BƯỚC 2: CHỌN CHUYẾN & CHỌN GHẾ
+    // =========================================================================
     private JPanel buildStep2_SelectSeat() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
-        // THÊM TIÊU ĐỀ TRANG CHO BƯỚC 2
         pnlMain.add(createPageTitle("CHỌN CHUYẾN & GHẾ", "Lựa chọn chuyến tàu và vị trí ghế ngồi phù hợp với bạn"), BorderLayout.NORTH);
 
         JPanel pnl = new JPanel(new BorderLayout(0, 15));
@@ -235,16 +291,9 @@ public class TAB_BanVe extends JPanel {
         pnlRouteCards = new JPanel(routeCardLayout);
         pnlRouteCards.setOpaque(false);
 
-        lblOutboundTitle = new JLabel();
-        lblOutboundTitle.setFont(F_H1);
-        lblOutboundTitle.setForeground(ACCENT);
-
-        lblReturnTitle = new JLabel();
-        lblReturnTitle.setFont(F_H1);
-        lblReturnTitle.setForeground(ACCENT);
-
-        JPanel pnlOutbound = createRouteSelectionPanel(lblOutboundTitle);
-        JPanel pnlReturn = createRouteSelectionPanel(lblReturnTitle);
+        // Tạo 2 Panel xử lý động cho 2 chiều
+        pnlOutbound = new RoutePanel();
+        pnlReturn = new RoutePanel();
 
         pnlRouteCards.add(pnlOutbound, "OUTBOUND");
         pnlRouteCards.add(pnlReturn, "RETURN");
@@ -259,110 +308,231 @@ public class TAB_BanVe extends JPanel {
         return pnlMain;
     }
 
-    private JPanel createRouteSelectionPanel(JLabel lblTitle) {
-        JPanel pnl = new JPanel(new BorderLayout(0, 15));
-        pnl.setOpaque(false);
+    // CLASS QUẢN LÝ DỮ LIỆU ĐỘNG CỦA 1 CHIỀU (TÀU -> TOA -> GHẾ)
+    private class RoutePanel extends JPanel {
+        JLabel lblTitle;
+        JPanel pnlTauList, pnlToaList, pnlGhe;
+        ButtonGroup bgTau, bgToa;
 
-        // Bỏ Background trắng của Tuyến đi, để nền trong suốt cho đẹp
-        JPanel pnlTuyen = new JPanel(new BorderLayout());
-        pnlTuyen.setOpaque(false);
-        pnlTuyen.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
-        pnlTuyen.add(lblTitle, BorderLayout.WEST);
+        // Lưu tạm thông tin Lịch trình đang xem
+        String currentMaLT = "";
+        String currentTenTau = "";
+        String currentTenToa = "";
 
-        JPanel pnlSelectionWrapper = makeCard(new BorderLayout(0, 15));
-        pnlSelectionWrapper.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(15, 15, 15, 15)));
+        public RoutePanel() {
+            setLayout(new BorderLayout(0, 15));
+            setOpaque(false);
 
-        JPanel pnlTopControls = new JPanel();
-        pnlTopControls.setLayout(new BoxLayout(pnlTopControls, BoxLayout.Y_AXIS));
-        pnlTopControls.setOpaque(false);
+            JPanel pnlHeader = new JPanel(new BorderLayout());
+            pnlHeader.setOpaque(false);
+            pnlHeader.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
 
-        JPanel pnlTauList = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        pnlTauList.setOpaque(false);
-        pnlTauList.add(new JLabel("<html><b style='color:#5A6A7D'>Chọn Tàu: &nbsp;</b></html>"));
+            lblTitle = new JLabel();
+            lblTitle.setFont(F_H1);
+            lblTitle.setForeground(ACCENT);
+            pnlHeader.add(lblTitle, BorderLayout.WEST);
 
-        String[] taus = {"SE1 (19:00)", "SE3 (21:00)", "SE5 (06:00)", "SE7 (09:00)"};
-        ButtonGroup bgTau = new ButtonGroup();
-        for(int i=0; i<taus.length; i++) {
-            JToggleButton btnTau = createSelectionTab(taus[i], i==0);
-            bgTau.add(btnTau);
-            pnlTauList.add(btnTau);
+            JPanel pnlSelectionWrapper = makeCard(new BorderLayout(0, 15));
+            pnlSelectionWrapper.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(15, 15, 15, 15)));
+
+            JPanel pnlTopControls = new JPanel();
+            pnlTopControls.setLayout(new BoxLayout(pnlTopControls, BoxLayout.Y_AXIS));
+            pnlTopControls.setOpaque(false);
+
+            // Container Tàu
+            JPanel pnlTauWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            pnlTauWrapper.setOpaque(false);
+            pnlTauWrapper.add(new JLabel("<html><b style='color:#5A6A7D'>Chọn Tàu: &nbsp;</b></html>"));
+            pnlTauList = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+            pnlTauList.setOpaque(false);
+            pnlTauWrapper.add(pnlTauList);
+
+            // Container Toa
+            JPanel pnlToaWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            pnlToaWrapper.setOpaque(false);
+            pnlToaWrapper.setBorder(BorderFactory.createEmptyBorder(15, 0, 5, 0));
+            pnlToaWrapper.add(new JLabel("<html><b style='color:#5A6A7D'>Chọn Toa: &nbsp;</b></html>"));
+            pnlToaList = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+            pnlToaList.setOpaque(false);
+            pnlToaWrapper.add(pnlToaList);
+
+            pnlTopControls.add(pnlTauWrapper);
+            pnlTopControls.add(pnlToaWrapper);
+
+            // Container Ghế
+            JPanel pnlGheWrapper = new JPanel(new BorderLayout());
+            pnlGheWrapper.setOpaque(false);
+            pnlGheWrapper.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER), "Sơ đồ ghế đang trống", 0, 0, F_LABEL, ACCENT));
+
+            pnlGhe = new JPanel(new GridLayout(0, 14, 8, 8)); // Số hàng tự co giãn theo số ghế
+            pnlGhe.setOpaque(false);
+            pnlGhe.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+            JScrollPane scrollGhe = new JScrollPane(pnlGhe);
+            scrollGhe.setBorder(null);
+            scrollGhe.setOpaque(false); scrollGhe.getViewport().setOpaque(false);
+
+            pnlGheWrapper.add(scrollGhe, BorderLayout.CENTER);
+
+            pnlSelectionWrapper.add(pnlTopControls, BorderLayout.NORTH);
+            pnlSelectionWrapper.add(pnlGheWrapper, BorderLayout.CENTER);
+
+            add(pnlHeader, BorderLayout.NORTH);
+            add(pnlSelectionWrapper, BorderLayout.CENTER);
         }
 
-        JPanel pnlToaList = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        pnlToaList.setOpaque(false);
-        pnlToaList.setBorder(BorderFactory.createEmptyBorder(15, 0, 5, 0));
-        pnlToaList.add(new JLabel("<html><b style='color:#5A6A7D'>Chọn Toa: &nbsp;</b></html>"));
-
-        String[] toas = {"Toa 1: VIP", "Toa 2: Nằm mềm", "Toa 3: Ngồi mềm", "Toa 4: Ngồi cứng"};
-        ButtonGroup bgToa = new ButtonGroup();
-        for(int i=0; i<toas.length; i++){
-            JToggleButton btnToa = createSelectionTab(toas[i], i==0);
-            btnToa.setPreferredSize(new Dimension(160, 35));
-            bgToa.add(btnToa);
-            pnlToaList.add(btnToa);
+        public void clearData() {
+            pnlTauList.removeAll();
+            pnlToaList.removeAll();
+            pnlGhe.removeAll();
+            revalidate(); repaint();
         }
 
-        pnlTopControls.add(pnlTauList);
-        pnlTopControls.add(pnlToaList);
+        public boolean fetchDataTrains(String maGaDi, String maGaDen, String ngay) {
+            clearData();
+            List<Map<String, Object>> dsChuyen = daoBanVe.timChuyenTau(maGaDi, maGaDen, ngay);
+            if (dsChuyen.isEmpty()) return false;
 
-        JPanel pnlGheWrapper = new JPanel(new BorderLayout());
-        pnlGheWrapper.setOpaque(false);
-        pnlGheWrapper.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(BORDER), "Sơ đồ ghế đang trống", 0, 0, F_LABEL, ACCENT));
+            bgTau = new ButtonGroup();
+            boolean isFirst = true;
 
-        JPanel pnlGhe = new JPanel(new GridLayout(4, 14, 8, 8));
-        pnlGhe.setOpaque(false);
-        pnlGhe.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            for (Map<String, Object> chuyen : dsChuyen) {
+                String maTau = chuyen.get("maTau").toString();
+                String tenTau = chuyen.get("tenTau").toString();
+                String gioLT = chuyen.get("gioKhoiHanh").toString().substring(0, 5); // Lấy HH:mm
+                String maLT = chuyen.get("maLT").toString();
 
-        for(int i=1; i<=56; i++){
-            JToggleButton btnGhe = new JToggleButton(i+"");
-            btnGhe.setFont(F_CELL);
-            btnGhe.setFocusPainted(false);
+                String label = tenTau + " (" + gioLT + ")";
+                JToggleButton btnTau = createSelectionTab(label, isFirst);
+                bgTau.add(btnTau);
+                pnlTauList.add(btnTau);
 
-            if(i%7 == 0) {
-                btnGhe.setBackground(DANGER);
-                btnGhe.setForeground(Color.WHITE);
-                btnGhe.setEnabled(false);
-            } else {
-                btnGhe.setBackground(BORDER);
-                btnGhe.setForeground(TEXT_DARK);
-                btnGhe.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                btnTau.addActionListener(e -> {
+                    currentMaLT = maLT;
+                    currentTenTau = tenTau;
+                    fetchDataToa(maTau); // Load Toa khi click Tàu
+                });
 
-                btnGhe.addItemListener(e -> {
-                    String seatName = "Ghế " + btnGhe.getText();
-                    if (btnGhe.isSelected()) {
+                if (isFirst) {
+                    isFirst = false;
+                    currentMaLT = maLT;
+                    currentTenTau = tenTau;
+                    fetchDataToa(maTau); // Mặc định load Toa của Tàu đầu tiên
+                }
+            }
+            revalidate(); repaint();
+            return true;
+        }
+
+        private void fetchDataToa(String maTau) {
+            pnlToaList.removeAll();
+            pnlGhe.removeAll();
+            List<Map<String, Object>> dsToa = daoBanVe.getDanhSachToa(maTau);
+            if (dsToa.isEmpty()) { revalidate(); repaint(); return; }
+
+            bgToa = new ButtonGroup();
+            boolean isFirst = true;
+
+            for (Map<String, Object> toa : dsToa) {
+                String maToa = toa.get("maToa").toString();
+                String tenToa = toa.get("tenToa").toString();
+                String tenLoaiToa = toa.get("tenLoaiToa").toString();
+
+                String label = tenToa + ": " + tenLoaiToa;
+                JToggleButton btnToa = createSelectionTab(label, isFirst);
+                btnToa.setPreferredSize(new Dimension(160, 35));
+                bgToa.add(btnToa);
+                pnlToaList.add(btnToa);
+
+                btnToa.addActionListener(e -> {
+                    currentTenToa = tenToa;
+                    fetchDataGhe(maToa);
+                });
+
+                if (isFirst) {
+                    isFirst = false;
+                    currentTenToa = tenToa;
+                    fetchDataGhe(maToa);
+                }
+            }
+            revalidate(); repaint();
+        }
+
+        private void fetchDataGhe(String maToa) {
+            pnlGhe.removeAll();
+            List<Map<String, Object>> dsGhe = daoBanVe.getDanhSachGhe(maToa);
+
+            for (Map<String, Object> ghe : dsGhe) {
+                String maCho = ghe.get("maCho").toString();
+                String tenCho = ghe.get("tenCho").toString();
+                String trangThai = ghe.get("trangThai").toString();
+
+                JToggleButton btnGhe = new JToggleButton(tenCho);
+                btnGhe.setFont(F_CELL);
+                btnGhe.setFocusPainted(false);
+
+                // Kiểm tra xem ghế này đã được người dùng chọn tạm ở bước này chưa
+                boolean isAlreadySelectedInSession = false;
+                for (Map<String, String> s : selectedSeatsData) {
+                    if (s.get("maCho").equals(maCho) && s.get("maLT").equals(currentMaLT)) {
+                        isAlreadySelectedInSession = true;
+                        break;
+                    }
+                }
+
+                if (trangThai.equals("DADAT") || trangThai.equals("GIUCHO") || trangThai.equals("BAOTRI")) {
+                    btnGhe.setBackground(DANGER);
+                    btnGhe.setForeground(Color.WHITE);
+                    btnGhe.setEnabled(false);
+                } else {
+                    if (isAlreadySelectedInSession) {
                         btnGhe.setBackground(SUCCESS);
                         btnGhe.setForeground(Color.WHITE);
-                        selectedSeats.add(seatName);
+                        btnGhe.setSelected(true);
                     } else {
                         btnGhe.setBackground(BORDER);
                         btnGhe.setForeground(TEXT_DARK);
-                        selectedSeats.remove(seatName);
                     }
-                });
+                    btnGhe.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                    // Sự kiện Click chọn ghế
+                    btnGhe.addItemListener(e -> {
+                        if (btnGhe.isSelected()) {
+                            btnGhe.setBackground(SUCCESS);
+                            btnGhe.setForeground(Color.WHITE);
+
+                            // Lưu dữ liệu chi tiết của ghế để truyền qua Bước 3
+                            Map<String, String> seatData = new HashMap<>();
+                            seatData.put("maLT", currentMaLT);
+                            seatData.put("maCho", maCho);
+                            seatData.put("tenCho", tenCho);
+                            seatData.put("tenToa", currentTenToa);
+                            seatData.put("tenTau", currentTenTau);
+                            selectedSeatsData.add(seatData);
+
+                        } else {
+                            btnGhe.setBackground(BORDER);
+                            btnGhe.setForeground(TEXT_DARK);
+
+                            // Xóa khỏi danh sách tạm
+                            selectedSeatsData.removeIf(s -> s.get("maCho").equals(maCho) && s.get("maLT").equals(currentMaLT));
+                        }
+                    });
+                }
+                pnlGhe.add(btnGhe);
             }
-            pnlGhe.add(btnGhe);
+            revalidate(); repaint();
         }
-
-        JScrollPane scrollGhe = new JScrollPane(pnlGhe);
-        scrollGhe.setBorder(null);
-        scrollGhe.setOpaque(false); scrollGhe.getViewport().setOpaque(false);
-
-        pnlGheWrapper.add(scrollGhe, BorderLayout.CENTER);
-
-        pnlSelectionWrapper.add(pnlTopControls, BorderLayout.NORTH);
-        pnlSelectionWrapper.add(pnlGheWrapper, BorderLayout.CENTER);
-
-        pnl.add(pnlTuyen, BorderLayout.NORTH);
-        pnl.add(pnlSelectionWrapper, BorderLayout.CENTER);
-        return pnl;
     }
 
-    // TRANG THÔNG TIN KHÁCH HÀNG & ĐẾM NGƯỢC
+
+    // =========================================================================
+    // BƯỚC 3: THÔNG TIN KHÁCH HÀNG & ĐẾM NGƯỢC (TỰ ĐỘNG SINH THEO SỐ GHẾ)
+    // =========================================================================
     private JPanel buildStep3_PassengerInfo() {
         JPanel pnlMain = new JPanel(new BorderLayout(0, 10));
         pnlMain.setOpaque(false);
 
-        // THÊM TIÊU ĐỀ TRANG CHO BƯỚC 3 (Đồng thời lồng bộ đếm ngược thời gian vào góc phải)
         JPanel pnlTitle = createPageTitle("THÔNG TIN HÀNH KHÁCH", "Vui lòng điền đầy đủ và chính xác thông tin (Dữ liệu sẽ được in lên vé)");
 
         lblTimer = new JLabel("Thời gian giữ chỗ: 08:20", SwingConstants.RIGHT);
@@ -379,6 +549,7 @@ public class TAB_BanVe extends JPanel {
         JScrollPane sc = new JScrollPane(pnlDSKhach);
         sc.setBorder(null); sc.getViewport().setOpaque(false); sc.setOpaque(false);
         sc.getVerticalScrollBar().setUnitIncrement(16);
+        styleScrollBar(sc.getVerticalScrollBar());
         pnlMain.add(sc, BorderLayout.CENTER);
 
         return pnlMain;
@@ -397,8 +568,11 @@ public class TAB_BanVe extends JPanel {
         pnlDSKhach.add(lblTicketTitle);
         pnlDSKhach.add(Box.createVerticalStrut(10));
 
-        for (int i = 0; i < selectedSeats.size(); i++) {
-            String fullSeatInfo = "Tàu SE1, Toa 1, " + selectedSeats.get(i);
+        // Render ra số form tương ứng với List DB
+        for (int i = 0; i < selectedSeatsData.size(); i++) {
+            Map<String, String> sd = selectedSeatsData.get(i);
+            String fullSeatInfo = sd.get("tenTau") + ", " + sd.get("tenToa") + ", Ghế " + sd.get("tenCho");
+
             pnlDSKhach.add(createPassengerForm(i + 1, fullSeatInfo));
             pnlDSKhach.add(Box.createVerticalStrut(15));
         }
@@ -458,11 +632,13 @@ public class TAB_BanVe extends JPanel {
         return card;
     }
 
-    // TRANG THANH TOÁN
+
+    // =========================================================================
+    // BƯỚC 4: THANH TOÁN & KHUYẾN MÃI
+    // =========================================================================
     private JPanel buildStep4_Payment() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
-        // THÊM TIÊU ĐỀ TRANG CHO BƯỚC 4
         pnlMain.add(createPageTitle("THANH TOÁN & HOÀN TẤT", "Kiểm tra lại thông tin hóa đơn và tiến hành thanh toán"), BorderLayout.NORTH);
 
         JPanel pnl = new JPanel(new GridBagLayout());
@@ -470,7 +646,6 @@ public class TAB_BanVe extends JPanel {
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0;
 
-        // 1. KHUNG BÊN TRÁI: CHI TIẾT HÓA ĐƠN
         JPanel pnlHoaDon = makeCard(new BorderLayout(0, 15));
         pnlHoaDon.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(25, 25, 25, 25)));
 
@@ -483,7 +658,7 @@ public class TAB_BanVe extends JPanel {
         pnlReceipt.setLayout(new BoxLayout(pnlReceipt, BoxLayout.Y_AXIS));
         pnlReceipt.setOpaque(false);
 
-        JLabel lblTau = new JLabel("Tàu SE1 (Hà Nội - Sài Gòn)");
+        JLabel lblTau = new JLabel("Danh sách vé đã chọn");
         lblTau.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTau.setForeground(ACCENT);
         pnlReceipt.add(lblTau);
@@ -491,6 +666,7 @@ public class TAB_BanVe extends JPanel {
         pnlReceipt.add(new JSeparator());
         pnlReceipt.add(Box.createVerticalStrut(15));
 
+        // Note: Chỗ này sau này bạn viết code duyệt qua selectedSeatsData để in ra từng dòng tiền
         addReceiptRow(pnlReceipt, "Nguyễn Minh Phúc (Ghế 9)", "810,600 đ", false, TEXT_DARK);
         pnlReceipt.add(Box.createVerticalStrut(10));
         addReceiptRow(pnlReceipt, "Trần Thị B (Ghế 13)", "810,600 đ", false, TEXT_DARK);
@@ -537,7 +713,7 @@ public class TAB_BanVe extends JPanel {
 
         pnlHoaDon.add(pnlBottomLeft, BorderLayout.SOUTH);
 
-        // 2. KHUNG BÊN PHẢI: PHƯƠNG THỨC THANH TOÁN
+        // PHẢI: PHƯƠNG THỨC THANH TOÁN
         JPanel pnlThanhToan = makeCard(new BorderLayout(0, 25));
         pnlThanhToan.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(25, 25, 25, 25)));
 
@@ -572,7 +748,9 @@ public class TAB_BanVe extends JPanel {
         return pnlMain;
     }
 
-    // THANH TOÁN THÀNH CÔNG
+    // =========================================================================
+    // BƯỚC 5: THÀNH CÔNG
+    // =========================================================================
     private JPanel buildStep5_Success() {
         JPanel pnl = new JPanel(new GridBagLayout());
         pnl.setOpaque(false);
@@ -614,7 +792,7 @@ public class TAB_BanVe extends JPanel {
 
         btnMoi.addActionListener(e -> {
             currentStep = 0;
-            selectedSeats.clear();
+            selectedSeatsData.clear();
             switchCard();
         });
 
@@ -632,10 +810,12 @@ public class TAB_BanVe extends JPanel {
         return pnl;
     }
 
+    // =========================================================================
     // LOGIC ĐIỀU HƯỚNG WIZARD
+    // =========================================================================
     private void nextStep() {
         if (currentStep == 1) {
-            if (selectedSeats.isEmpty()) {
+            if (selectedSeatsData.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Vui lòng chọn ít nhất 1 ghế để tiếp tục!", "Thông báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -694,15 +874,15 @@ public class TAB_BanVe extends JPanel {
                 holdTimer.stop();
                 JOptionPane.showMessageDialog(this, "Đã hết thời gian giữ chỗ. Vui lòng thao tác lại từ đầu!", "Hết giờ", JOptionPane.WARNING_MESSAGE);
                 currentStep = 0;
-                selectedSeats.clear();
+                selectedSeatsData.clear();
                 switchCard();
             }
         });
     }
 
-    // === HELPER COMPONENT CHUNG ===
-
-    // HÀM TẠO TIÊU ĐỀ TRANG MỚI (Đồng bộ với TAB_Ga_Tuyen)
+    // =========================================================================
+    // HELPER COMPONENT CHUNG
+    // =========================================================================
     private JPanel createPageTitle(String title, String subTitle) {
         JPanel pnl = new JPanel(new BorderLayout(0, 5));
         pnl.setOpaque(false);
@@ -873,80 +1053,6 @@ public class TAB_BanVe extends JPanel {
         }
     }
 
-    // LỚP VẼ THANH TIẾN TRÌNH
-    private class StepProgressPanel extends JPanel {
-        private String[] steps;
-        private int current = 0;
-
-        public StepProgressPanel(String[] steps) {
-            this.steps = steps;
-            setOpaque(false);
-            setPreferredSize(new Dimension(0, 80));
-        }
-
-        public void updateStep(int step) {
-            this.current = step;
-            repaint();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int width = getWidth();
-            int height = getHeight();
-            int stepCount = steps.length;
-            int paddingX = 100;
-            int spacing = (width - paddingX * 2) / (stepCount - 1);
-            int circleRadius = 30;
-            int cy = height / 2 - 10;
-
-            g2.setColor(BORDER);
-            g2.setStroke(new BasicStroke(4));
-            g2.drawLine(paddingX, cy, width - paddingX, cy);
-
-            g2.setColor(ACCENT);
-            if (current > 0) {
-                g2.drawLine(paddingX, cy, paddingX + (spacing * current), cy);
-            }
-
-            for (int i = 0; i < stepCount; i++) {
-                int cx = paddingX + (i * spacing);
-
-                if (i <= current) g2.setColor(ACCENT);
-                else g2.setColor(BORDER);
-
-                g2.fillOval(cx - circleRadius/2, cy - circleRadius/2, circleRadius, circleRadius);
-
-                g2.setColor(i <= current ? Color.WHITE : TEXT_MID);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
-                FontMetrics fm = g2.getFontMetrics();
-                String num = String.valueOf(i + 1);
-                g2.drawString(num, cx - fm.stringWidth(num)/2, cy + fm.getAscent()/2 - 1);
-
-                g2.setColor(i <= current ? ACCENT : TEXT_MID);
-                g2.setFont(new Font("Segoe UI", i == current ? Font.BOLD : Font.PLAIN, 13));
-                fm = g2.getFontMetrics();
-                g2.drawString(steps[i], cx - fm.stringWidth(steps[i])/2, cy + circleRadius + 10);
-            }
-            g2.dispose();
-        }
-    }
-
-    private static class ShadowBorder extends AbstractBorder {
-        private static final int S = 4;
-        @Override public void paintBorder(Component c,Graphics g,int x,int y,int w,int h){
-            Graphics2D g2=(Graphics2D)g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-            for(int i=S;i>0;i--){g2.setColor(new Color(100,140,200,(int)(20.0*(S-i)/S)));g2.drawRoundRect(x+i,y+i,w-2*i-1,h-2*i-1,12,12);}
-            g2.setColor(new Color(0xE2EAF4));g2.drawRoundRect(x,y,w-1,h-1,12,12);
-            g2.setColor(BG_CARD);g2.setClip(new RoundRectangle2D.Float(x+1,y+1,w-2,h-2,12,12));g2.fillRect(x+1,y+1,w-2,h-2);g2.dispose();
-        }
-        @Override public Insets getBorderInsets(Component c){return new Insets(S,S,S,S);}
-        @Override public Insets getBorderInsets(Component c,Insets ins){ins.set(S,S,S,S);return ins;}
-    }
-
     // =========================================================================
     // DATE PICKER CUSTOM
     // =========================================================================
@@ -1058,5 +1164,88 @@ public class TAB_BanVe extends JPanel {
         private JButton navBtn(String t){
             JButton b=new JButton(t);b.setFont(new Font("Segoe UI",Font.BOLD,14));b.setForeground(ACCENT);b.setContentAreaFilled(false);b.setBorderPainted(false);b.setFocusPainted(false);b.setMargin(new Insets(0,0,0,0));b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));b.setPreferredSize(new Dimension(32,32));return b;
         }
+    }
+
+    private class StepProgressPanel extends JPanel {
+        private String[] steps;
+        private int current = 0;
+
+        public StepProgressPanel(String[] steps) {
+            this.steps = steps;
+            setOpaque(false);
+            setPreferredSize(new Dimension(0, 80));
+        }
+
+        public void updateStep(int step) {
+            this.current = step;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int width = getWidth();
+            int height = getHeight();
+            int stepCount = steps.length;
+            int paddingX = 100;
+            int spacing = (width - paddingX * 2) / (stepCount - 1);
+            int circleRadius = 30;
+            int cy = height / 2 - 10;
+
+            g2.setColor(BORDER);
+            g2.setStroke(new BasicStroke(4));
+            g2.drawLine(paddingX, cy, width - paddingX, cy);
+
+            g2.setColor(ACCENT);
+            if (current > 0) {
+                g2.drawLine(paddingX, cy, paddingX + (spacing * current), cy);
+            }
+
+            for (int i = 0; i < stepCount; i++) {
+                int cx = paddingX + (i * spacing);
+
+                if (i <= current) g2.setColor(ACCENT);
+                else g2.setColor(BORDER);
+
+                g2.fillOval(cx - circleRadius/2, cy - circleRadius/2, circleRadius, circleRadius);
+
+                g2.setColor(i <= current ? Color.WHITE : TEXT_MID);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                FontMetrics fm = g2.getFontMetrics();
+                String num = String.valueOf(i + 1);
+                g2.drawString(num, cx - fm.stringWidth(num)/2, cy + fm.getAscent()/2 - 1);
+
+                g2.setColor(i <= current ? ACCENT : TEXT_MID);
+                g2.setFont(new Font("Segoe UI", i == current ? Font.BOLD : Font.PLAIN, 13));
+                fm = g2.getFontMetrics();
+                g2.drawString(steps[i], cx - fm.stringWidth(steps[i])/2, cy + circleRadius + 10);
+            }
+            g2.dispose();
+        }
+    }
+
+    private void styleScrollBar(JScrollBar sb) {
+        sb.setUI(new BasicScrollBarUI(){
+            @Override protected void configureScrollBarColors(){thumbColor=new Color(0xC0D4EE);trackColor=BG_PAGE;}
+            @Override protected JButton createDecreaseButton(int o){return zBtn();}
+            @Override protected JButton createIncreaseButton(int o){return zBtn();}
+            private JButton zBtn(){JButton b=new JButton();b.setPreferredSize(new Dimension(0,0));return b;}
+        });
+        sb.putClientProperty(FlatClientProperties.SCROLL_BAR_SHOW_BUTTONS, false);
+    }
+
+    private static class ShadowBorder extends AbstractBorder {
+        private static final int S = 4;
+        @Override public void paintBorder(Component c,Graphics g,int x,int y,int w,int h){
+            Graphics2D g2=(Graphics2D)g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+            for(int i=S;i>0;i--){g2.setColor(new Color(100,140,200,(int)(20.0*(S-i)/S)));g2.drawRoundRect(x+i,y+i,w-2*i-1,h-2*i-1,12,12);}
+            g2.setColor(new Color(0xE2EAF4));g2.drawRoundRect(x,y,w-1,h-1,12,12);
+            g2.setColor(BG_CARD);g2.setClip(new RoundRectangle2D.Float(x+1,y+1,w-2,h-2,12,12));g2.fillRect(x+1,y+1,w-2,h-2);g2.dispose();
+        }
+        @Override public Insets getBorderInsets(Component c){return new Insets(S,S,S,S);}
+        @Override public Insets getBorderInsets(Component c,Insets ins){ins.set(S,S,S,S);return ins;}
     }
 }
