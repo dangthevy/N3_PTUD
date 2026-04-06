@@ -59,9 +59,7 @@ public class TAB_ThongKeVe extends JPanel {
 
     private enum BtnStyle { PRIMARY, SUCCESS }
 
-    // =========================================================================
     // THÀNH PHẦN GIAO DIỆN
-    // =========================================================================
     private JComboBox<String> cboTieuChi;
     private JComboBox<String> cboThongKe;
     private DatePickerField dcTuNgay;
@@ -80,7 +78,7 @@ public class TAB_ThongKeVe extends JPanel {
         setBackground(BG_PAGE);
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        // ================= 1. KHU VỰC HEADER (TOP) =================
+        // KHU VỰC HEADER (TOP)
         JPanel topWrapper = new JPanel(new BorderLayout(0, 12));
         topWrapper.setOpaque(false);
 
@@ -202,7 +200,7 @@ public class TAB_ThongKeVe extends JPanel {
 
         add(centerWrapper, BorderLayout.CENTER);
 
-        // ================= 3. GÁN SỰ KIỆN =================
+        // ================= GÁN SỰ KIỆN =================
         btnThongKe.addActionListener(e -> loadDuLieuThongKe());
 
         btnXuatExcel.addActionListener(e -> xuatFileExcel());
@@ -250,9 +248,7 @@ public class TAB_ThongKeVe extends JPanel {
         return card;
     }
 
-    // =========================================================================
     // XỬ LÝ LẤY DỮ LIỆU TỪ DATABASE
-    // =========================================================================
     private void loadDuLieuThongKe() {
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT);
         Date fromDate = null;
@@ -353,9 +349,7 @@ public class TAB_ThongKeVe extends JPanel {
         }
     }
 
-    // =========================================================================
     // HÀM XUẤT EXCEL
-    // =========================================================================
     private void xuatFileExcel() {
         if (tableModel.getRowCount() == 0) {
             JOptionPane.showMessageDialog(this, "Không có dữ liệu để xuất Excel!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
@@ -406,9 +400,7 @@ public class TAB_ThongKeVe extends JPanel {
         }
     }
 
-    // =========================================================================
     // HELPER UI
-    // =========================================================================
     private JPanel makeCard(LayoutManager lm) {
         JPanel p = new JPanel(lm); p.setBackground(BG_CARD); p.setBorder(new ShadowBorder()); return p;
     }

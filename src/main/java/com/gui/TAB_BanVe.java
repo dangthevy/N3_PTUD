@@ -14,10 +14,7 @@ import java.util.*;
 import java.util.List;
 
 public class TAB_BanVe extends JPanel {
-
-    // =========================================================================
-    // MÀU SẮC & FONT (Chuẩn hệ thống)
-    // =========================================================================
+    // MÀU SẮC & FONT
     private static final Color BG_PAGE      = new Color(0xF4F7FB);
     private static final Color BG_CARD      = Color.WHITE;
     private static final Color ACCENT       = new Color(0x2D7AF1);
@@ -36,9 +33,7 @@ public class TAB_BanVe extends JPanel {
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
     private static final String DATE_FMT = "dd/MM/yyyy";
 
-    // =========================================================================
     // THÀNH PHẦN GIAO DIỆN CHÍNH
-    // =========================================================================
     private CardLayout cardLayout;
     private JPanel pnlCards;
     private StepProgressPanel stepProgress;
@@ -105,9 +100,7 @@ public class TAB_BanVe extends JPanel {
         setupTimer();
     }
 
-    // =========================================================================
-    // BƯỚC 1: TÌM KIẾM
-    // =========================================================================
+    // TRANG TÌM KIẾM
     private JPanel buildStep1_Search() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
@@ -214,9 +207,7 @@ public class TAB_BanVe extends JPanel {
         return pnlMain;
     }
 
-    // =========================================================================
-    // BƯỚC 2: CHỌN CHUYẾN & CHỌN GHẾ
-    // =========================================================================
+    // TRANG CHỌN CHUYẾN & CHỌN GHẾ
     private JPanel buildStep2_SelectSeat() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
@@ -366,10 +357,7 @@ public class TAB_BanVe extends JPanel {
         return pnl;
     }
 
-
-    // =========================================================================
-    // BƯỚC 3: THÔNG TIN KHÁCH HÀNG & ĐẾM NGƯỢC
-    // =========================================================================
+    // TRANG THÔNG TIN KHÁCH HÀNG & ĐẾM NGƯỢC
     private JPanel buildStep3_PassengerInfo() {
         JPanel pnlMain = new JPanel(new BorderLayout(0, 10));
         pnlMain.setOpaque(false);
@@ -470,10 +458,7 @@ public class TAB_BanVe extends JPanel {
         return card;
     }
 
-
-    // =========================================================================
-    // BƯỚC 4: THANH TOÁN
-    // =========================================================================
+    // TRANG THANH TOÁN
     private JPanel buildStep4_Payment() {
         JPanel pnlMain = new JPanel(new BorderLayout());
         pnlMain.setOpaque(false);
@@ -587,9 +572,7 @@ public class TAB_BanVe extends JPanel {
         return pnlMain;
     }
 
-    // =========================================================================
-    // BƯỚC 5: THÀNH CÔNG
-    // =========================================================================
+    // THANH TOÁN THÀNH CÔNG
     private JPanel buildStep5_Success() {
         JPanel pnl = new JPanel(new GridBagLayout());
         pnl.setOpaque(false);
@@ -649,9 +632,7 @@ public class TAB_BanVe extends JPanel {
         return pnl;
     }
 
-    // =========================================================================
     // LOGIC ĐIỀU HƯỚNG WIZARD
-    // =========================================================================
     private void nextStep() {
         if (currentStep == 1) {
             if (selectedSeats.isEmpty()) {
@@ -719,9 +700,7 @@ public class TAB_BanVe extends JPanel {
         });
     }
 
-    // =========================================================================
-    // HELPER COMPONENT CHUNG
-    // =========================================================================
+    // === HELPER COMPONENT CHUNG ===
 
     // HÀM TẠO TIÊU ĐỀ TRANG MỚI (Đồng bộ với TAB_Ga_Tuyen)
     private JPanel createPageTitle(String title, String subTitle) {
@@ -894,9 +873,7 @@ public class TAB_BanVe extends JPanel {
         }
     }
 
-    // =========================================================================
     // LỚP VẼ THANH TIẾN TRÌNH
-    // =========================================================================
     private class StepProgressPanel extends JPanel {
         private String[] steps;
         private int current = 0;

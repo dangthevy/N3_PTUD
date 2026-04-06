@@ -119,7 +119,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         topWrapper.add(filterCard, BorderLayout.CENTER);
         add(topWrapper, BorderLayout.NORTH);
 
-        // ================= 2. KHU VỰC CHÍNH: BIỂU ĐỒ & BẢNG (CENTER) =================
+        // ================= BIỂU ĐỒ & BẢNG (CENTER) =================
         JPanel centerWrapper = new JPanel(new BorderLayout(0, 16));
         centerWrapper.setOpaque(false);
 
@@ -177,7 +177,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
 
         add(centerWrapper, BorderLayout.CENTER);
 
-        // ================= 3. GÁN SỰ KIỆN =================
+        // ================= GÁN SỰ KIỆN =================
         btnThongKe.addActionListener(e -> loadDuLieuThongKe());
 
         btnXuatExcel.addActionListener(e -> xuatFileExcel());
@@ -201,9 +201,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         });
     }
 
-    // =========================================================================
     // HÀM XỬ LÝ LẤY DỮ LIỆU TỪ DATABASE
-    // =========================================================================
     private void loadDuLieuThongKe() {
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT);
         Date fromDate = null;
@@ -297,9 +295,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         }
     }
 
-    // =========================================================================
     // HÀM XUẤT FILE EXCEL
-    // =========================================================================
     private void xuatFileExcel() {
         if (tableModel.getRowCount() == 0) {
             JOptionPane.showMessageDialog(this, "Không có dữ liệu để xuất Excel!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
@@ -357,9 +353,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         }
     }
 
-    // =========================================================================
     // HELPER UI CỦA HỆ THỐNG
-    // =========================================================================
     private JPanel makeCard(LayoutManager lm) {
         JPanel p = new JPanel(lm); p.setBackground(BG_CARD); p.setBorder(new ShadowBorder()); return p;
     }
@@ -453,9 +447,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         @Override public Insets getBorderInsets(Component c,Insets ins){ins.set(S,S,S,S);return ins;}
     }
 
-    // =========================================================================
     // DATE PICKER CUSTOM (Mang sang từ TAB_LichTrinh)
-    // =========================================================================
     private class DatePickerField extends JPanel {
         private final JTextField   txt;
         private final Calendar     cal;
