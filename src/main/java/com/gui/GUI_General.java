@@ -8,6 +8,7 @@ import com.enums.ChucVu;
 
 import java.awt.*;
 import java.awt.event.*;
+import com.gui.banve.TAB_BanVe;
 
 public class GUI_General extends JPanel {
     // Khai báo các Tab
@@ -16,8 +17,9 @@ public class GUI_General extends JPanel {
     private TAB_HoanVe tab_HoanVe;
     private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
     private TAB_Tau tab_Tau;
+    private TAB_Ga tab_Ga;
+    private TAB_Tuyen tab_Tuyen;
     private TAB_Toa_ChoNgoi tab_Toa_ChoNgoi;
-    private TAB_Ga_Tuyen tab_Ga_Tuyen;
     private TAB_LichTrinh_ChuyenTau tab_LichTrinh_ChuyenTau;
     private TAB_Gia tab_Gia;
     private TAB_QLNhanVien tab_QLNhanVien;
@@ -54,7 +56,8 @@ public class GUI_General extends JPanel {
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
         tab_Tau = new TAB_Tau();
         tab_Toa_ChoNgoi = new TAB_Toa_ChoNgoi();
-        tab_Ga_Tuyen = new TAB_Ga_Tuyen();
+        tab_Ga = new TAB_Ga();
+        tab_Tuyen = new TAB_Tuyen();
         tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();
         tab_Gia = new TAB_Gia();
         tab_QLNhanVien = new TAB_QLNhanVien();
@@ -115,8 +118,8 @@ public class GUI_General extends JPanel {
         sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
         addDropdownMenu(sidebar, "Quản lý Đoàn tàu", new String[] { "Tàu", "Toa & Chỗ ngồi" },
                 new JPanel[] { tab_Tau, tab_Toa_ChoNgoi }, canAccessAdminTools);
-        addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga & Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
-                new JPanel[] { tab_Ga_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, canAccessAdminTools);
+        addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga", "Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
+                new JPanel[] { tab_Ga, tab_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, canAccessAdminTools);
         addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
         addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, canAccessAdminTools);
         addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, canAccessAdminTools);
