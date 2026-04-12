@@ -5,7 +5,6 @@ import com.dao.DAO_KhuyenMai;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
-import com.enums.TrangThaiNhanVien;
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
@@ -30,6 +29,7 @@ public class TAB_KhuyenMai extends JPanel {
     private static final Color BG_CARD     = Color.WHITE;
     private static final Color ACCENT      = new Color(0x1A5EAB);
     private static final Color ACCENT_HVR  = new Color(0x2270CC);
+    private static final Color ACCENT_FOC  = new Color(0x4D9DE0);
     private static final Color TEXT_DARK   = new Color(0x1E2B3C);
     private static final Color TEXT_MID    = new Color(0x5A6A7D);
     private static final Color TEXT_LIGHT  = new Color(0xA0AEC0);
@@ -151,6 +151,7 @@ public class TAB_KhuyenMai extends JPanel {
         JPanel card = buildCard(new FlowLayout(FlowLayout.LEFT, 12, 12));
 
         txtSearch = makeField("Tên khuyến mãi...");
+        txtSearch.setPreferredSize(new Dimension(400, 36));
 
         // [THÊM MỚI] JDateChooser filter ngày bắt đầu
         dateFilterBD = new JDateChooser();
@@ -630,20 +631,17 @@ public class TAB_KhuyenMai extends JPanel {
 
         JTextField  txtMa     = makeField("Tự động sinh"); txtMa.setEditable(false);
         JTextField  txtTen    = makeField("Tên khuyến mãi");
-        JDateChooser dpBD  = new JDateChooser();
-        dpBD.setDateFormatString(DATE_FORMAT);
-        dpBD.setDate(new Date()); // Mặc định ngày hiện tại
 
-        JDateChooser dpKT  = new JDateChooser();
-        dpKT.setDateFormatString(DATE_FORMAT);
+        JDateChooser dpBD = makeStyledDateChooser();
+        dpBD.setDate(new Date());
+
+        JDateChooser dpKT = makeStyledDateChooser();
         dpKT.setDate(new Date());
 
         JCheckBox chkActive   = new JCheckBox("Đang áp dụng");
         chkActive.setBackground(BG_CARD);
         chkActive.setSelected(true);
-        JTextArea txtMoTa     = new JTextArea(3, 22);
-        txtMoTa.setFont(F_CELL); txtMoTa.setLineWrap(true);
-        txtMoTa.setBorder(new LineBorder(BORDER, 1, true));
+        JTextArea txtMoTa = makeStyledTextArea(3, 22);
 
         if (isEdit) {
             txtMa.setText(km.getMaKM()); txtMa.setEditable(false);
@@ -1058,26 +1056,48 @@ public class TAB_KhuyenMai extends JPanel {
         txtTuyen.setBackground(new Color(0xF0F4FA));
 
         // [SỬA] JComboBox<LoaiVe> thay vì JComboBox<String>
-        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
+//        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
+//        cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+//            JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
+//            lbl.setOpaque(true);
+//            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+//            if (isSelected) lbl.setBackground(ROW_SEL);
+//            return lbl;
+//        });
+//        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
+//        cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
+//            JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
+//            lbl.setOpaque(true);
+//            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+//            if (isSelected) lbl.setBackground(ROW_SEL);
+//            return lbl;
+//        });
+        JComboBox<LoaiVe> cbLoaiVe = makeStyledComboBox(dsLoaiVe.toArray(new LoaiVe[0]));
         cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
-        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
+        JComboBox<LoaiToa> cbLoaiToa = makeStyledComboBox(dsLoaiToa.toArray(new LoaiToa[0]));
         cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
-        JComboBox<LoaiKhuyenMai> cbLoaiKM = new JComboBox<>(LoaiKhuyenMai.values());
+        JComboBox<LoaiKhuyenMai> cbLoaiKM = makeStyledComboBox(LoaiKhuyenMai.values());
         cbLoaiKM.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
-            JLabel lbl = new JLabel(value.getLabel()); lbl.setOpaque(true);
-            if (isSelected) lbl.setBackground(ROW_SEL); return lbl;
+            JLabel lbl = new JLabel(value.getLabel());
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
+            return lbl;
         });
         JTextField txtGiaTri = makeField("0");
 
@@ -1237,9 +1257,157 @@ public class TAB_KhuyenMai extends JPanel {
         JLabel l = new JLabel(t); l.setFont(F_LABEL); l.setForeground(TEXT_MID); return l;
     }
 
+    // [SỬA] makeField – nâng cấp: nền F8FAFD, placeholder, focus border ACCENT_FOC
     private JTextField makeField(String placeHolder) {
-        JTextField tf = new JTextField(14); tf.setFont(F_CELL);
-        tf.setBorder(new LineBorder(BORDER, 1, true)); return tf;
+        JTextField tf = new JTextField() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setColor(TEXT_LIGHT);
+                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                    g2.drawString(placeHolder, getInsets().left + 4, getHeight() / 2 + 5);
+                    g2.dispose();
+                }
+            }
+        };
+        tf.setFont(F_CELL);
+        tf.setForeground(TEXT_DARK);
+        tf.setBackground(new Color(0xF8FAFD));
+        tf.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        tf.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                tf.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                tf.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+            }
+        });
+        return tf;
+    }
+
+    // [THÊM MỚI] makeStyledComboBox – nền F8FAFD, border BORDER→ACCENT_FOC, arrow tùy chỉnh
+    private <T> JComboBox<T> makeStyledComboBox(T[] items) {
+        JComboBox<T> cb = new JComboBox<>(items);
+        cb.setFont(F_CELL);
+        cb.setBackground(new Color(0xF8FAFD));
+        cb.setForeground(TEXT_DARK);
+        cb.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+        cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
+            @Override protected JButton createArrowButton() {
+                JButton b = new JButton() {
+                    @Override protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(new Color(0xF8FAFD));
+                        g2.fillRect(0, 0, getWidth(), getHeight());
+                        g2.setColor(TEXT_MID);
+                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                        FontMetrics fm = g2.getFontMetrics();
+                        String txt = "▾";
+                        g2.drawString(txt,
+                                (getWidth()  - fm.stringWidth(txt)) / 2,
+                                (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                        g2.dispose();
+                    }
+                };
+                b.setBorderPainted(false);
+                b.setContentAreaFilled(false);
+                b.setFocusPainted(false);
+                b.setPreferredSize(new Dimension(24, 0));
+                return b;
+            }
+        });
+        cb.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                cb.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(0, 3, 0, 3)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                cb.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+            }
+        });
+        return cb;
+    }
+
+    // [THÊM MỚI] makeStyledDateChooser – nền F8FAFD, border BORDER→ACCENT_FOC
+    private JDateChooser makeStyledDateChooser() {
+        JDateChooser dc = new JDateChooser();
+        dc.setDateFormatString(DATE_FORMAT);
+        dc.setFont(F_CELL);
+        dc.setBackground(new Color(0xF8FAFD));
+        JTextField editor = (JTextField) dc.getDateEditor().getUiComponent();
+        editor.setFont(F_CELL);
+        editor.setForeground(TEXT_DARK);
+        editor.setBackground(new Color(0xF8FAFD));
+        editor.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 4));
+        for (Component c : dc.getComponents()) {
+            if (c instanceof JButton) {
+                JButton calBtn = (JButton) c;
+                calBtn.setPreferredSize(new Dimension(30, 0));
+                calBtn.setBackground(new Color(0xF8FAFD));
+                calBtn.setForeground(TEXT_MID);
+                calBtn.setBorderPainted(false);
+                calBtn.setFocusPainted(false);
+                calBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                calBtn.setIcon(null);
+                calBtn.setText("▦");
+                calBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            }
+        }
+        dc.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+        editor.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                dc.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                dc.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+            }
+        });
+        return dc;
+    }
+
+    // [THÊM MỚI] makeStyledTextArea – nền F8FAFD, border BORDER→ACCENT_FOC, wrap
+    private JTextArea makeStyledTextArea(int rows, int cols) {
+        JTextArea ta = new JTextArea(rows, cols);
+        ta.setFont(F_CELL);
+        ta.setForeground(TEXT_DARK);
+        ta.setBackground(new Color(0xF8FAFD));
+        ta.setLineWrap(true);
+        ta.setWrapStyleWord(true);
+        ta.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        ta.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                ta.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                ta.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+            }
+        });
+        return ta;
     }
 
     private JButton makeBtn(String text, BtnStyle style) {
