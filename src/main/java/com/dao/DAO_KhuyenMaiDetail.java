@@ -22,10 +22,11 @@ public class DAO_KhuyenMaiDetail {
     public List<KhuyenMaiDetail> getKhuyenMaiDetailByMaKM(String maKM) {
         List<KhuyenMaiDetail> list = new ArrayList<>();
         String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN KhuyenMai km ON km.maKM = kmd.maKM " +
                 "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
                 "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
                 "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
-                "WHERE An = 0 AND maKM = ?";
+                "WHERE kmd.An = 0 AND kmd.maKM = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKM);
             try (ResultSet rs = ps.executeQuery()) {
@@ -37,10 +38,11 @@ public class DAO_KhuyenMaiDetail {
 
     public KhuyenMaiDetail getKhuyenMaiDetailByID(String maKMDetail) {
         String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN KhuyenMai km ON km.maKM = kmd.maKM " +
                 "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
                 "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
                 "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
-                "WHERE An = 0 AND maKMDetail = ?";
+                "WHERE kmd.An = 0 AND kmd.maKMDetail = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKMDetail);
             try (ResultSet rs = ps.executeQuery()) {
@@ -51,6 +53,32 @@ public class DAO_KhuyenMaiDetail {
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return null;
+    }
+
+    public List<KhuyenMaiDetail> getKhuyenMaiDetailKhaDung(java.util.Date ngayApDung, LoaiVe loaiVe, LoaiToa loaiToa, Tuyen tuyen) {
+        List<KhuyenMaiDetail> list = new ArrayList<>();
+        String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN KhuyenMai km ON kmd.maKM = km.maKM " +
+                "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
+                "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
+                "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
+                "WHERE km.ngayBatDau <= ? AND km.ngayKetThuc >= ? " +
+                "AND kmd.MaLoai = ? AND kmd.MaLoaiToa = ? AND kmd.MaTuyen = ?" +
+                "AND km.trangThai = 1 AND km.An = 0" +
+                "AND kmd.trangThai = 1 AND kmd.An = 0";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            // [SỬA] Convert java.util.Date → java.sql.Date
+            java.sql.Date sqlDate = new java.sql.Date(ngayApDung.getTime());
+            ps.setDate(1, sqlDate);
+            ps.setDate(2, sqlDate);
+            ps.setString(3, loaiVe.getMaLoai());
+            ps.setString(4, loaiToa.getMaLoaiToa());
+            ps.setString(5, tuyen.getMaTuyen());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs, rs.getString("maKM")));
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
     }
 
     public List<Tuyen> getAllTuyen() {
@@ -127,6 +155,7 @@ public class DAO_KhuyenMaiDetail {
         // gán KhuyenMai stub chỉ chứa maKM (đủ để dùng trong UI)
         KhuyenMai km = new KhuyenMai();
         km.setMaKM(maKM);
+        km.setTenKM(rs.getString("tenKM"));
         kmd.setKhuyenMai(km);
         return kmd;
     }

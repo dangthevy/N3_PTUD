@@ -124,6 +124,7 @@ public class TAB_QLNhanVien extends JPanel {
         JPanel card = buildCard(new FlowLayout(FlowLayout.LEFT, 12, 12));
 
         txtSearch = makeField("Tên / SĐT / Email...");
+        txtSearch.setPreferredSize(new Dimension(400, 36));
 
         // ── ComboBox Chức vụ với option "Tất cả" ──
         ChucVu[] chucVuValues = ChucVu.values();
@@ -286,24 +287,30 @@ public class TAB_QLNhanVien extends JPanel {
         pwdWrapper.add(txtPassword, BorderLayout.CENTER);
         pwdWrapper.add(btnTogglePwd, BorderLayout.EAST);
 
-        JComboBox<ChucVu> cbChucVu = new JComboBox<>(ChucVu.getWithoutAdmin());
+        // [SỬA] Dùng makeStyledComboBox thay vì new JComboBox trực tiếp
+        JComboBox<ChucVu> cbChucVu = makeStyledComboBox(ChucVu.getWithoutAdmin());
         cbChucVu.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel());
             lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
 
-        JComboBox<TrangThaiNhanVien> cbStatus = new JComboBox<>(TrangThaiNhanVien.values());
+        // [SỬA] Dùng makeStyledComboBox thay vì new JComboBox trực tiếp
+        JComboBox<TrangThaiNhanVien> cbStatus = makeStyledComboBox(TrangThaiNhanVien.values());
         cbStatus.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel());
             lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
 
-        dateVaoLam = new JDateChooser();
-        dateVaoLam.setDateFormatString("dd/MM/yyyy");
+        // [SỬA] Dùng makeStyledDateChooser thay vì new JDateChooser trực tiếp
+        dateVaoLam = makeStyledDateChooser();
         dateVaoLam.setDate(new Date());
 
         // ===== ERROR LABELS =====
@@ -593,17 +600,46 @@ public class TAB_QLNhanVien extends JPanel {
         return l;
     }
 
-    // [THÊM MỚI] Tạo JPasswordField style đồng nhất với makeField
+    // [SỬA] makePasswordField – đồng bộ hoàn toàn với makeField
     private JPasswordField makePasswordField() {
-        JPasswordField pf = new JPasswordField(13);
+        JPasswordField pf = new JPasswordField() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                // Placeholder "Mật khẩu" khi rỗng và không focus
+                if (getPassword().length == 0 && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setColor(TEXT_LIGHT);
+                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                    g2.drawString("Mật khẩu", getInsets().left + 4, getHeight() / 2 + 5);
+                    g2.dispose();
+                }
+            }
+        };
         pf.setFont(F_CELL);
-        pf.setBorder(new LineBorder(BORDER, 1, true));
+        pf.setForeground(TEXT_DARK);
+        pf.setBackground(new Color(0xF8FAFD));
         pf.setEchoChar('●');
         pf.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
+        // Border + padding giống makeField
+        pf.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        pf.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                pf.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                pf.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+            }
+        });
         return pf;
     }
 
-    // [THÊM MỚI] Nút mắt để toggle hiện/ẩn password
+    // [SỬA] makeTogglePasswordBtn – căn chỉnh chiều cao với JPasswordField
     private JButton makeTogglePasswordBtn(JPasswordField pf) {
         JButton btn = new JButton("👁") {
             boolean showing = false;
@@ -613,6 +649,7 @@ public class TAB_QLNhanVien extends JPanel {
                     showing = !showing;
                     pf.setEchoChar(showing ? (char) 0 : '●');
                     setText(showing ? "🙈" : "👁");
+                    pf.repaint(); // re-paint placeholder nếu rỗng
                 });
             }
         };
@@ -624,6 +661,111 @@ public class TAB_QLNhanVien extends JPanel {
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBackground(BG_CARD);
         return btn;
+    }
+
+    // [THÊM MỚI] makeStyledComboBox – đồng bộ style với makeField
+    // Nền F8FAFD, border BORDER→ACCENT_FOC khi focus, font F_CELL
+    private <T> JComboBox<T> makeStyledComboBox(T[] items) {
+        JComboBox<T> cb = new JComboBox<>(items);
+        cb.setFont(F_CELL);
+        cb.setBackground(new Color(0xF8FAFD));
+        cb.setForeground(TEXT_DARK);
+        cb.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+        // Popup list style
+        cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
+            @Override protected JButton createArrowButton() {
+                JButton b = new JButton("▾") {
+                    @Override protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(new Color(0xF8FAFD));
+                        g2.fillRect(0, 0, getWidth(), getHeight());
+                        g2.setColor(TEXT_MID);
+                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                        FontMetrics fm = g2.getFontMetrics();
+                        String txt = "▾";
+                        g2.drawString(txt,
+                                (getWidth()  - fm.stringWidth(txt)) / 2,
+                                (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                        g2.dispose();
+                    }
+                };
+                b.setBorderPainted(false);
+                b.setContentAreaFilled(false);
+                b.setFocusPainted(false);
+                b.setPreferredSize(new Dimension(24, 0));
+                return b;
+            }
+        });
+        // Focus border giống makeField
+        cb.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                cb.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(0, 3, 0, 3)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                cb.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+            }
+        });
+        return cb;
+    }
+
+    // [THÊM MỚI] makeStyledDateChooser – đồng bộ style với makeField
+    // Nền F8FAFD, border BORDER→ACCENT_FOC khi focus
+    private JDateChooser makeStyledDateChooser() {
+        JDateChooser dc = new JDateChooser();
+        dc.setDateFormatString(DATE_FORMAT);
+        dc.setFont(F_CELL);
+        dc.setBackground(new Color(0xF8FAFD));
+
+        // Style phần text bên trong
+        JTextField editor = (JTextField) dc.getDateEditor().getUiComponent();
+        editor.setFont(F_CELL);
+        editor.setForeground(TEXT_DARK);
+        editor.setBackground(new Color(0xF8FAFD));
+        editor.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 4));
+
+        // Style nút lịch (calendar button)
+        for (Component c : dc.getComponents()) {
+            if (c instanceof JButton) {
+                JButton calBtn = (JButton) c;
+                calBtn.setPreferredSize(new Dimension(30, 0));
+                calBtn.setBackground(new Color(0xF8FAFD));
+                calBtn.setForeground(TEXT_MID);
+                calBtn.setBorderPainted(false);
+                calBtn.setFocusPainted(false);
+                calBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                // Vẽ icon lịch nhỏ thay vì icon mặc định xấu
+                calBtn.setIcon(null);
+                calBtn.setText("▦");
+                calBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            }
+        }
+
+        // Outer border giống makeField
+        dc.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+
+        // Focus border – lắng nghe trên editor
+        editor.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                dc.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(ACCENT_FOC, 2, true),
+                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                dc.setBorder(BorderFactory.createCompoundBorder(
+                        new LineBorder(BORDER, 1, true),
+                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+            }
+        });
+        return dc;
     }
 
 //    private void updateTableRow(NhanVien nv) {
@@ -752,9 +894,22 @@ public class TAB_QLNhanVien extends JPanel {
     }
 
     private JTextField makeField(String hint) {
-        JTextField tf = new JTextField(13);
-        tf.setFont(F_CELL);
-        tf.setBorder(new LineBorder(BORDER, 1, true));
+        JTextField tf = new JTextField() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create(); g2.setColor(TEXT_LIGHT);
+                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                    g2.drawString(hint, getInsets().left + 4, getHeight() / 2 + 5); g2.dispose();
+                }
+            }
+        };
+        tf.setFont(F_CELL); tf.setForeground(TEXT_DARK); tf.setBackground(new Color(0xF8FAFD));
+        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        tf.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(ACCENT_FOC, 2, true), BorderFactory.createEmptyBorder(5, 9, 5, 9))); }
+            @Override public void focusLost(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10))); }
+        });
         return tf;
     }
 
