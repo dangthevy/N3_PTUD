@@ -26,7 +26,7 @@ import javax.swing.table.TableRowSorter;
  * Tab Quản lý Lịch trình & Chuyến tàu
  *
  * Quy tắc mã:
- *  - maChuyen : CHUYEN + XXXX  (10 ký tự, tự động sinh, chỉ tăng khi xác nhận)
+ *  - maChuyen : CT + XXXX    (CT01 → CT9999, tự động sinh, chỉ tăng khi xác nhận)
  *  - maTuyen  : T + XXXX        ( 5 ký tự, tự động sinh, chỉ tăng khi xác nhận)
  *  - maLT     : LT + XXXX       ( 6 ký tự, tự động sinh, chỉ tăng khi xác nhận)
  *
@@ -78,10 +78,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     // Lịch trình được load riêng từ DB theo maChuyen khi chọn dòng
     // =========================================================================
     private static final String[] COLS_CT = {
-            "Mã Chuyến", "Tên Chuyến", "Mã Tàu", "Mã Tuyến", "Tuyến", "Trạng Thái"
+            "Mã Chuyến", "Tên Chuyến", "Mã Tàu", "Mã Tuyến", "Tuyến"
+            // Trạng thái chuyến hiển thị ở panel phải, không cần trong bảng
     };
     private static final String[] COLS_LT = {
-            "Mã LT", "Ngày Khởi Hành", "Giờ Đi", "Ngày Đến (Dự kiến)"
+            "Mã LT", "Ngày Khởi Hành", "Giờ Đi", "Ngày Đến", "Trạng thái"
     };
 
     // =========================================================================
@@ -125,6 +126,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     private final JTable            tableCT;
     private final JTable            tableLT;
 
+    private final JLabel lblTrangThai  = infoLbl("-"); // Trạng thái chuyến đang chọn
     private final JLabel lblTauMa      = infoLbl("-");
     private final JLabel lblTauTen     = infoLbl("-");
     private final JLabel lblTauSoToa   = infoLbl("-");
@@ -140,14 +142,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     private final JLabel lblStatDang  = new JLabel("0");
     private final JLabel lblStatHoan  = new JLabel("0");
 
-    private enum BtnStyle { PRIMARY, SECONDARY, DANGER }
+    private enum BtnStyle { PRIMARY, SECONDARY, DANGER, SUCCESS }
 
     // =========================================================================
     // BỘ LỌC – fields
     // =========================================================================
     private JComboBox<String> cbFilterTuyen;
     private DatePickerField    dcFilterNgay;
-    private JComboBox<String> cbFilterTT;
 
     // =========================================================================
     // DAO – KẾT NỐI DATABASE
@@ -190,26 +191,20 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         });
 
-        // Panel cố định 60/40 — dùng GridBagLayout, KHÔNG JSplitPane để tránh kéo thả
+        // Panel cố định 45/55 — dùng GridBagLayout, KHÔNG JSplitPane
         JPanel body = new JPanel(new GridBagLayout());
         body.setOpaque(false);
 
         JPanel leftPanel  = buildLeftPanel();
         JPanel rightPanel = buildRightPanel();
 
-        // Cố định kích thước tối thiểu để không bị squeeze
-        // Panel trái cố định 780px, panel phải fill phần còn lại
-        leftPanel.setPreferredSize(new Dimension(780, 0));
-        leftPanel.setMinimumSize(new Dimension(780, 0));
-        leftPanel.setMaximumSize(new Dimension(780, Integer.MAX_VALUE));
-
         GridBagConstraints gcLeft = new GridBagConstraints();
-        gcLeft.gridx=0; gcLeft.gridy=0; gcLeft.weightx=0.0; gcLeft.weighty=1.0;
+        gcLeft.gridx=0; gcLeft.gridy=0; gcLeft.weightx=0.45; gcLeft.weighty=1.0;
         gcLeft.fill=GridBagConstraints.BOTH; gcLeft.insets=new Insets(0,0,0,6);
         body.add(leftPanel, gcLeft);
 
         GridBagConstraints gcRight = new GridBagConstraints();
-        gcRight.gridx=1; gcRight.gridy=0; gcRight.weightx=1.0; gcRight.weighty=1.0;
+        gcRight.gridx=1; gcRight.gridy=0; gcRight.weightx=0.55; gcRight.weighty=1.0;
         gcRight.fill=GridBagConstraints.BOTH; gcRight.insets=new Insets(0,6,0,0);
         body.add(rightPanel, gcRight);
 
@@ -231,7 +226,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         bar.setOpaque(false);
         bar.setBorder(BorderFactory.createEmptyBorder(0, 0, 14, 0));
 
-        bar.add(buildStatCard("TỔNG SỐ CHUYẾN",    lblStatTotal, new Color(37,  99, 235)));
+        bar.add(buildStatCard("TỔNG SỐ LỊCH TRÌNH", lblStatTotal, new Color(37,  99, 235)));
         bar.add(buildStatCard("CHƯA KHỞI HÀNH",    lblStatChua,  new Color(245, 158, 11)));
         bar.add(buildStatCard("ĐANG KHỞI HÀNH",    lblStatDang,  new Color(34,  197, 94)));
         bar.add(buildStatCard("ĐÃ HOÀN THÀNH",     lblStatHoan,  new Color(100, 116, 139)));
@@ -308,11 +303,15 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     }
 
     private void updateStats() {
-        int total = modelCT.getRowCount(), chua = 0, dang = 0, hoan = 0;
-        for (int i = 0; i < total; i++) {
-            Object tt = modelCT.getValueAt(i, 5);
-            if (tt == null) continue;
-            switch (tt.toString()) {
+        // Đếm tất cả lịch trình từ DB (maLT LT01..LT9999)
+        List<LichTrinhRow> tatCaLT = daoLichTrinh.getAll();
+        int total = tatCaLT.size(), chua = 0, dang = 0, hoan = 0;
+        for (LichTrinhRow lt : tatCaLT) {
+            String nd = (lt.ngayDen != null && !lt.ngayDen.isEmpty())
+                    ? lt.ngayDen
+                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, 1440);
+            String tt = tinhTrangThai(lt.ngayKhoiHanh, lt.gioKhoiHanh, nd);
+            switch (tt) {
                 case "Chưa Khởi Hành" -> chua++;
                 case "Đang Khởi Hành" -> dang++;
                 case "Đã Hoàn Thành"  -> hoan++;
@@ -343,8 +342,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JScrollPane sc = new JScrollPane(tableCT);
         sc.setBorder(BorderFactory.createEmptyBorder());
         sc.getViewport().setBackground(BG_CARD);
+        sc.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         styleScrollBar(sc.getVerticalScrollBar());
-        styleScrollBar(sc.getHorizontalScrollBar());
         card.add(sc, BorderLayout.CENTER);
 
         JPanel btnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
@@ -375,39 +374,96 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         btnThem.addActionListener(e -> openAddDialog());
         btnBar.add(btnThem);
 
-        // Nút Tạo hàng loạt lịch trình cho chuyến đang chọn
-        JButton btnHangLoat = new JButton("  Tạo hàng loạt") {
+        // Nút Xóa chuyến — vẽ icon thùng rác bằng Graphics2D
+        JButton btnXoaChuyen = new JButton("  Xóa chuyến") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(0x16A34A) : new Color(0x22C55E));
+                g2.setColor(getModel().isRollover() ? BTN_RED_HVR : BTN_RED);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                // Vẽ icon thùng rác
                 g2.setColor(Color.WHITE);
-                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int x = 14, cy = getHeight() / 2;
-                g2.drawRoundRect(x-5, cy-5, 10, 8, 2, 2);
-                g2.drawLine(x-2, cy-5, x-2, cy-7);
-                g2.drawLine(x+2, cy-5, x+2, cy-7);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 14, cy = getHeight() / 2;
+                // Nắp
+                g2.drawLine(cx - 6, cy - 5, cx + 6, cy - 5);
+                g2.drawLine(cx - 2, cy - 5, cx - 2, cy - 8);
+                g2.drawLine(cx + 2, cy - 5, cx + 2, cy - 8);
+                g2.drawLine(cx - 2, cy - 8, cx + 2, cy - 8);
+                // Thân
+                g2.drawLine(cx - 5, cy - 5, cx - 4, cy + 6);
+                g2.drawLine(cx + 5, cy - 5, cx + 4, cy + 6);
+                g2.drawLine(cx - 4, cy + 6, cx + 4, cy + 6);
+                // Sọc trong
+                g2.drawLine(cx - 1, cy - 3, cx - 1, cy + 4);
+                g2.drawLine(cx + 2, cy - 3, cx + 2, cy + 4);
                 g2.dispose();
                 super.paintComponent(g);
             }
         };
-        btnHangLoat.setFont(F_LABEL);
-        btnHangLoat.setForeground(Color.WHITE);
-        btnHangLoat.setPreferredSize(new Dimension(175, 36));
-        btnHangLoat.setContentAreaFilled(false);
-        btnHangLoat.setBorderPainted(false);
-        btnHangLoat.setFocusPainted(false);
-        btnHangLoat.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnHangLoat.addActionListener(e -> {
+        btnXoaChuyen.setFont(F_LABEL);
+        btnXoaChuyen.setForeground(Color.WHITE);
+        btnXoaChuyen.setPreferredSize(new Dimension(145, 36));
+        btnXoaChuyen.setContentAreaFilled(false);
+        btnXoaChuyen.setBorderPainted(false);
+        btnXoaChuyen.setFocusPainted(false);
+        btnXoaChuyen.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnXoaChuyen.addActionListener(e -> {
             int row = tableCT.getSelectedRow();
-            if (row < 0) { warn("Vui lòng chọn một chuyến tàu trước!"); return; }
+            if (row < 0) { warn("Vui lòng chọn một chuyến tàu để xóa!"); return; }
             String maChuyen = modelCT.getValueAt(row, 0).toString();
-            String maTau    = modelCT.getValueAt(row, 2).toString();
-            String maTuyen  = modelCT.getValueAt(row, 3).toString();
-            openBatchLTDialog(maChuyen, maTau, maTuyen);
+            String tenChuyen = modelCT.getValueAt(row, 1).toString();
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Xóa chuyến " + maChuyen + " (" + tenChuyen + ")?\nTất cả lịch trình, giá vé liên quan cũng sẽ bị xóa.",
+                    "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection()) {
+                    // Kiểm tra có vé đã bán cho chuyến này không
+                    String sqlCheck = "SELECT COUNT(*) FROM Ve v " +
+                            "INNER JOIN LichTrinh lt ON v.maLT = lt.maLT " +
+                            "WHERE lt.maChuyen = ?";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlCheck)) {
+                        ps.setString(1, maChuyen);
+                        java.sql.ResultSet rs = ps.executeQuery();
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            warn("Không thể xóa chuyến " + maChuyen + "!\n" +
+                                    "Đã có " + rs.getInt(1) + " vé được bán cho lịch trình thuộc chuyến này.");
+                            return;
+                        }
+                    }
+                    // Không có vé → xóa an toàn: GiaDetail → GiaHeader → LichTrinh → ChuyenTau
+                    String sqlGD = "DELETE gd FROM GiaDetail gd " +
+                            "INNER JOIN GiaHeader g ON gd.maGia = g.maGia " +
+                            "INNER JOIN LichTrinh lt ON g.maLT = lt.maLT " +
+                            "WHERE lt.maChuyen = ?";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGD)) {
+                        ps.setString(1, maChuyen); ps.executeUpdate();
+                    }
+                    String sqlGH = "DELETE g FROM GiaHeader g " +
+                            "INNER JOIN LichTrinh lt ON g.maLT = lt.maLT " +
+                            "WHERE lt.maChuyen = ?";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGH)) {
+                        ps.setString(1, maChuyen); ps.executeUpdate();
+                    }
+                    daoLichTrinh.deleteByMaChuyen(maChuyen);
+                    if (daoChuyenTau.delete(maChuyen)) {
+                        modelCT.removeRow(row);
+                        modelLT.setRowCount(0);
+                        resetInfo();
+                        updateStats();
+                        loadTuyenFilter();
+                    } else {
+                        warn("Không thể xóa chuyến tàu này!");
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    warn("Lỗi khi xóa: " + ex.getMessage());
+                }
+            }
         });
-        btnBar.add(btnHangLoat);
+        btnBar.add(btnXoaChuyen);
+
+        // (nút Tạo hàng loạt đã chuyển sang panel phải)
 
         pnl.add(top,    BorderLayout.NORTH);
         pnl.add(card,   BorderLayout.CENTER);
@@ -439,16 +495,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         dcFilterNgay.setPreferredSize(new Dimension(148, 32));
         dcFilterNgay.setToolTipText("Chọn ngày khởi hành để lọc");
         bar.add(dcFilterNgay);
-
-        // Sep
-        bar.add(filterSep());
-
-        // --- Trạng thái ---
-        bar.add(filterLbl("Trạng thái:"));
-        cbFilterTT = new JComboBox<>(new String[]{"Tất cả", TT_CHUA, TT_DANG, TT_HOAN, TT_HUY});
-        cbFilterTT.setFont(F_SMALL);
-        cbFilterTT.setPreferredSize(new Dimension(160, 30));
-        bar.add(cbFilterTT);
 
         // Sep
         bar.add(filterSep());
@@ -504,22 +550,28 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
     private void applyFilter() {
         String fTuyen = (String) cbFilterTuyen.getSelectedItem();
-        // Lấy ngày từ LGoodDatePicker — null nếu chưa chọn
         String fNgayStr = dcFilterNgay.getDate().trim();
-        String fTT      = (String) cbFilterTT.getSelectedItem();
 
         boolean allTuyen = fTuyen == null || "Tất cả".equals(fTuyen);
         boolean allNgay  = fNgayStr.isEmpty();
-        boolean allTT    = fTT == null || "Tất cả".equals(fTT);
 
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(modelCT);
         tableCT.setRowSorter(sorter);
         sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
             @Override public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> e) {
                 boolean okTuyen = allTuyen || e.getStringValue(4).trim().equals(fTuyen);
-                boolean okNgay  = allNgay  || e.getStringValue(7).trim().equals(fNgayStr);
-                boolean okTT    = allTT    || e.getStringValue(5).trim().equals(fTT);
-                return okTuyen && okNgay && okTT;
+                // Lọc ngày: so sánh với lịch trình trong DB
+                boolean okNgay = allNgay;
+                if (!allNgay) {
+                    String maChuyen = e.getStringValue(0);
+                    List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
+                    for (LichTrinhRow lt : dsLT) {
+                        if (lt.ngayKhoiHanh.trim().equals(fNgayStr)) {
+                            okNgay = true; break;
+                        }
+                    }
+                }
+                return okTuyen && okNgay;
             }
         });
     }
@@ -527,7 +579,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     private void resetFilter() {
         cbFilterTuyen.setSelectedIndex(0);
         dcFilterNgay.resetDate();
-        cbFilterTT.setSelectedIndex(0);
         tableCT.setRowSorter(null);
     }
 
@@ -578,22 +629,32 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JScrollPane sc = new JScrollPane(tableLT);
         sc.setBorder(BorderFactory.createEmptyBorder());
         sc.getViewport().setBackground(BG_CARD);
-        sc.setPreferredSize(new Dimension(0, 160));
-        sc.setMinimumSize(new Dimension(0, 160));
-        sc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
         styleScrollBar(sc.getVerticalScrollBar());
         cardLT.add(sc, BorderLayout.CENTER);
 
-        // Nút thêm / xóa lịch trình cho chuyến đang chọn
+        // Nút thêm / tạo hàng loạt / xóa lịch trình cho chuyến đang chọn
         JPanel btnLTBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         btnLTBar.setOpaque(false);
-        JButton btnThemLT = makeBtn("+ Thêm lịch trình", BtnStyle.PRIMARY);
-        JButton btnXoaLT  = makeBtn("Xóa", BtnStyle.DANGER);
-        btnThemLT.setPreferredSize(new Dimension(160, 32));
-        btnXoaLT .setPreferredSize(new Dimension(80,  32));
+        JButton btnThemLT  = makeBtn("+ Thêm lịch trình", BtnStyle.PRIMARY);
+        JButton btnBatchLT = makeBtn("Tạo hàng loạt", BtnStyle.SUCCESS);
+        JButton btnXoaLT   = makeBtn("Xóa", BtnStyle.DANGER);
+        btnThemLT .setPreferredSize(new Dimension(155, 32));
+        btnBatchLT.setPreferredSize(new Dimension(140, 32));
+        btnXoaLT  .setPreferredSize(new Dimension(70,  32));
         btnLTBar.add(btnThemLT);
+        btnLTBar.add(btnBatchLT);
         btnLTBar.add(btnXoaLT);
         cardLT.add(btnLTBar, BorderLayout.SOUTH);
+
+        // Nút Tạo hàng loạt → mở dialog batch LT cho chuyến đang chọn
+        btnBatchLT.addActionListener(e -> {
+            int row = tableCT.getSelectedRow();
+            if (row < 0) { warn("Vui lòng chọn một chuyến tàu trước!"); return; }
+            String maChuyen = modelCT.getValueAt(row, 0).toString();
+            String maTau    = modelCT.getValueAt(row, 2).toString();
+            String maTuyen  = modelCT.getValueAt(row, 3).toString();
+            openBatchLTDialog(maChuyen, maTau, maTuyen);
+        });
 
         // Nút Thêm lịch trình → mở dialog thêm LT cho chuyến đang chọn
         btnThemLT.addActionListener(e -> {
@@ -605,26 +666,64 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             openAddLTDialog(maChuyen, maTau, maTuyen);
         });
 
-        // Nút Xóa lịch trình → xóa dòng đang chọn trong tableLT
+        // Nút Xóa lịch trình → xóa NHIỀU dòng đang chọn trong tableLT (Ctrl/Shift)
         btnXoaLT.addActionListener(e -> {
-            int ltRow = tableLT.getSelectedRow();
-            if (ltRow < 0) { warn("Vui lòng chọn một lịch trình để xóa!"); return; }
-            String maLT = modelLT.getValueAt(ltRow, 0).toString();
-            int confirm = javax.swing.JOptionPane.showConfirmDialog(this,
-                    "Xóa lịch trình " + maLT + "?", "Xác nhận", javax.swing.JOptionPane.YES_NO_OPTION);
-            if (confirm == javax.swing.JOptionPane.YES_OPTION) {
-                if (daoLichTrinh.delete(maLT)) {
-                    modelLT.removeRow(ltRow);
-                    // Cập nhật trạng thái chuyến
-                    int ctRow = tableCT.getSelectedRow();
-                    if (ctRow >= 0) {
-                        String maChuyen = modelCT.getValueAt(ctRow, 0).toString();
-                        List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
-                        modelCT.setValueAt(tinhTrangThaiChuyen(maChuyen, dsLT), ctRow, 5);
+            int[] selectedRows = tableLT.getSelectedRows();
+            if (selectedRows.length == 0) { warn("Vui lòng chọn ít nhất một lịch trình để xóa!"); return; }
+
+            // Lấy danh sách mã LT để xóa
+            java.util.List<String> dsXoa = new java.util.ArrayList<>();
+            for (int idx : selectedRows) {
+                dsXoa.add(modelLT.getValueAt(idx, 0).toString());
+            }
+
+            String msg = selectedRows.length == 1
+                    ? "Xóa lịch trình " + dsXoa.get(0) + "?"
+                    : "Xóa " + selectedRows.length + " lịch trình đã chọn?\n(" + String.join(", ", dsXoa) + ")";
+            int confirm = JOptionPane.showConfirmDialog(this, msg, "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                int soXoa = 0;
+                try {
+                    try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection()) {
+                        // Kiểm tra lịch trình nào đã có vé bán
+                        java.util.List<String> coVe = new java.util.ArrayList<>();
+                        for (String maLT : dsXoa) {
+                            String sqlCheck = "SELECT COUNT(*) FROM Ve WHERE maLT = ?";
+                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlCheck)) {
+                                ps.setString(1, maLT);
+                                java.sql.ResultSet rs = ps.executeQuery();
+                                if (rs.next() && rs.getInt(1) > 0) coVe.add(maLT);
+                            }
+                        }
+                        if (!coVe.isEmpty()) {
+                            warn("Không thể xóa lịch trình đã có vé bán!\n" +
+                                    "Lịch trình có vé: " + String.join(", ", coVe));
+                            return;
+                        }
+                        // Không có vé → xóa an toàn
+                        for (String maLT : dsXoa) {
+                            // Xóa GiaDetail
+                            String sqlGD = "DELETE gd FROM GiaDetail gd INNER JOIN GiaHeader g ON gd.maGia = g.maGia WHERE g.maLT = ?";
+                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGD)) {
+                                ps.setString(1, maLT); ps.executeUpdate();
+                            }
+                            // Xóa GiaHeader
+                            String sqlG = "DELETE FROM GiaHeader WHERE maLT = ?";
+                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlG)) {
+                                ps.setString(1, maLT); ps.executeUpdate();
+                            }
+                            // Xóa LichTrinh
+                            if (daoLichTrinh.delete(maLT)) soXoa++;
+                        }
+                    }
+                    // Xóa từ model (từ dưới lên để không lệch index)
+                    for (int i = selectedRows.length - 1; i >= 0; i--) {
+                        modelLT.removeRow(selectedRows[i]);
                     }
                     updateStats();
-                } else {
-                    warn("Không thể xóa lịch trình này!");
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    warn("Lỗi khi xóa: " + ex.getMessage());
                 }
             }
         });
@@ -661,27 +760,59 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
     private JPanel buildInfoCard() {
         JPanel card = makeCard(new BorderLayout());
-        // Kích thước cố định – tránh panel thay đổi khi cập nhật label
-        card.setPreferredSize(new Dimension(0, 210));
-        card.setMinimumSize(new Dimension(0, 210));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 210));
+        // Thu gọn — chỉ chiếm đủ khoảng cần thiết
+        card.setPreferredSize(new Dimension(0, 180));
+        card.setMinimumSize(new Dimension(0, 140));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
 
         JPanel body = new JPanel(); body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+        body.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
 
         body.add(sectionLbl("Thông tin Tàu"));
+        body.add(Box.createVerticalStrut(3));
+        body.add(makeTblHeaderCompact(new String[]{"Mã Tàu", "Tên Tàu", "Số Toa"}));
+        body.add(makeTblRowCompact(new JLabel[]{lblTauMa, lblTauTen, lblTauSoToa}));
         body.add(Box.createVerticalStrut(6));
-        body.add(makeTblHeader(new String[]{"Mã Tàu", "Tên Tàu", "Số Toa"}));
-        body.add(makeTblRow(new JLabel[]{lblTauMa, lblTauTen, lblTauSoToa}));
-        body.add(Box.createVerticalStrut(12));
         body.add(sectionLbl("Tuyến"));
-        body.add(Box.createVerticalStrut(6));
-        body.add(makeTblHeader(new String[]{"Mã Tuyến", "Ga Đi", "Ga Đến"}));
-        body.add(makeTblRow(new JLabel[]{lblTuyenMa, lblTuyenGaDi, lblTuyenGaDen}));
+        body.add(Box.createVerticalStrut(3));
+        body.add(makeTblHeaderCompact(new String[]{"Mã Tuyến", "Ga Đi", "Ga Đến"}));
+        body.add(makeTblRowCompact(new JLabel[]{lblTuyenMa, lblTuyenGaDi, lblTuyenGaDen}));
 
         card.add(body, BorderLayout.CENTER);
         return card;
+    }
+
+    /** Header nhỏ gọn cho info card */
+    private JPanel makeTblHeaderCompact(String[] cols) {
+        JPanel p = new JPanel(new GridLayout(1, cols.length, 0, 0));
+        p.setBackground(TH_BG);
+        p.setBorder(BorderFactory.createMatteBorder(1,1,0,1,BORDER));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (String col : cols) {
+            JLabel l = new JLabel(col);
+            l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            l.setForeground(TEXT_DARK);
+            l.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 4));
+            p.add(l);
+        }
+        return p;
+    }
+
+    /** Row nhỏ gọn cho info card */
+    private JPanel makeTblRowCompact(JLabel[] labels) {
+        JPanel p = new JPanel(new GridLayout(1, labels.length, 0, 0));
+        p.setBackground(BG_CARD);
+        p.setBorder(BorderFactory.createMatteBorder(1,1,1,1,BORDER));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (JLabel l : labels) {
+            l.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            l.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 4));
+            p.add(l);
+        }
+        return p;
     }
 
     // =========================================================================
@@ -697,15 +828,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         };
         styleTable(t);
-        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        t.setFillsViewportHeight(true);
 
-        // Không còn hidden cols — modelCT chỉ có 6 cột (index 0..5)
-
-        // Renderer màu cho cột Trạng Thái (index 5)
-        t.getColumnModel().getColumn(5).setCellRenderer(new TrangThaiRenderer());
-
-        int[] w = {120, 200, 90, 90, 180, 150};
-        for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
+        // 5 cột chia đều — bảng tự co giãn theo panel
+        for (int i = 0; i < 5; i++) {
+            t.getColumnModel().getColumn(i).setPreferredWidth(100);
+        }
         applyPaddingRenderer(t, 5);
         return t;
     }
@@ -720,10 +849,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         };
         styleTable(t);
-        int[] w = {80, 130, 80, 150};
+        int[] w = {70, 120, 70, 110, 120};
         for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         applyPaddingRenderer(t, 4);
+        // Cột Trạng thái (index 4) dùng renderer màu
+        t.getColumnModel().getColumn(4).setCellRenderer(new TrangThaiRenderer());
         return t;
     }
 
@@ -741,6 +872,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         h.setDefaultRenderer(new HeaderRenderer());
         h.setPreferredSize(new Dimension(0, 40));
         h.setReorderingAllowed(false);
+        h.setResizingAllowed(false);
     }
 
     private void applyPaddingRenderer(JTable t, int cols) {
@@ -783,21 +915,40 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
         // Load TẤT CẢ lịch trình của chuyến này từ DB
         List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
+        // Sắp xếp theo ngày + giờ khởi hành
+        dsLT.sort((a, b) -> {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT + " HH:mm");
+                Date da = sdf.parse(a.ngayKhoiHanh + " " + a.gioKhoiHanh);
+                Date db = sdf.parse(b.ngayKhoiHanh + " " + b.gioKhoiHanh);
+                return da.compareTo(db);
+            } catch (Exception e) { return 0; }
+        });
         for (LichTrinhRow lt : dsLT) {
-            String ngayDen = lt.ngayDen != null && !lt.ngayDen.isEmpty()
+            String ngayDenFull = lt.ngayDen != null && !lt.ngayDen.isEmpty()
                     ? lt.ngayDen
-                    : "(chưa tính)";
+                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, 1440);
+            // Chỉ hiển thị ngày (dd/MM/yyyy), bỏ giờ
+            String ngayDenHienThi = ngayDenFull.length() >= 10 ? ngayDenFull.substring(0, 10) : ngayDenFull;
+            // Giờ đi: định dạng HH:mm
+            String gioDiHienThi = lt.gioKhoiHanh;
+            if (gioDiHienThi != null && gioDiHienThi.length() > 5) {
+                gioDiHienThi = gioDiHienThi.substring(0, 5);
+            }
+            // Tính trạng thái realtime
+            String ttRealtime = tinhTrangThai(lt.ngayKhoiHanh, lt.gioKhoiHanh, ngayDenFull);
             modelLT.addRow(new Object[]{
-                    lt.maLT, lt.ngayKhoiHanh, lt.gioKhoiHanh, ngayDen
+                    lt.maLT, lt.ngayKhoiHanh, gioDiHienThi, ngayDenHienThi, ttRealtime
             });
         }
 
         // Cập nhật lại trạng thái chuyến dựa trên tất cả LT
-        String ttHienTai = modelCT.getValueAt(row, 5).toString();
-        if (!ttHienTai.equals(TT_HUY)) {
-            String ttMoi = tinhTrangThaiChuyen(maChuyen, dsLT);
-            modelCT.setValueAt(ttMoi, row, 5);
-        }
+        String ttHienThi = tinhTrangThaiChuyen(maChuyen, dsLT);
+        lblTrangThai.setText(ttHienThi);
+        if (TT_DANG.equals(ttHienThi))      lblTrangThai.setForeground(new Color(0x22C55E));
+        else if (TT_CHUA.equals(ttHienThi)) lblTrangThai.setForeground(new Color(0xF59E0B));
+        else if (TT_HUY.equals(ttHienThi))  lblTrangThai.setForeground(new Color(0xEF4444));
+        else                                 lblTrangThai.setForeground(new Color(0x6B7280));
 
         // Info Tàu — lấy thông tin thật từ DB
         String maTauVal = modelCT.getValueAt(row, 2).toString();
@@ -894,13 +1045,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         Runnable updateTenChuyen = () -> {
             Object selTau = cbMaTau.getSelectedItem();
             String maTauStr = selTau != null ? selTau.toString().trim() : "";
-            String tenTuyenStr = cbTuyen.getSelectedItem() != null ? cbTuyen.getSelectedItem().toString().trim() : "";
-            if (!maTauStr.isEmpty() && !tenTuyenStr.isEmpty()) {
-                txtTenChuyen.setText(maTauStr + " - " + tenTuyenStr);
-            } else if (!maTauStr.isEmpty()) {
-                txtTenChuyen.setText(maTauStr);
+            // Tên chuyến = tên tàu (lấy từ DB), không kèm tuyến
+            String tenTauDB = getTenTauFromDB(maTauStr);
+            if (!maTauStr.isEmpty()) {
+                txtTenChuyen.setText(tenTauDB.isEmpty() ? maTauStr : tenTauDB);
             } else {
-                txtTenChuyen.setText("(tự sinh theo mã tàu + tuyến)");
+                txtTenChuyen.setText("(tự sinh theo mã tàu)");
             }
         };
         // Listener sẽ được gắn trong phần form bên dưới (kèm updateHint)
@@ -923,7 +1073,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         addSep(form, gc, r++, "Thông tin Chuyến tàu", ACCENT);
         addRow(form, gc, r++, "Mã tàu *:",    cbMaTau);
         addRow(form, gc, r++, "Tuyến *:",      cbTuyen);
-        addRow(form, gc, r++, "Ngày đến (dự kiến):", lblNgayDen);
+        addRow(form, gc, r++, "Ngày đến:", lblNgayDen);
 
         // Tên chuyến hiện như hint nhỏ (readonly, không chiếm row riêng)
         JLabel lblTenHint = new JLabel("Tên: " + txtTenChuyen.getText());
@@ -946,7 +1096,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 String gio   = cbGioDi.getSelectedItem() != null ? cbGioDi.getSelectedItem().toString() : "06:00";
                 if (!ngay.isEmpty()) {
                     String nd = tinhNgayDen(ngay, gio, thoiGian);
-                    lblNgayDen.setText(nd + "  (" + (thoiGian/60) + "h" + (thoiGian%60 > 0 ? thoiGian%60 + "m" : "") + ")");
+                    String ndNgay = nd.length() >= 10 ? nd.substring(0, 10) : nd;
+                    lblNgayDen.setText(ndNgay + "  (" + (thoiGian/60) + "h" + (thoiGian%60 > 0 ? thoiGian%60 + "m" : "") + ")");
                 }
             } catch (Exception ignored) {}
         };
@@ -1003,7 +1154,9 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
             String tenChuyen = txtTenChuyen.getText().trim();
             if (tenChuyen.startsWith("(") || tenChuyen.isEmpty()) {
-                tenChuyen = maTau + " - " + tenTuyenChon;
+                // Tên chuyến = tên tàu (không kèm tuyến)
+                String tenTauFallback = getTenTauFromDB(maTau);
+                tenChuyen = tenTauFallback.isEmpty() ? maTau : tenTauFallback;
             }
 
             String maChuyen = nextMaChuyen();
@@ -1020,8 +1173,9 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
             if (okChuyen) {
                 // modelCT giờ chỉ có 6 cột (không còn hidden LT cols)
+                // 5 cột — Trạng Thái hiển thị ở panel phải
                 modelCT.addRow(new Object[]{
-                        maChuyen, tenChuyen, maTau, maTuyenThuc, tenTuyenChon, tt
+                        maChuyen, tenChuyen, maTau, maTuyenThuc, tenTuyenChon
                 });
                 updateStats();
                 loadTuyenFilter();
@@ -1047,7 +1201,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         String tenChuyen = modelCT.getValueAt(row, 1).toString();
         String maTuyen   = modelCT.getValueAt(row, 3).toString();
         String tuyen     = modelCT.getValueAt(row, 4).toString();
-        String tt        = modelCT.getValueAt(row, 5).toString();
 
         // Lấy thông tin LT từ DB (không còn hidden cols trong modelCT)
         List<LichTrinhRow> dsLTUpd = daoLichTrinh.getByMaChuyen(maChuyen);
@@ -1085,17 +1238,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         // Hàm cập nhật tên chuyến tự động: MaTau + " - " + TenTuyen
         Runnable updateTenChuyenUpd = () -> {
             String maTauStr = txtMaTau.getText().trim();
-            String tenTuyenStr = cbTuyen.getSelectedItem() != null ? cbTuyen.getSelectedItem().toString().trim() : "";
-            if (!maTauStr.isEmpty() && !tenTuyenStr.isEmpty()) {
-                txtTenChuyen.setText(maTauStr + " - " + tenTuyenStr);
-            } else if (!maTauStr.isEmpty()) {
-                txtTenChuyen.setText(maTauStr);
+            if (!maTauStr.isEmpty()) {
+                String tenTauDB = getTenTauFromDB(maTauStr);
+                txtTenChuyen.setText(tenTauDB.isEmpty() ? maTauStr : tenTauDB);
             }
         };
-        // Listener sẽ được gắn trong phần form bên dưới (kèm updateHintUpd)
-
-        JComboBox<String> cbTT = makeCombo(DS_TRANG_THAI);
-        cbTT.setSelectedItem(tt);
 
         DatePickerField   dpNgay = new DatePickerField(ngayKH);
         JComboBox<String> cbGioDi = makeComboGio(gioDiVal);
@@ -1114,8 +1261,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         addSep(form, gc, r++, "Thông tin Chuyến tàu", ACCENT);
         addRow(form, gc, r++, "Mã tàu *:",    txtMaTau);
         addRow(form, gc, r++, "Tuyến *:",      cbTuyen);
-        addRow(form, gc, r++, "Ngày đến (dự kiến):", lblNgayDenUpd);
-        addRow(form, gc, r++, "Trạng thái:",   cbTT);
+        addRow(form, gc, r++, "Ngày đến:", lblNgayDenUpd);
 
         // Hiện tên chuyến như hint nhỏ
         JLabel lblTenHint = new JLabel("Tên: " + txtTenChuyen.getText());
@@ -1142,7 +1288,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 String gio   = cbGioDi.getSelectedItem() != null ? cbGioDi.getSelectedItem().toString() : "06:00";
                 if (!ngay.isEmpty()) {
                     String nd = tinhNgayDen(ngay, gio, thoiGian);
-                    lblNgayDenUpd.setText(nd + "  (" + (thoiGian/60) + "h" + (thoiGian%60 > 0 ? thoiGian%60 + "m" : "") + ")");
+                    String ndNgay = nd.length() >= 10 ? nd.substring(0, 10) : nd;
+                    lblNgayDenUpd.setText(ndNgay + "  (" + (thoiGian/60) + "h" + (thoiGian%60 > 0 ? thoiGian%60 + "m" : "") + ")");
                 }
             } catch (Exception ignored) {}
         };
@@ -1160,7 +1307,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JButton btnCapNhat = makeBtn("Cập nhật", BtnStyle.PRIMARY);
         btnCapNhat.addActionListener(e -> {
             String newGioDi  = (String) cbGioDi.getSelectedItem();
-            String newTT     = (String) cbTT.getSelectedItem();
             // Tính ngayDen từ tuyến mới được chọn
             String newTuyenChon  = (String) cbTuyen.getSelectedItem();
             String newMaTuyenTmp = getMaTuyenFromTen(newTuyenChon);
@@ -1189,8 +1335,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
 
             String newNgayDen = tinhNgayDen(newNgayKH, newGioDi, thoiGianPhutUpd);
-            if (!newTT.equals(TT_HUY))
-                newTT = tinhTrangThai(newNgayKH, newGioDi, newNgayDen);
 
             // 1. UPDATE ChuyenTau trong DB
             boolean okChuyen = daoChuyenTau.update(
@@ -1204,7 +1348,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 modelCT.setValueAt(newMaTau,     selRow, 2);
                 modelCT.setValueAt(newTenChuyen, selRow, 1);
                 modelCT.setValueAt(newTuyen,     selRow, 4);
-                modelCT.setValueAt(newTT,        selRow, 5);
                 // LT không còn lưu trong modelCT — refresh từ DB
                 refreshDetail();
                 updateStats();
@@ -1239,9 +1382,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 // (không còn embed LT vào modelCT — load từ DB riêng khi chọn dòng)
                 String tt = tinhTrangThaiChuyen(ct.maChuyen, dsLT);
 
+                // 5 cột — không còn Trạng Thái trong bảng
                 modelCT.addRow(new Object[]{
                         ct.maChuyen, ct.tenChuyen, ct.maTau,
-                        ct.maTuyen,  tenTuyen,     tt
+                        ct.maTuyen,  tenTuyen
                 });
             }
             updateStats();
@@ -1258,6 +1402,15 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
      * - Nếu tất cả LT đã hoàn thành → "Đã Hoàn Thành"
      * - Nếu không có LT nào → "Chưa Khởi Hành"
      */
+
+    /**
+     * Lấy trạng thái chuyến từ DB (dùng thay modelCT col 5 đã bỏ).
+     */
+    private String getTrangThaiChuyenFromDB(String maChuyen) {
+        List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
+        return tinhTrangThaiChuyen(maChuyen, dsLT);
+    }
+
     private String tinhTrangThaiChuyen(String maChuyen, List<LichTrinhRow> dsLT) {
         boolean coDang = false, coChua = false;
         for (LichTrinhRow lt : dsLT) {
@@ -1321,7 +1474,9 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String gio  = cbGio.getSelectedItem() != null ? cbGio.getSelectedItem().toString() : "06:00";
             if (!ngay.isEmpty()) {
                 String nd = tinhNgayDen(ngay, gio, thoiGianPhut);
-                lblNgayDen.setText(nd + "  (" + (thoiGianPhut/60) + "h" +
+                // Chỉ hiện ngày (dd/MM/yyyy)
+                String ndNgay = nd.length() >= 10 ? nd.substring(0, 10) : nd;
+                lblNgayDen.setText(ndNgay + "  (" + (thoiGianPhut/60) + "h" +
                         (thoiGianPhut%60>0 ? thoiGianPhut%60+"m" : "") + ")");
             }
         };
@@ -1336,7 +1491,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         addSep(form, gc, r++, "Thêm lịch trình vào " + maChuyen, ACCENT);
         addRow(form, gc, r++, "Ngày khởi hành *:", dpNgay);
         addRow(form, gc, r++, "Giờ đi *:",          cbGio);
-        addRow(form, gc, r,   "Ngày đến (dự kiến):", lblNgayDen);
+        addRow(form, gc, r,   "Ngày đến:", lblNgayDen);
 
         JButton btnLuu = makeBtn("Lưu", BtnStyle.PRIMARY);
         btnLuu.addActionListener(e -> {
@@ -1358,13 +1513,14 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String ngayDen = tinhNgayDen(ngayKH, gioDi, thoiGianPhut);
 
             if (daoLichTrinh.insert(maLT, ngayKH, gioDi, ngayDen, maChuyen)) {
-                // Thêm vào modelLT
-                modelLT.addRow(new Object[]{maLT, ngayKH, gioDi, ngayDen});
+                // Thêm vào modelLT — ngày đến chỉ hiện ngày
+                String ttNewLT = tinhTrangThai(ngayKH, gioDi, ngayDen);
+                String ndHienThi = ngayDen.length() >= 10 ? ngayDen.substring(0, 10) : ngayDen;
+                modelLT.addRow(new Object[]{maLT, ngayKH, gioDi, ndHienThi, ttNewLT});
                 // Cập nhật trạng thái chuyến
                 int ctRow = tableCT.getSelectedRow();
                 if (ctRow >= 0) {
                     List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
-                    modelCT.setValueAt(tinhTrangThaiChuyen(maChuyen, dsLT), ctRow, 5);
                 }
                 updateStats();
                 dlg.dispose();
@@ -1392,7 +1548,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         DatePickerField   dpNgay = new DatePickerField(ngayKH);
         JComboBox<String> cbGio  = makeComboGio(gioDi);
 
-        JLabel lblNgayDen = new JLabel(ngayDen != null && !ngayDen.isEmpty() ? ngayDen : "-- --");
+        // Hiển thị ngày đến chỉ ngày (dd/MM/yyyy)
+        String ngayDenInit = ngayDen != null && !ngayDen.isEmpty()
+                ? (ngayDen.length() >= 10 ? ngayDen.substring(0, 10) : ngayDen)
+                : "-- --";
+        JLabel lblNgayDen = new JLabel(ngayDenInit);
         lblNgayDen.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblNgayDen.setForeground(new Color(0x22C55E));
 
@@ -1400,7 +1560,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String ngay = dpNgay.getDate().trim();
             String gio  = cbGio.getSelectedItem() != null ? cbGio.getSelectedItem().toString() : "06:00";
             if (!ngay.isEmpty()) {
-                lblNgayDen.setText(tinhNgayDen(ngay, gio, thoiGianPhut));
+                String nd = tinhNgayDen(ngay, gio, thoiGianPhut);
+                lblNgayDen.setText(nd.length() >= 10 ? nd.substring(0, 10) : nd);
             }
         };
         dpNgay.addPropertyChangeListener("date", e -> updateND.run());
@@ -1414,7 +1575,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         addSep(form, gc, r++, "Cập nhật lịch trình " + maLT, ACCENT);
         addRow(form, gc, r++, "Ngày khởi hành *:", dpNgay);
         addRow(form, gc, r++, "Giờ đi *:",          cbGio);
-        addRow(form, gc, r,   "Ngày đến (dự kiến):", lblNgayDen);
+        addRow(form, gc, r,   "Ngày đến:", lblNgayDen);
 
         JButton btnCapNhat = makeBtn("Cập nhật", BtnStyle.PRIMARY);
         btnCapNhat.addActionListener(e -> {
@@ -1436,14 +1597,15 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String maChuyen = ctRow >= 0 ? modelCT.getValueAt(ctRow, 0).toString() : "";
 
             if (daoLichTrinh.update(maLT, newNgay, newGio, newNgayDen, maChuyen)) {
+                String ndHienThi = newNgayDen.length() >= 10 ? newNgayDen.substring(0, 10) : newNgayDen;
                 modelLT.setValueAt(newNgay,    ltRow, 1);
                 modelLT.setValueAt(newGio,     ltRow, 2);
-                modelLT.setValueAt(newNgayDen, ltRow, 3);
+                modelLT.setValueAt(ndHienThi,  ltRow, 3);
+                modelLT.setValueAt(tinhTrangThai(newNgay, newGio, newNgayDen), ltRow, 4);
                 // Cập nhật trạng thái chuyến
                 if (ctRow >= 0) {
                     java.util.List<com.dao.DAO_LichTrinh.LichTrinhRow> dsLT =
                             daoLichTrinh.getByMaChuyen(maChuyen);
-                    modelCT.setValueAt(tinhTrangThaiChuyen(maChuyen, dsLT), ctRow, 5);
                 }
                 dlg.dispose();
             } else {
@@ -1659,22 +1821,16 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             int ctRow = tableCT.getSelectedRow();
             if (ctRow >= 0) {
                 java.util.List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
-                modelCT.setValueAt(tinhTrangThaiChuyen(maChuyen, dsLT), ctRow, 5);
             }
             updateStats();
             dlg.dispose();
 
             // Thông báo kết quả
-            StringBuilder sb = new StringBuilder("Tạo hàng loạt hoàn tất!\n\n");
-            sb.append("✔ Tạo thành công: ").append(soThanhCong).append(" lịch trình\n");
-            if (soTrung > 0)  sb.append("⏭ Bỏ qua trùng: ").append(soTrung).append(" ngày\n");
-            if (dungLai)      sb.append("⛔ Dừng sớm theo yêu cầu\n");
-            if (soThanhCong > 0)
-                sb.append("\nCác ngày đã tạo:\n").append(String.join(", ", danhSachNgay));
-            else
-                sb.append("\nKhông có lịch trình nào được tạo!");
+            String msg = soThanhCong > 0
+                    ? "Tạo thành công " + soThanhCong + " lịch trình!" + (soTrung > 0 ? "\n(Bỏ qua " + soTrung + " ngày trùng)" : "")
+                    : "Không có lịch trình nào được tạo!";
 
-            JOptionPane.showMessageDialog(this, sb.toString(),
+            JOptionPane.showMessageDialog(this, msg,
                     soThanhCong > 0 ? "Thành công" : "Không tạo được",
                     soThanhCong > 0 ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
         });
@@ -1686,19 +1842,28 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
      * Chuẩn hóa giờ nhập vào: hỗ trợ HH:mm và HH:mm:ss
      * Trả về HH:mm hoặc null nếu không hợp lệ.
      */
+    /**
+     * Chuẩn hóa chuỗi giờ về định dạng HH:mm.
+     * Chấp nhận: HH:mm hoặc HH:mm:ss
+     * @return "HH:mm" nếu hợp lệ, null nếu sai định dạng
+     */
     private String chuanHoaGio(String gio) {
         if (gio == null || gio.trim().isEmpty()) return null;
         gio = gio.trim();
         try {
-            // HH:mm:ss → chuyển về HH:mm
+            // HH:mm:ss → lấy phần HH:mm
             if (gio.matches("\\d{1,2}:\\d{2}:\\d{2}")) {
                 new SimpleDateFormat("HH:mm:ss").parse(gio);
-                return gio.substring(0, 5); // lấy HH:mm
+                return String.format("%02d:%02d",
+                        Integer.parseInt(gio.split(":")[0]),
+                        Integer.parseInt(gio.split(":")[1]));
             }
             // HH:mm
             if (gio.matches("\\d{1,2}:\\d{2}")) {
                 new SimpleDateFormat("HH:mm").parse(gio);
-                return gio;
+                return String.format("%02d:%02d",
+                        Integer.parseInt(gio.split(":")[0]),
+                        Integer.parseInt(gio.split(":")[1]));
             }
         } catch (Exception ignored) {}
         return null;
@@ -1872,17 +2037,29 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
      * @param thoiGianPhut số phút hành trình
      * @return "dd/MM/yyyy HH:mm" — ngày giờ đến dự kiến
      */
+    /**
+     * Tính ngày giờ đến dự kiến.
+     * Hỗ trợ gioDi dạng HH:mm hoặc HH:mm:ss (tự động chuẩn hóa về HH:mm)
+     *
+     * @param ngayDi       "dd/MM/yyyy"
+     * @param gioDi        "HH:mm" hoặc "HH:mm:ss"
+     * @param thoiGianPhut số phút hành trình (từ Tuyen.thoiGianChay)
+     * @return "dd/MM/yyyy HH:mm" — ngày giờ đến dự kiến
+     */
     private String tinhNgayDen(String ngayDi, String gioDi, int thoiGianPhut) {
         try {
+            // Chuẩn hóa giờ về HH:mm trước khi parse
+            String gioDiChuan = chuanHoaGio(gioDi);
+            if (gioDiChuan == null) gioDiChuan = "00:00";
+
             SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT + " HH:mm");
-            java.util.Date batDau = sdf.parse(ngayDi + " " + gioDi);
+            java.util.Date batDau = sdf.parse(ngayDi + " " + gioDiChuan);
             Calendar cal = Calendar.getInstance();
             cal.setTime(batDau);
-            cal.add(Calendar.MINUTE, thoiGianPhut);
+            cal.add(Calendar.MINUTE, thoiGianPhut > 0 ? thoiGianPhut : 1440);
             return sdf.format(cal.getTime());
         } catch (Exception e) {
-            // fallback: +1 ngày
-            return ngayDi + " " + gioDi;
+            return ngayDi + " 00:00"; // fallback
         }
     }
 
@@ -1942,13 +2119,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JPanel p = new JPanel(new GridLayout(1, cols.length, 0, 0));
         p.setBackground(TH_BG);
         p.setBorder(BorderFactory.createMatteBorder(1,1,0,1,BORDER));
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
-        for (String c : cols) {
-            JLabel l = new JLabel(c);
+        for (String col : cols) {
+            JLabel l = new JLabel(col);
             l.setFont(F_LABEL); l.setForeground(TEXT_DARK);
-            l.setBorder(BorderFactory.createEmptyBorder(6,10,6,4));
-            l.setMinimumSize(new Dimension(70, 30));
+            l.setBorder(BorderFactory.createEmptyBorder(8,12,8,4));
+            l.setMinimumSize(new Dimension(90, 36));
             p.add(l);
         }
         return p;
@@ -1957,11 +2134,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JPanel p = new JPanel(new GridLayout(1, labels.length, 0, 0));
         p.setBackground(BG_CARD);
         p.setBorder(BorderFactory.createMatteBorder(1,1,1,1,BORDER));
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
         for (JLabel l : labels) {
-            l.setBorder(BorderFactory.createEmptyBorder(6,10,6,4));
-            l.setMinimumSize(new Dimension(70, 30));
+            l.setBorder(BorderFactory.createEmptyBorder(8,12,8,4));
+            l.setMinimumSize(new Dimension(90, 36));
             p.add(l);
         }
         return p;
@@ -2070,8 +2247,9 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 Graphics2D g2=(Graphics2D)g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                 switch(style){
-                    case PRIMARY -> { g2.setColor(getModel().isRollover()?ACCENT_HVR:ACCENT); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
-                    case DANGER  -> { g2.setColor(getModel().isRollover()?BTN_RED_HVR:BTN_RED); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
+                    case PRIMARY  -> { g2.setColor(getModel().isRollover()?ACCENT_HVR:ACCENT); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
+                    case DANGER   -> { g2.setColor(getModel().isRollover()?BTN_RED_HVR:BTN_RED); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
+                    case SUCCESS  -> { g2.setColor(getModel().isRollover()?new Color(0x16A34A):new Color(0x22C55E)); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
                     default      -> { g2.setColor(getModel().isRollover()?new Color(0xE0ECFF):BTN2_BG); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); g2.setColor(BORDER); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8); }
                 }
                 g2.dispose(); super.paintComponent(g);
@@ -2079,6 +2257,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         };
         b.setFont(F_LABEL); b.setForeground(style==BtnStyle.SECONDARY?BTN2_FG:Color.WHITE);
         b.setPreferredSize(new Dimension(style==BtnStyle.DANGER?80:140,36));
+        if (style==BtnStyle.SUCCESS) b.setPreferredSize(new Dimension(155,36));
         b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b;
     }
