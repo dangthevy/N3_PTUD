@@ -404,6 +404,11 @@ public class Step3_NhapThongTinKH extends JPanel {
         mainTab.getSelectedSeatsData().get(currentIdx).put("maKH", maKH);
         passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, cbLoaiVe.getSelectedItem().toString());
 
+        // Thêm dòng này vào hàm confirmPassenger() của Step 3:
+        String tenLoaiVe = cbLoaiVe.getSelectedItem().toString();
+        String maLoaiVe = tenLoaiVe.equals("Người lớn") ? "LV01" : (tenLoaiVe.equals("Trẻ em") ? "LV02" : "LV03");
+        mainTab.getSelectedSeatsData().get(currentIdx).put("maLoaiVe", maLoaiVe);
+
         if (currentIdx < passengerCards.size() - 1) {
             selectCard(currentIdx + 1);
         } else {

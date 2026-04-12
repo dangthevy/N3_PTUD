@@ -1,6 +1,8 @@
 package com.gui.banve;
 
 import com.connectDB.ConnectDB;
+import com.dao.DAO_ChuyenTau;
+import com.dao.DAO_Tuyen;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
@@ -10,14 +12,17 @@ import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class Step4_ThanhToan extends JPanel {
 
@@ -40,6 +45,9 @@ public class Step4_ThanhToan extends JPanel {
     private KhachHang kh2;
 
     Tuyen tuyen;
+    // Cache tuyến theo mã chuyến để tránh lookup lặp lại khi hiển thị nhiều vé
+    private final Map<String, Tuyen> tuyenByMaChuyenCache = new HashMap<>();
+
     /**
      * VeEntry = 1 vé + KMDetail đang được chọn cho vé đó.
      * Dùng thay cho CTietHoaDon trong quá trình soạn hóa đơn.
@@ -85,7 +93,6 @@ public class Step4_ThanhToan extends JPanel {
         this.mainTab = mainTab;
         this.conn    = ConnectDB.getConnection();
         this.daoKMD  = new DAO_KhuyenMaiDetail(conn);
-        mockData();
         initUI();
         refreshAll();
     }
@@ -93,48 +100,115 @@ public class Step4_ThanhToan extends JPanel {
     // =========================================================================
     // MOCK DATA – 2 vé Sài Gòn – Hà Nội 01/04/2026
     // =========================================================================
-    private void mockData() {
-        // NV + KH
-        nv = new NhanVien(); nv.setMaNV("NV0001"); nv.setTenNV("Nguyễn Văn A");
-        kh = new KhachHang(); kh.setMaKH("KH01");  kh.setHoTen("Trần Văn An");
-        kh2 = new KhachHang(); kh2.setMaKH("KH02");  kh2.setHoTen("Trần Văn Bê");
+    // =========================================================================
+    // LẤY DỮ LIỆU THỰC TẾ TỪ CÁC BƯỚC TRƯỚC
+    // =========================================================================
+    public void loadDataFromSession() {
+        dsVe.clear(); // Xóa dữ liệu cũ
+        tuyenByMaChuyenCache.clear();
 
-        // Tuyến, Tàu, Toa, Loại vé, Lịch trình
-        this.tuyen = new Tuyen("T01", "Sài Gòn – Hà Nội");
+        // Khởi tạo Nhân viên (Lấy từ tài khoản đang đăng nhập, ở đây tôi fix cứng làm ví dụ)
+        this.nv = new NhanVien();
+        this.nv.setMaNV("NV0001");
+        this.nv.setTenNV("Nguyễn Văn A");
 
-        LoaiToa loaiToaCung = new LoaiToa(); loaiToaCung.setMaLoaiToa("G_CUNG"); loaiToaCung.setTenLoaiToa("Ghế cứng");
-        LoaiToa loaiToaMem  = new LoaiToa(); loaiToaMem.setMaLoaiToa("G_MEM");   loaiToaMem.setTenLoaiToa("Ghế mềm");
+        // Lấy danh sách Map từ session
+        List<Map<String, String>> sessionData = mainTab.getSelectedSeatsData();
+        if (sessionData.isEmpty()) return;
 
-        LoaiVe loaiVeNL = new LoaiVe(); loaiVeNL.setMaLoai("LV01"); loaiVeNL.setTenLoai("Người lớn");
+        // Dùng DAO để lấy đối tượng thật từ Database
+        com.dao.DAO_KhachHang daoKH = new com.dao.DAO_KhachHang();
+        com.dao.DAO_ChoNgoi daoCho = new com.dao.DAO_ChoNgoi();
+        com.dao.DAO_LichTrinh daoLT = new com.dao.DAO_LichTrinh();
 
-        Toa toa1 = new Toa(); toa1.setMaToa("SE01_T01"); toa1.setTenToa("Toa 1"); toa1.setLoaiToa(loaiToaCung);
-        Toa toa5 = new Toa(); toa5.setMaToa("SE01_T05"); toa5.setTenToa("Toa 5"); toa5.setLoaiToa(loaiToaMem);
+        for (Map<String, String> map : sessionData) {
+            String maLT = map.get("maLT");
+            String maCho = map.get("maCho");
+            String maKH = map.get("maKH");
+            String maLoaiVe = map.get("maLoaiVe");
 
-        ChoNgoi cho1 = new ChoNgoi(); cho1.setMaCho("SE01_T01_S09"); cho1.setTenCho("9"); cho1.setToa(toa1);
-        ChoNgoi cho2 = new ChoNgoi(); cho2.setMaCho("SE01_T05_S13"); cho2.setTenCho("13"); cho2.setToa(toa5);
+            // Tạo các đối tượng
+            KhachHang khach = daoKH.getKhachHangByMa(maKH);
+            ChoNgoi cho = daoCho.getChoNgoiByMa(maCho);
+            LichTrinh lichTrinh = daoLT.getLichTrinhByMa(maLT);
 
-        LichTrinh lt = new LichTrinh(); lt.setMaLT("LT01");
-        try {
-            lt.setNgayKhoiHanh(LocalDate.of(2026, 4, 1));
-            lt.setGioKhoiHanh(LocalTime.of(8, 0));   // 08:00
+            LoaiVe lv = new LoaiVe();
+            lv.setMaLoai(maLoaiVe);
+            lv.setTenLoai(maLoaiVe.equals("LV01") ? "Người lớn" : "Trẻ em/SV"); // Tạm gán tên
+
+            // Lấy giá vé thực tế từ Database dựa vào LichTrinh, Toa và LoaiVe
+            long giaGoc = getGiaVeTuDatabase(maLT, cho.getToa().getLoaiToa().getMaLoaiToa(), maLoaiVe);
+
+            // Gán vào đối tượng Vé
+            Ve ve = new Ve();
+            ve.setMaVe("V" + System.currentTimeMillis() + (int)(Math.random()*100)); // Mã vé tạm thời
+            ve.setKhachHang(khach);
+            ve.setChoNgoi(cho);
+            ve.setLichTrinh(lichTrinh);
+            ve.setLoaiVe(lv);
+            ve.setGiaVe(giaGoc);
+            ve.setTrangThaiVe(TrangThaiVe.CHUA_SU_DUNG);
+
+            VeEntry entry = new VeEntry();
+            entry.ve = ve;
+            entry.kmChon = null; // Mặc định chưa chọn KM
+
+            dsVe.add(entry);
+
+            // Lưu lại thông tin Tuyến và KH đặt vé (dùng chung cho hóa đơn)
+            if (this.tuyen == null) {
+                // Tuyen được lấy thông qua maChuyen của LichTrinh
+                String maChuyen = lichTrinh.getMaChuyen();
+                if (maChuyen != null) {
+                    com.dao.DAO_ChuyenTau daoChuyen = new com.dao.DAO_ChuyenTau();
+                    List<com.dao.DAO_ChuyenTau.ChuyenTauRow> ctList = daoChuyen.getAll();
+                    for (com.dao.DAO_ChuyenTau.ChuyenTauRow row : ctList) {
+                        if (row.maChuyen.equals(maChuyen)) {
+                            this.tuyen = new com.dao.DAO_Tuyen().getTuyenByMa(row.maTuyen);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (this.kh == null) this.kh = khach;
         }
-        catch (Exception ignored) {}
 
-        // Vé 1 – Ghế cứng – 500,000đ
-        Ve ve1 = new Ve();
-        ve1.setMaVe("V001"); ve1.setKhachHang(kh); ve1.setChoNgoi(cho1);
-        ve1.setLichTrinh(lt); ve1.setLoaiVe(loaiVeNL); ve1.setGiaVe(500_000);
-        ve1.setTrangThaiVe(TrangThaiVe.CHUA_SU_DUNG);
+        refreshAll(); // Vẽ lại toàn bộ giao diện
+    }
 
-        // Vé 2 – Ghế mềm – 800,000đ
-        Ve ve2 = new Ve();
-        ve2.setMaVe("V002"); ve2.setKhachHang(kh2); ve2.setChoNgoi(cho2);
-        ve2.setLichTrinh(lt); ve2.setLoaiVe(loaiVeNL); ve2.setGiaVe(800_000);
-        ve2.setTrangThaiVe(TrangThaiVe.CHUA_SU_DUNG);
+    private Tuyen getTuyenByMaChuyen(String maChuyen) {
+        if (maChuyen == null || maChuyen.isEmpty()) return null;
+        if (tuyenByMaChuyenCache.containsKey(maChuyen)) return tuyenByMaChuyenCache.get(maChuyen);
 
-        VeEntry e1 = new VeEntry(); e1.ve = ve1;
-        VeEntry e2 = new VeEntry(); e2.ve = ve2;
-        dsVe.add(e1); dsVe.add(e2);
+        Tuyen result = null;
+        DAO_ChuyenTau daoChuyen = new DAO_ChuyenTau();
+        for (DAO_ChuyenTau.ChuyenTauRow row : daoChuyen.getAll()) {
+            if (maChuyen.equals(row.maChuyen)) {
+                result = new DAO_Tuyen().getTuyenByMa(row.maTuyen);
+                break;
+            }
+        }
+        tuyenByMaChuyenCache.put(maChuyen, result);
+        return result;
+    }
+
+    private String getTenTuyenForVe(Ve ve) {
+        if (ve == null || ve.getLichTrinh() == null) return "—";
+        Tuyen tuyenVe = getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen());
+        return tuyenVe != null ? tuyenVe.getTenTuyen() : "—";
+    }
+
+    // Hàm gọi DB lấy giá (Bạn có thể viết hàm này bên DAO_Gia)
+    private long getGiaVeTuDatabase(String maLT, String maLoaiToa, String maLoaiVe) {
+        long gia = 0;
+        String sql = "SELECT gd.gia FROM GiaDetail gd JOIN GiaHeader gh ON gd.maGia = gh.maGia " +
+                "WHERE gh.maLT = ? AND gd.maLoaiToa = ? AND gd.maLoaiVe = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maLT); ps.setString(2, maLoaiToa); ps.setString(3, maLoaiVe);
+            var rs = ps.executeQuery();
+            if (rs.next()) gia = rs.getLong("gia");
+        } catch (Exception e) { e.printStackTrace(); }
+        return gia == 0 ? 500000 : gia; // Nếu không có giá, trả về mặc định 500k
     }
 
     // =========================================================================
@@ -247,10 +321,18 @@ public class Step4_ThanhToan extends JPanel {
         scroll.getViewport().setBackground(Color.WHITE);
         card.add(scroll, BorderLayout.CENTER);
 
-        // ── Phương thức thanh toán (thay cho btn xác nhận) ──
-        JPanel pnlPTTT = buildPhuongThucPanel();
-        card.add(pnlPTTT, BorderLayout.SOUTH);
+        // Chỉ giữ 1 cụm thao tác ở dưới: PTTT + nút xác nhận
+        JPanel pnlBottom = new JPanel(new BorderLayout());
+        pnlBottom.setOpaque(false);
+        pnlBottom.add(buildPhuongThucPanel(), BorderLayout.CENTER);
 
+        JButton btnThanhToan = UIHelper.makeBtn("XÁC NHẬN THANH TOÁN", UIHelper.BtnStyle.PRIMARY);
+        btnThanhToan.setPreferredSize(new Dimension(0, 50));
+        btnThanhToan.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btnThanhToan.addActionListener(e -> xuLyThanhToanDatabase());
+        pnlBottom.add(btnThanhToan, BorderLayout.SOUTH);
+
+        card.add(pnlBottom, BorderLayout.SOUTH);
         return card;
     }
 
@@ -336,7 +418,7 @@ public class Step4_ThanhToan extends JPanel {
             ngayGio = ngay + "  " + gio;
         }
 
-        String tenTuyen = (tuyen != null) ? tuyen.getTenTuyen() : "—";
+        String tenTuyen = getTenTuyenForVe(ve);
         String cho  = ve.getChoNgoi() != null
                 ? ve.getChoNgoi().getToa().getTenToa() + " – Ghế " + ve.getChoNgoi().getTenCho() : "—";
         String loaiVeStr  = ve.getLoaiVe()  != null ? ve.getLoaiVe().getTenLoai()  : "—";
@@ -354,7 +436,8 @@ public class Step4_ThanhToan extends JPanel {
         JPanel bottom = new JPanel(new BorderLayout(8, 0)); bottom.setOpaque(false);
 
         // Load KMD khả dụng cho vé này (theo ngày hôm nay; có thể filter thêm theo tuyến/loại toa)
-        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(new Date(), ve.getLoaiVe(), ve.getChoNgoi().getToa().getLoaiToa(), tuyen);
+        Tuyen tuyenVe = (ve.getLichTrinh() != null) ? getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen()) : null;
+        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(new Date(), ve.getLoaiVe(), ve.getChoNgoi().getToa().getLoaiToa(), tuyenVe);
         KhuyenMaiDetail[] kmArr = dsKMD.toArray(new KhuyenMaiDetail[0]);
         JComboBox<KhuyenMaiDetail> cbKM = makeKMComboBox(kmArr);
 
@@ -448,7 +531,7 @@ public class Step4_ThanhToan extends JPanel {
         lKH.setFont(new Font("Segoe UI", Font.PLAIN, 14)); lKH.setForeground(UIHelper.TEXT_DARK);
 
         // Dòng 3: toa + loại + ngày/giờ
-        String tenTuyen = (tuyen != null) ? tuyen.getTenTuyen() : "—";
+        String tenTuyen = getTenTuyenForVe(ve);
         JLabel lblTuyen = new JLabel(tenTuyen);
         lblTuyen.setFont(new Font("Segoe UI", Font.PLAIN, 14)); lKH.setForeground(UIHelper.TEXT_DARK);
 
@@ -497,6 +580,116 @@ public class Step4_ThanhToan extends JPanel {
         row.add(left,  BorderLayout.CENTER);
         row.add(right, BorderLayout.EAST);
         return row;
+    }
+
+    // =========================================================================
+    // XỬ LÝ LƯU DATABASE (TRANSACTION)
+    // =========================================================================
+    private void xuLyThanhToanDatabase() {
+        if (dsVe.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Không có vé nào để thanh toán!");
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán và in vé?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        // Sinh mã Hóa Đơn (Ví dụ: HD20260412xxxx)
+        String maHD = "HD" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+
+        long tongTienCuoiCung = 0;
+        for (VeEntry e : dsVe) tongTienCuoiCung += e.thanhTien();
+
+        try {
+            // TẮT AUTO COMMIT ĐỂ BẢO VỆ DỮ LIỆU
+            conn.setAutoCommit(false);
+
+            // 1. INSERT VÀO BẢNG HOADON
+            String sqlHD = "INSERT INTO HoaDon (maHD, maNV, maKH, tongTien) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement psHD = conn.prepareStatement(sqlHD)) {
+                psHD.setString(1, maHD);
+                psHD.setString(2, nv.getMaNV());
+                psHD.setString(3, kh.getMaKH());
+                psHD.setLong(4, tongTienCuoiCung);
+                psHD.executeUpdate();
+            }
+
+            // LOOP TỪNG VÉ
+            String sqlVe = "INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe) VALUES (?, ?, ?, ?, ?, ?, ?, 'CHUASUDUNG')";
+            String sqlCTHD = "INSERT INTO ChiTietHoaDon (maHD, maVe, MaKMDetail, tienGoc, tienGiam, thanhTien) VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlChoNgoi = "UPDATE GheLichTrinh SET trangThai = 'DADAT' WHERE maLT = ? AND maToa = ? AND viTri = ?";
+            String sqlEnsureGhe = "IF NOT EXISTS (SELECT 1 FROM GheLichTrinh WHERE maLT = ? AND maToa = ? AND viTri = ?) " +
+                    "INSERT INTO GheLichTrinh(maLT, maToa, viTri, trangThai) VALUES (?, ?, ?, 'TRONG')";
+
+
+            try (PreparedStatement psVe = conn.prepareStatement(sqlVe);
+                 PreparedStatement psCTHD = conn.prepareStatement(sqlCTHD);
+                 PreparedStatement psCho = conn.prepareStatement(sqlChoNgoi);
+                 PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe)) {
+
+                for (int i = 0; i < dsVe.size(); i++) {
+                    VeEntry entry = dsVe.get(i);
+                    String maVeReal = maHD + "_V" + (i + 1); // Sinh mã vé: HDxxxx_V1, HDxxxx_V2
+
+                    String maLT = entry.ve.getLichTrinh().getMaLT();
+                    String maToa = entry.ve.getChoNgoi().getToa().getMaToa();
+                    String viTri = entry.ve.getChoNgoi().getTenCho();
+
+                    // 2.0 Đảm bảo ghế tồn tại trong GheLichTrinh trước khi insert Vé (tránh lỗi FK)
+                    psEnsureGhe.setString(1, maLT);
+                    psEnsureGhe.setString(2, maToa);
+                    psEnsureGhe.setString(3, viTri);
+                    psEnsureGhe.setString(4, maLT);
+                    psEnsureGhe.setString(5, maToa);
+                    psEnsureGhe.setString(6, viTri);
+                    psEnsureGhe.executeUpdate();
+
+                    // 2. INSERT VÀO BẢNG VE
+                    psVe.setString(1, maVeReal);
+                    psVe.setString(2, entry.ve.getKhachHang().getMaKH());
+                    psVe.setString(3, maLT);
+                    psVe.setString(4, maToa);
+                    psVe.setString(5, viTri);
+                    psVe.setString(6, entry.ve.getLoaiVe().getMaLoai());
+                    psVe.setLong(7, entry.tienGoc());
+                    psVe.executeUpdate();
+
+                    // 3. INSERT VÀO CHI TIẾT HÓA ĐƠN
+                    psCTHD.setString(1, maHD);
+                    psCTHD.setString(2, maVeReal);
+                    if (entry.kmChon != null) psCTHD.setString(3, entry.kmChon.getMaKMDetail());
+                    else psCTHD.setNull(3, java.sql.Types.VARCHAR);
+                    psCTHD.setLong(4, entry.tienGoc());
+                    psCTHD.setLong(5, entry.tienGiam());
+                    psCTHD.setLong(6, entry.thanhTien());
+                    psCTHD.executeUpdate();
+
+                    // 4. UPDATE TRẠNG THÁI GHẾ (DADAT)
+                    psCho.setString(1, maLT);
+                    psCho.setString(2, maToa);
+                    psCho.setString(3, viTri);
+                    psCho.executeUpdate();
+                }
+            }
+
+            // COMMIT TOÀN BỘ DỮ LIỆU LÊN SERVER
+            conn.commit();
+            conn.setAutoCommit(true);
+
+            JOptionPane.showMessageDialog(this, "Thanh toán thành công! Mã Hóa Đơn: " + maHD);
+
+            // Chuyển sang Step 5 (Thành công / In vé)
+            mainTab.nextStep();
+
+        } catch (Exception ex) {
+            try {
+                conn.rollback(); // NẾU CÓ LỖI, HỦY BỎ TOÀN BỘ QUÁ TRÌNH LƯU
+                conn.setAutoCommit(true);
+            } catch (Exception rbe) { rbe.printStackTrace(); }
+
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi thanh toán! Đã hoàn tác dữ liệu.\n" + ex.getMessage(), "Lỗi SQL", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // =========================================================================

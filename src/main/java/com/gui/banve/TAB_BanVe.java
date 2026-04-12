@@ -140,6 +140,10 @@ public class TAB_BanVe extends JPanel {
 		// Logic chuyển trang chung
 		if (currentStep < 4) {
 			currentStep++;
+			// NẾU LÀ BƯỚC 4 THÌ GỌI HÀM LOAD DỮ LIỆU
+			if (currentStep == 3) {
+				step4.loadDataFromSession();
+			}
 			switchCard();
 
 			// Nếu vừa bước vào Step 3 (index 2), bắt đầu đếm ngược giữ chỗ
@@ -173,8 +177,8 @@ public class TAB_BanVe extends JPanel {
 			btnNext.setVisible(true);
 			btnNext.setText("Chuyển đến Thanh toán");
 		} else if (currentStep == 3) {
-			btnNext.setVisible(true);
-			btnNext.setText("Xác nhận Thanh Toán");
+			// Step 4 đã có nút xác nhận riêng trong Step4_ThanhToan
+			btnNext.setVisible(false);
 		} else
 			btnNext.setVisible(false);
 
@@ -252,3 +256,4 @@ public class TAB_BanVe extends JPanel {
 		}
 	}
 }
+

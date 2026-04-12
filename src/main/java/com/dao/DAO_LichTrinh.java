@@ -1,6 +1,7 @@
 package com.dao;
 
 import com.connectDB.ConnectDB;
+import com.entities.LichTrinh;
 
 import java.sql.*;
 import java.text.SimpleDateFormat;
@@ -233,5 +234,31 @@ public class DAO_LichTrinh {
             e.printStackTrace();
         }
         return 0;
+    }
+    
+    // =========================================================================
+    // LẤY 1 LỊCH TRÌNH THEO MÃ LT (entity)
+    // =========================================================================
+    public LichTrinh getLichTrinhByMa(String maLT) {
+        String sql = "SELECT maLT, ngayKhoiHanh, gioKhoiHanh, maChuyen FROM LichTrinh WHERE maLT = ?";
+        try (Connection conn = ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maLT);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    LichTrinh lt = new LichTrinh();
+                    lt.setMaLT(rs.getString("maLT"));
+                    Date ngay = rs.getDate("ngayKhoiHanh");
+                    Time gio = rs.getTime("gioKhoiHanh");
+                    lt.setNgayKhoiHanh(ngay != null ? ngay.toLocalDate() : null);
+                    lt.setGioKhoiHanh(gio != null ? gio.toLocalTime() : null);
+                    lt.setMaChuyen(rs.getString("maChuyen"));
+                    return lt;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }

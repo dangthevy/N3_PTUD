@@ -114,4 +114,52 @@ public class DAO_ChoNgoi {
         } catch (SQLException e) { e.printStackTrace(); }
         return false;
     }
+    // Thêm hàm này vào DAO_ChoNgoi.java
+    public ChoNgoi getChoNgoiByMa(String maCho) {
+        // maCho từ Step2 có dạng: maToa_viTri (ví dụ TOA0001_12)
+        if (maCho == null || !maCho.contains("_")) return null;
+
+        String[] parts = maCho.split("_", 2);
+        if (parts.length < 2) return null;
+
+        String maToa = parts[0];
+        String viTri = parts[1];
+
+        // Chỉ cần thông tin Toa + LoaiToa để tính giá và hiển thị ở Step4
+        String sql = "SELECT t.maToa, t.tenToa, t.maLoaiToa, lt.tenLoaiToa " +
+                "FROM Toa t " +
+                "JOIN LoaiToa lt ON t.maLoaiToa = lt.maLoaiToa " +
+                "WHERE t.maToa = ?";
+
+        try (Connection conn = ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, maToa);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    ChoNgoi cn = new ChoNgoi();
+                    cn.setMaCho(maCho);
+                    cn.setTenCho(viTri);
+                    cn.setTrangThai(TrangThaiCho.TRONG);
+
+                    Toa toa = new Toa();
+                    toa.setMaToa(rs.getString("maToa"));
+                    toa.setTenToa(rs.getString("tenToa"));
+
+                    com.entities.LoaiToa loaiToa = new com.entities.LoaiToa();
+                    loaiToa.setMaLoaiToa(rs.getString("maLoaiToa"));
+                    loaiToa.setTenLoaiToa(rs.getString("tenLoaiToa"));
+                    toa.setLoaiToa(loaiToa);
+
+                    cn.setToa(toa);
+
+                    return cn;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 }

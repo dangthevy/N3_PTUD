@@ -19,7 +19,7 @@ GO
 CREATE TABLE Ga (
     maGa VARCHAR(10) PRIMARY KEY,
     tenGa NVARCHAR(100) NOT NULL,
-    diaChi NVARCHAR(255),           
+    diaChi NVARCHAR(255),            
     tinhThanh NVARCHAR(100) NOT NULL, 
     trangThai BIT DEFAULT 1
 );
@@ -202,7 +202,7 @@ CREATE TABLE HoaDon (
     maKH VARCHAR(15),
     tongTien DECIMAL(12,0) DEFAULT 0,
     FOREIGN KEY (maNV) REFERENCES NhanVien(maNV),
-    FOREIGN KEY (maKH) REFERENCES KhachHang(maKH)
+    CONSTRAINT FK_HoaDon_KhachHang FOREIGN KEY (maKH) REFERENCES KhachHang(maKH)
 );
 
 CREATE TABLE Ve (
@@ -217,7 +217,7 @@ CREATE TABLE Ve (
     
     CONSTRAINT UQ_Ve_Cho_LichTrinh UNIQUE (maLT, maToa, viTriGhe),
     
-    FOREIGN KEY (maKH) REFERENCES KhachHang(maKH),
+    CONSTRAINT FK_Ve_KhachHang FOREIGN KEY (maKH) REFERENCES KhachHang(maKH),
     FOREIGN KEY (maLoaiVe) REFERENCES LoaiVe(maLoai),
     FOREIGN KEY (maLT, maToa, viTriGhe) REFERENCES GheLichTrinh(maLT, maToa, viTri)
 );
@@ -430,4 +430,60 @@ WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
 GO
 
 PRINT N'✅ Database đã được đồng bộ 100% với Code Java. Hãy chạy Java để thấy các ghế 1,2,3... tự động Bôi Đỏ!';
+GO
 
+-- =========================================================================
+-- ĐỒNG BỘ DỮ LIỆU KHÁCH HÀNG (TRẠNG THÁI & ID) THEO YÊU CẦU BỔ SUNG
+-- =========================================================================
+
+-- Kiểm tra nếu cột chưa tồn tại thì mới thêm
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('KhachHang') AND name = 'trangThai')
+BEGIN
+    ALTER TABLE KhachHang ADD trangThai INT DEFAULT 1;
+END
+GO
+
+UPDATE KhachHang SET trangThai = 1;
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('KhachHang') AND name = 'id')
+BEGIN
+    ALTER TABLE KhachHang ADD id INT IDENTITY(1,1);
+END
+GO
+
+SELECT 
+    maKH AS old_maKH,
+    'KH' + RIGHT('00000000' + CAST(id AS VARCHAR(8)), 8) AS new_maKH
+INTO #tempMap
+FROM KhachHang;
+GO
+
+-- Drop khóa ngoại hiện tại thay vì NOCHECK (Do SQL Server không cho phép đổi PK nếu vẫn còn liên kết)
+ALTER TABLE Ve DROP CONSTRAINT FK_Ve_KhachHang;
+ALTER TABLE HoaDon DROP CONSTRAINT FK_HoaDon_KhachHang;
+GO
+
+UPDATE v
+SET v.maKH = t.new_maKH
+FROM Ve v
+JOIN #tempMap t ON v.maKH = t.old_maKH;
+
+UPDATE h
+SET h.maKH = t.new_maKH
+FROM HoaDon h
+JOIN #tempMap t ON h.maKH = t.old_maKH;
+
+UPDATE k
+SET k.maKH = t.new_maKH
+FROM KhachHang k
+JOIN #tempMap t ON k.maKH = t.old_maKH;
+GO
+
+-- Kích hoạt và gán lại khóa ngoại sau khi đã update xong ID
+ALTER TABLE Ve ADD CONSTRAINT FK_Ve_KhachHang FOREIGN KEY (maKH) REFERENCES KhachHang(maKH);
+ALTER TABLE HoaDon ADD CONSTRAINT FK_HoaDon_KhachHang FOREIGN KEY (maKH) REFERENCES KhachHang(maKH);
+GO
+
+DROP TABLE #tempMap;
+GO

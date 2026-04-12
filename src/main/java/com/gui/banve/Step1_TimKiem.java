@@ -79,7 +79,16 @@ public class Step1_TimKiem extends JPanel {
         gc.insets = new Insets(25, 0, 0, 0);
         pnlSearch.add(btnSearch, gc);
 
-        pnlWrapper.add(pnlSearch);
+        // Khai báo luật căn chỉnh cho pnlWrapper để đẩy form lên trên
+        GridBagConstraints wrapperGc = new GridBagConstraints();
+        wrapperGc.gridx = 0;
+        wrapperGc.gridy = 0;
+        wrapperGc.weightx = 1.0;
+        wrapperGc.weighty = 1.0; // Chiếm toàn bộ không gian dọc thừa
+        wrapperGc.anchor = GridBagConstraints.NORTH; // Neo (đẩy) form lên trên cùng
+        wrapperGc.insets = new Insets(40, 0, 0, 0);  // Cách lề trên 40px cho thoáng
+
+        pnlWrapper.add(pnlSearch, wrapperGc);
         add(pnlWrapper, BorderLayout.CENTER);
 
         btnSearch.addActionListener(e -> performSearch());

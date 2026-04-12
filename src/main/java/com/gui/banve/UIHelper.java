@@ -33,6 +33,11 @@ public class UIHelper {
 	public static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
 	public static final String DATE_FMT = "dd/MM/yyyy";
 
+	// ── Enum BtnStyle ───────────────────────────────────
+	public enum BtnStyle {
+		PRIMARY, SECONDARY, DANGER, SUCCESS
+	}
+
 	// =========================================================================
 	// HELPER COMPONENTS
 	// =========================================================================
@@ -84,20 +89,24 @@ public class UIHelper {
 		return cb;
 	}
 
-	public static JButton makeBtn(String text, boolean isPrimary) {
+	public static JButton makeBtn(String text, BtnStyle style) {
 		JButton b = new JButton(text) {
 			@Override
 			protected void paintComponent(Graphics g) {
 				Graphics2D g2 = (Graphics2D) g.create();
 				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				if (isPrimary)
+				if (style == BtnStyle.PRIMARY)
 					g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT);
+				else if (style == BtnStyle.DANGER)
+					g2.setColor(getModel().isRollover() ? new Color(0xC82333) : DANGER);
+				else if (style == BtnStyle.SUCCESS)
+					g2.setColor(getModel().isRollover() ? new Color(0x218838) : SUCCESS);
 				else
 					g2.setColor(getModel().isRollover() ? BORDER : BG_CARD);
 
 				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
 
-				if (!isPrimary) {
+				if (style == BtnStyle.SECONDARY) {
 					g2.setColor(BORDER);
 					g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
 				}
@@ -106,13 +115,17 @@ public class UIHelper {
 			}
 		};
 		b.setFont(F_LABEL);
-		b.setForeground(isPrimary ? Color.WHITE : TEXT_DARK);
+		b.setForeground(style != BtnStyle.SECONDARY ? Color.WHITE : TEXT_DARK);
 		b.setPreferredSize(new Dimension(200, 42));
 		b.setContentAreaFilled(false);
 		b.setBorderPainted(false);
 		b.setFocusPainted(false);
 		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		return b;
+	}
+
+	public static JButton makeBtn(String text, boolean isPrimary) {
+		return makeBtn(text, isPrimary ? BtnStyle.PRIMARY : BtnStyle.SECONDARY);
 	}
 
 	public static JToggleButton createSelectionTab(String text, boolean isSelected) {

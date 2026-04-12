@@ -154,4 +154,34 @@ public class DAO_KhachHang {
 		}
 		return null;
 	}
+	// Lấy thông tin chi tiết của một Khách Hàng dựa vào Mã Khách Hàng
+	public KhachHang getKhachHangByMa(String maKH) {
+		// Dùng cho Step 4 để lấy thông tin khách hàng lên hóa đơn
+		if (maKH == null || maKH.trim().isEmpty()) {
+			return null;
+		}
+
+		String sql = "SELECT maKH, tenKH, sdt, cccd, email FROM KhachHang WHERE maKH = ?";
+
+		try (Connection con = ConnectDB.getConnection();
+			 PreparedStatement stmt = con.prepareStatement(sql)) {
+
+			stmt.setString(1, maKH.trim());
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					return new KhachHang(
+							rs.getString("maKH"),
+							rs.getString("tenKH"),
+							rs.getString("sdt"),
+							rs.getString("cccd"),
+							rs.getString("email")
+					);
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
 }
