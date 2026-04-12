@@ -6,6 +6,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -28,6 +29,7 @@ public class TAB_Ga extends JPanel {
     private static final Color ACCENT_FOC   = new Color(0x4D9DE0);
     private static final Color TEXT_DARK    = new Color(0x1E2B3C);
     private static final Color TEXT_MID     = new Color(0x5A6A7D);
+    private static final Color TEXT_LIGHT   = new Color(0xA0AEC0);
     private static final Color BORDER       = new Color(0xE2EAF4);
     private static final Color ROW_ALT      = new Color(0xF7FAFF);
     private static final Color BTN2_BG      = new Color(0xF0F4FA);
@@ -35,7 +37,7 @@ public class TAB_Ga extends JPanel {
     private static final Color BTN_RED      = new Color(0xC0392B);
     private static final Color BTN_RED_HVR  = new Color(0xE74C3C);
 
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  18);
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD,  13);
     private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
 
@@ -47,63 +49,76 @@ public class TAB_Ga extends JPanel {
     private DefaultTableModel dataModel;
     private JTable table;
     private JTextField txtSearch;
+    private JLabel lblTotal, lblActive, lblInactive;
     private final DAO_Ga dsGa = new DAO_Ga();
 
     public TAB_Ga() {
-        setLayout(new BorderLayout(0, 8));
+        setLayout(new BorderLayout(0, 20));
         setBackground(BG_PAGE);
-        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        setBorder(new EmptyBorder(24, 24, 24, 24));
 
         initUI();
         updateTableData();
     }
 
     private void initUI() {
+        // ================= TOP PANEL (TITLE & DASHBOARD) =================
+        JPanel pnlTop = new JPanel(new BorderLayout(0, 20));
+        pnlTop.setOpaque(false);
+
         JLabel title = new JLabel("QUẢN LÝ GA");
-        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        top.setOpaque(false); top.add(title); top.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
+        pnlTop.add(title, BorderLayout.NORTH);
 
-        JPanel searchCard = makeCard(new BorderLayout(9, 0));
-        searchCard.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(12, 12, 12, 12)));
+        JPanel pnlDashboard = new JPanel(new GridLayout(1, 3, 20, 0));
+        pnlDashboard.setOpaque(false);
+        pnlDashboard.add(createStatCard("TỔNG SỐ GA", lblTotal = new JLabel("0"), ACCENT));
+        pnlDashboard.add(createStatCard("ĐANG HOẠT ĐỘNG", lblActive = new JLabel("0"), new Color(39, 174, 96)));
+        pnlDashboard.add(createStatCard("NGƯNG HOẠT ĐỘNG", lblInactive = new JLabel("0"), new Color(192, 57, 43)));
+        pnlTop.add(pnlDashboard, BorderLayout.CENTER);
 
-        txtSearch = makeField("");
-        txtSearch.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Nhập tên hoặc mã ga để tìm kiếm...");
-        txtSearch.putClientProperty(FlatClientProperties.STYLE, "arc: 15");
+        // ================= CENTER PANEL (TOOL BAR & TABLE) =================
+        JPanel centerPnl = makeCard(new BorderLayout(0, 15));
+        centerPnl.setBorder(BorderFactory.createCompoundBorder(
+                new ShadowBorder(), new EmptyBorder(15, 15, 15, 15)
+        ));
 
-        JButton btnXoa = makeBtn("Xóa", BtnStyle.DANGER);
-        JButton btnThem = makeBtn("Thêm", BtnStyle.PRIMARY);
+        JPanel pnlToolbar = new JPanel(new BorderLayout());
+        pnlToolbar.setOpaque(false);
 
-        btnXoa.setPreferredSize(new Dimension(80, 36));
-        btnThem.setPreferredSize(new Dimension(80, 36));
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlSearch.setOpaque(false);
+        txtSearch = makeField("Nhập tên hoặc mã ga để tìm kiếm...");
+        txtSearch.setPreferredSize(new Dimension(300, 36));
+        pnlSearch.add(txtSearch);
 
-        JPanel btnGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        btnGroup.setOpaque(false);
-        btnGroup.add(btnThem);
-        btnGroup.add(btnXoa);
+        JButton btnXoa = makeBtn("- Xóa", BtnStyle.DANGER);
+        JButton btnThem = makeBtn("+ Thêm Mới", BtnStyle.PRIMARY);
 
-        searchCard.add(txtSearch, BorderLayout.CENTER);
-        searchCard.add(btnGroup, BorderLayout.EAST);
+        JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        pnlButtons.setOpaque(false);
+        pnlButtons.add(btnXoa);
+        pnlButtons.add(btnThem);
 
-        JPanel tableCard = makeCard(new BorderLayout());
-        String[] cols = {"Mã Ga", "Tên Ga", "Địa chỉ"};
+        pnlToolbar.add(pnlSearch, BorderLayout.WEST);
+        pnlToolbar.add(pnlButtons, BorderLayout.EAST);
+
+        String[] cols = {"Mã Ga", "Tên Ga", "Địa chỉ", "Tỉnh Thành"};
         dataModel = new DefaultTableModel(cols, 0);
         table = buildTable(dataModel);
 
         table.getColumnModel().getColumn(0).setPreferredWidth(80);
         table.getColumnModel().getColumn(1).setPreferredWidth(150);
-        table.getColumnModel().getColumn(2).setPreferredWidth(250);
+        table.getColumnModel().getColumn(2).setPreferredWidth(200);
+        table.getColumnModel().getColumn(3).setPreferredWidth(120);
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBorder(new LineBorder(BORDER));
         scrollPane.getViewport().setBackground(BG_CARD);
         styleScrollBar(scrollPane.getVerticalScrollBar());
 
-        JPanel corner = new JPanel();
-        corner.setBackground(ACCENT);
-        scrollPane.setCorner(JScrollPane.UPPER_RIGHT_CORNER, corner);
-
-        tableCard.add(scrollPane, BorderLayout.CENTER);
+        centerPnl.add(pnlToolbar, BorderLayout.NORTH);
+        centerPnl.add(scrollPane, BorderLayout.CENTER);
 
         // XỬ LÝ SỰ KIỆN
         txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -112,10 +127,12 @@ public class TAB_Ga extends JPanel {
             public void changedUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
             private void thucHienTimKiem() {
                 String tuKhoa = txtSearch.getText().trim();
+                if(tuKhoa.equals("Nhập tên hoặc mã ga để tìm kiếm...")) return;
+
                 List<Ga> listKetQua = dsGa.timKiemGa(tuKhoa);
                 dataModel.setRowCount(0);
                 for (Ga ga : listKetQua) {
-                    dataModel.addRow(new Object[]{ga.getMaGa(), ga.getTenGa(), ga.getDiaChi()});
+                    dataModel.addRow(new Object[]{ga.getMaGa(), ga.getTenGa(), ga.getDiaChi(), ga.getTinhThanh()});
                 }
             }
         });
@@ -136,11 +153,7 @@ public class TAB_Ga extends JPanel {
             }
         });
 
-        add(top, BorderLayout.NORTH);
-        JPanel centerPnl = new JPanel(new BorderLayout(0, 12));
-        centerPnl.setOpaque(false);
-        centerPnl.add(searchCard, BorderLayout.NORTH);
-        centerPnl.add(tableCard, BorderLayout.CENTER);
+        add(pnlTop, BorderLayout.NORTH);
         add(centerPnl, BorderLayout.CENTER);
     }
 
@@ -148,8 +161,13 @@ public class TAB_Ga extends JPanel {
         List<Ga> list = dsGa.getAllGa();
         dataModel.setRowCount(0);
         for (Ga ga : list) {
-            dataModel.addRow(new Object[]{ga.getMaGa(), ga.getTenGa(), ga.getDiaChi()});
+            dataModel.addRow(new Object[]{ga.getMaGa(), ga.getTenGa(), ga.getDiaChi(), ga.getTinhThanh()});
         }
+
+        // Cập nhật thẻ Dashboard
+        lblTotal.setText(String.valueOf(list.size()));
+        lblActive.setText(String.valueOf(list.size()));
+        lblInactive.setText("0"); // Do DAO hiện tại chỉ lấy Ga đang hoạt động
     }
 
     private void xoaGa() {
@@ -179,11 +197,13 @@ public class TAB_Ga extends JPanel {
         JTextField txtMa = roField(dsGa.phatSinhMaGa());
         JTextField txtTen = makeField("");
         JTextField txtDiaChi = makeField("");
+        JTextField txtTinhThanh = makeField("");
 
         int r = 0;
         addRow(form, gc, r++, "Mã Ga:", txtMa);
         addRow(form, gc, r++, "Tên Ga:", txtTen);
         addRow(form, gc, r++, "Địa chỉ:", txtDiaChi);
+        addRow(form, gc, r++, "Tỉnh thành:", txtTinhThanh);
 
         JButton btnHuy = makeBtn("Hủy", BtnStyle.SECONDARY);
         JButton btnThem = makeBtn("Thêm", BtnStyle.PRIMARY);
@@ -200,7 +220,7 @@ public class TAB_Ga extends JPanel {
                 }
             }
 
-            Ga gaMoi = new Ga(txtMa.getText(), tenMoi, txtDiaChi.getText().trim());
+            Ga gaMoi = new Ga(txtMa.getText(), tenMoi, txtDiaChi.getText().trim(), txtTinhThanh.getText().trim());
             if (dsGa.addGa(gaMoi)) {
                 JOptionPane.showMessageDialog(dialog, "Thêm Ga thành công!");
                 updateTableData();
@@ -230,11 +250,13 @@ public class TAB_Ga extends JPanel {
         JTextField txtMa = roField(gaHienTai.getMaGa());
         JTextField txtTen = makeField(""); txtTen.setText(gaHienTai.getTenGa());
         JTextField txtDiaChi = makeField(""); txtDiaChi.setText(gaHienTai.getDiaChi());
+        JTextField txtTinhThanh = makeField(""); txtTinhThanh.setText(gaHienTai.getTinhThanh());
 
         int r = 0;
         addRow(form, gc, r++, "Mã Ga:", txtMa);
         addRow(form, gc, r++, "Tên Ga:", txtTen);
         addRow(form, gc, r++, "Địa chỉ:", txtDiaChi);
+        addRow(form, gc, r++, "Tỉnh thành:", txtTinhThanh);
 
         JButton btnHuy = makeBtn("Hủy", BtnStyle.SECONDARY);
         JButton btnSua = makeBtn("Cập nhật", BtnStyle.PRIMARY);
@@ -251,7 +273,7 @@ public class TAB_Ga extends JPanel {
                 }
             }
 
-            Ga gaCapNhat = new Ga(txtMa.getText(), tenSua, txtDiaChi.getText().trim());
+            Ga gaCapNhat = new Ga(txtMa.getText(), tenSua, txtDiaChi.getText().trim(), txtTinhThanh.getText().trim());
             if (dsGa.updateGa(gaCapNhat)) {
                 JOptionPane.showMessageDialog(dialog, "Cập nhật Ga thành công!");
                 updateTableData();
@@ -271,6 +293,18 @@ public class TAB_Ga extends JPanel {
     // =========================================================================
     // HELPER UI CHUNG
     // =========================================================================
+    private JPanel createStatCard(String title, JLabel lblValue, Color accent) {
+        JPanel p = makeCard(new BorderLayout());
+        p.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(15, 20, 15, 20)));
+        JLabel lblT = new JLabel(title);
+        lblT.setForeground(TEXT_MID);
+        lblT.setFont(F_LABEL);
+        lblValue.setForeground(accent);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        p.add(lblT, BorderLayout.NORTH); p.add(lblValue, BorderLayout.CENTER);
+        return p;
+    }
+
     private JTable buildTable(DefaultTableModel model) {
         JTable t = new JTable(model) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -280,7 +314,7 @@ public class TAB_Ga extends JPanel {
                 return c;
             }
         };
-        t.setRowHeight(36); t.setFont(F_CELL);
+        t.setRowHeight(38); t.setFont(F_CELL);
         t.setBackground(BG_CARD); t.setSelectionBackground(new Color(0xDDEEFF));
         t.setSelectionForeground(TEXT_DARK); t.setGridColor(BORDER);
         t.setShowHorizontalLines(true); t.setShowVerticalLines(false); t.setFocusable(false);
@@ -308,7 +342,16 @@ public class TAB_Ga extends JPanel {
     }
 
     private JTextField makeField(String hint) {
-        JTextField tf = new JTextField();
+        JTextField tf = new JTextField() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create(); g2.setColor(TEXT_LIGHT);
+                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                    g2.drawString(hint, getInsets().left + 4, getHeight() / 2 + 5); g2.dispose();
+                }
+            }
+        };
         tf.setFont(F_CELL); tf.setForeground(TEXT_DARK); tf.setBackground(new Color(0xF8FAFD));
         tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10)));
         tf.addFocusListener(new java.awt.event.FocusAdapter() {
@@ -345,7 +388,7 @@ public class TAB_Ga extends JPanel {
             }
         };
         b.setFont(F_LABEL); b.setForeground(style == BtnStyle.SECONDARY ? BTN2_FG : Color.WHITE);
-        b.setPreferredSize(new Dimension(style == BtnStyle.DANGER ? 80 : 130, 36));
+        b.setPreferredSize(new Dimension(style == BtnStyle.DANGER ? 110 : 130, 36));
         b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b;
     }

@@ -90,7 +90,7 @@ CREATE TABLE LichTrinh (
     maLT VARCHAR(15) PRIMARY KEY,
     ngayKhoiHanh DATE,
     gioKhoiHanh TIME,
-    gioDen TIME,
+    ngayDen TIME,
     maChuyen VARCHAR(15),
     FOREIGN KEY (maChuyen) REFERENCES ChuyenTau(maChuyen) ON DELETE CASCADE
 );

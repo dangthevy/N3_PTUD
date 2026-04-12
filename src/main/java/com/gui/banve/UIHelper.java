@@ -168,6 +168,9 @@ public class UIHelper {
         private JWindow            popup;
         private boolean            isEnabled = true;
 
+        // THÊM CÔNG TẮC KHÓA NGÀY QUÁ KHỨ
+        private boolean            disablePastDates = false;
+
         private static final String[] TEN_THANG={"Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"};
         private static final String[] TEN_THU={"T2","T3","T4","T5","T6","T7","CN"};
 
@@ -206,6 +209,11 @@ public class UIHelper {
             repaint();
         }
 
+        // THÊM HÀM ĐỂ BẬT TÍNH NĂNG KHÓA NGÀY
+        public void setDisablePastDates(boolean disablePastDates) {
+            this.disablePastDates = disablePastDates;
+        }
+
         public void setDate(String date) { txt.setText(date); }
         public String getDate() { return txt.getText(); }
 
@@ -240,26 +248,50 @@ public class UIHelper {
             for(String th:TEN_THU){JLabel l=new JLabel(th,SwingConstants.CENTER);l.setFont(new Font("Segoe UI",Font.BOLD,11));l.setPreferredSize(new Dimension(32,24));l.setForeground(TEXT_MID);pnlGrid.add(l);}
             Calendar tmp=(Calendar)cal.clone();tmp.set(Calendar.DAY_OF_MONTH,1);int first=(tmp.get(Calendar.DAY_OF_WEEK)+5)%7;
             Calendar today=Calendar.getInstance();int todayD=today.get(Calendar.DAY_OF_MONTH);
+
+            // XÓA GIỜ/PHÚT CỦA NGÀY HIỆN TẠI ĐỂ SO SÁNH CHÍNH XÁC
+            Calendar todayClear = Calendar.getInstance();
+            todayClear.set(Calendar.HOUR_OF_DAY, 0); todayClear.set(Calendar.MINUTE, 0); todayClear.set(Calendar.SECOND, 0); todayClear.set(Calendar.MILLISECOND, 0);
+
             boolean sm=today.get(Calendar.MONTH)==cal.get(Calendar.MONTH)&&today.get(Calendar.YEAR)==cal.get(Calendar.YEAR);
             int chosen=-1;
             try{Calendar c=Calendar.getInstance();c.setTime(new SimpleDateFormat(DATE_FMT).parse(txt.getText()));if(c.get(Calendar.MONTH)==cal.get(Calendar.MONTH)&&c.get(Calendar.YEAR)==cal.get(Calendar.YEAR))chosen=c.get(Calendar.DAY_OF_MONTH);}catch(Exception ignored){}
             for(int i=0;i<first;i++)pnlGrid.add(new JLabel());
             int days=cal.getActualMaximum(Calendar.DAY_OF_MONTH);final int fc=chosen;
+
             for(int d=1;d<=days;d++){
-                final int nd=d;boolean isT=sm&&d==todayD;boolean isSel=d==fc;
+                final int nd=d;
+                boolean isT=sm&&d==todayD;
+                boolean isSel=d==fc;
+
+                // KIỂM TRA XEM NGÀY NÀY CÓ PHẢI LÀ QUÁ KHỨ KHÔNG
+                Calendar cellCal = (Calendar) cal.clone();
+                cellCal.set(Calendar.DAY_OF_MONTH, d);
+                cellCal.set(Calendar.HOUR_OF_DAY, 0); cellCal.set(Calendar.MINUTE, 0); cellCal.set(Calendar.SECOND, 0); cellCal.set(Calendar.MILLISECOND, 0);
+                boolean isPast = disablePastDates && cellCal.before(todayClear);
+
                 JButton b=new JButton(String.valueOf(d)){
                     @Override protected void paintComponent(Graphics g){
                         Graphics2D g2=(Graphics2D)g.create();g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                         if(isSel){g2.setColor(ACCENT);g2.fillOval(1,1,getWidth()-2,getHeight()-2);}
-                        else if(getModel().isRollover()){g2.setColor(new Color(0xDDEEFF));g2.fillOval(1,1,getWidth()-2,getHeight()-2);}
-                        else if(isT){g2.setColor(new Color(0xE8F1FB));g2.fillOval(1,1,getWidth()-2,getHeight()-2);}
+                        else if(getModel().isRollover() && !isPast){g2.setColor(new Color(0xDDEEFF));g2.fillOval(1,1,getWidth()-2,getHeight()-2);}
+                        else if(isT && !isPast){g2.setColor(new Color(0xE8F1FB));g2.fillOval(1,1,getWidth()-2,getHeight()-2);}
                         g2.dispose();super.paintComponent(g);
                     }
                 };
-                b.setFont(new Font("Segoe UI",isT?Font.BOLD:Font.PLAIN,11));b.setForeground(isSel?Color.WHITE:isT?ACCENT:TEXT_DARK);
+                b.setFont(new Font("Segoe UI",isT?Font.BOLD:Font.PLAIN,11));
                 b.setPreferredSize(new Dimension(32,32));b.setContentAreaFilled(false);b.setBorderPainted(false);b.setFocusPainted(false);b.setMargin(new Insets(0,0,0,0));
-                b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                b.addActionListener(e->{cal.set(Calendar.DAY_OF_MONTH,nd);txt.setText(new SimpleDateFormat(DATE_FMT).format(cal.getTime()));if(popup!=null){popup.dispose();popup=null;}});
+
+                // NẾU LÀ NGÀY QUÁ KHỨ -> ĐỔI MÀU XÁM, KHÔNG CHO BẤM
+                if (isPast) {
+                    b.setForeground(new Color(200, 200, 200));
+                    b.setEnabled(false);
+                } else {
+                    b.setForeground(isSel?Color.WHITE:isT?ACCENT:TEXT_DARK);
+                    b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    b.addActionListener(e->{cal.set(Calendar.DAY_OF_MONTH,nd);txt.setText(new SimpleDateFormat(DATE_FMT).format(cal.getTime()));if(popup!=null){popup.dispose();popup=null;}});
+                }
+
                 pnlGrid.add(b);
             }
             pnlGrid.revalidate();pnlGrid.repaint();

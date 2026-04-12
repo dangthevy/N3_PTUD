@@ -16,7 +16,8 @@ public class DAO_Ga {
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                dsGa.add(new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi")));
+                // Cập nhật: Thêm thuộc tính tinhThanh
+                dsGa.add(new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi"), rs.getString("tinhThanh")));
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return dsGa;
@@ -31,7 +32,7 @@ public class DAO_Ga {
             ps.setString(1, maGa);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    ga = new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi"));
+                    ga = new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi"), rs.getString("tinhThanh"));
                 }
             }
         } catch (SQLException e) { e.printStackTrace(); }
@@ -53,16 +54,19 @@ public class DAO_Ga {
 
     public List<Ga> timKiemGa(String tuKhoa) {
         List<Ga> dsGa = new ArrayList<>();
-        // CHỈ TÌM KIẾM TRONG CÁC GA ĐANG HOẠT ĐỘNG
-        String sql = "SELECT * FROM Ga WHERE (trangThai = 1 OR trangThai IS NULL) AND (maGa LIKE ? OR tenGa LIKE ? OR diaChi LIKE ?)";
+        // Tìm kiếm trên cả mã ga, tên ga, địa chỉ và tỉnh thành
+        String sql = "SELECT * FROM Ga WHERE (trangThai = 1 OR trangThai IS NULL) AND (maGa LIKE ? OR tenGa LIKE ? OR diaChi LIKE ? OR tinhThanh LIKE ?)";
 
         try(Connection conn = ConnectDB.getConnection();
             PreparedStatement ps = conn.prepareStatement(sql)){
             String searchPattern = "%" + tuKhoa + "%";
-            ps.setString(1, searchPattern); ps.setString(2, searchPattern); ps.setString(3, searchPattern);
+            ps.setString(1, searchPattern);
+            ps.setString(2, searchPattern);
+            ps.setString(3, searchPattern);
+            ps.setString(4, searchPattern);
             try(ResultSet rs = ps.executeQuery()) {
                 while(rs.next()){
-                    dsGa.add(new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi")));
+                    dsGa.add(new Ga(rs.getString("maGa"), rs.getString("tenGa"), rs.getString("diaChi"), rs.getString("tinhThanh")));
                 }
             }
         } catch (SQLException e) { e.printStackTrace(); }
@@ -70,19 +74,27 @@ public class DAO_Ga {
     }
 
     public boolean addGa(Ga ga) {
-        String sql = "INSERT INTO Ga (maGa, tenGa, diaChi) VALUES (?, ?, ?)";
+        // Cập nhật: Thêm tinhThanh vào truy vấn INSERT
+        String sql = "INSERT INTO Ga (maGa, tenGa, diaChi, tinhThanh) VALUES (?, ?, ?, ?)";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, ga.getMaGa()); ps.setString(2, ga.getTenGa()); ps.setString(3, ga.getDiaChi());
+            ps.setString(1, ga.getMaGa());
+            ps.setString(2, ga.getTenGa());
+            ps.setString(3, ga.getDiaChi());
+            ps.setString(4, ga.getTinhThanh());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { return false; }
     }
 
     public boolean updateGa(Ga ga) {
-        String sql = "UPDATE Ga SET tenGa = ?, diaChi = ? WHERE maGa = ?";
+        // Cập nhật: Thêm tinhThanh vào truy vấn UPDATE
+        String sql = "UPDATE Ga SET tenGa = ?, diaChi = ?, tinhThanh = ? WHERE maGa = ?";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, ga.getTenGa()); ps.setString(2, ga.getDiaChi()); ps.setString(3, ga.getMaGa());
+            ps.setString(1, ga.getTenGa());
+            ps.setString(2, ga.getDiaChi());
+            ps.setString(3, ga.getTinhThanh());
+            ps.setString(4, ga.getMaGa());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { return false; }
     }
