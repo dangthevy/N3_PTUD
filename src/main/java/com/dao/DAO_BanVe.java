@@ -25,12 +25,13 @@ public class DAO_BanVe {
 	// 2. Tìm Lịch trình, tính toán Tổng ghế và Ghế đã đặt để lên UI
 	public List<Map<String, Object>> timChuyenTau(String maGaDi, String maGaDen, String ngayDi) {
 		List<Map<String, Object>> list = new ArrayList<>();
-		String sql = "SELECT t.maTau, t.tenTau, lt.gioKhoiHanh, lt.gioDen, lt.maLT, "
+		String sql = "SELECT t.maTau, t.tenTau, lt.gioKhoiHanh, CONVERT(VARCHAR(5), lt.ngayDen, 108) AS gioDen, lt.maLT, "
 				+ "(SELECT ISNULL(SUM(toa.soGhe), 0) FROM ChiTietTau ctt JOIN Toa toa ON ctt.maToa = toa.maToa WHERE ctt.maTau = t.maTau) as tongGhe, "
 				+ "(SELECT COUNT(*) FROM GheLichTrinh glt WHERE glt.maLT = lt.maLT AND glt.trangThai != 'TRONG') as gheDaDat "
 				+ "FROM LichTrinh lt " + "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
 				+ "JOIN Tuyen ty ON ct.maTuyen = ty.maTuyen " + "JOIN Tau t ON ct.maTau = t.maTau "
 				+ "WHERE ty.gaDi = ? AND ty.gaDen = ? AND lt.ngayKhoiHanh = ?";
+
 		try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
 			ps.setString(1, maGaDi);
 			ps.setString(2, maGaDen);
