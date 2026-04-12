@@ -185,29 +185,26 @@ public class DAO_NhanVien {
         return null;
     }
 
-    public boolean create(String taiKhoan, String tenNV, String matKhau, String chucVu) {
-        String sql = "INSERT INTO NhanVien (maNV, tenNV, taiKhoan, matKhau, chucVu, trangThai, ngayVaoLam) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            // Vì là đăng ký mới, ta tạm lấy maNV trùng với taiKhoan hoặc dùng cơ chế sinh
-            // mã
-            ps.setString(1, taiKhoan);
-            ps.setString(2, tenNV);
-            ps.setString(3, taiKhoan);
-            ps.setString(4, matKhau);
-
-            // Chuyển đổi String sang Enum (Giả sử bạn dùng chuẩn Tiếng Việt hoặc map tương
-            // ứng)
-            ps.setString(5, chucVu.equals("Quản lý") ? "QUANLY" : "NHANVIEN");
-            ps.setString(6, "HOATDONG");
-            ps.setDate(7, new java.sql.Date(System.currentTimeMillis()));
-
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
+    public boolean create(String ten, String sdt, String email, String tk, String mk, String cv, int tinhTrang, int an, java.sql.Date ngayVaoLam) {
+    // BỎ maNV ra khỏi danh sách cột và VALUES
+    String sql = "INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, An, ngayVaoLam) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    try (PreparedStatement pst = conn.prepareStatement(sql)) {
+        pst.setString(1, ten);
+        pst.setString(2, sdt);
+        pst.setString(3, email);
+        pst.setString(4, tk);
+        pst.setString(5, mk);
+        pst.setString(6, cv);
+        pst.setInt(7, tinhTrang); 
+        pst.setInt(8, an);        
+        pst.setDate(9, ngayVaoLam);
+        
+        return pst.executeUpdate() > 0;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
     }
+}
 
     public boolean verifyUserByEmail(String taiKhoan, String email) {
         String sql = "SELECT COUNT(*) FROM NhanVien WHERE taiKhoan = ? AND email = ?";
