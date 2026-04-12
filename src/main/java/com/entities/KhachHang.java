@@ -8,14 +8,16 @@ public class KhachHang {
 	private String sdt;
 	private String cccd;
 	private String email;
+	private int trangThai;
 
 	// Constructor đầy đủ tham số
 	public KhachHang(String maKH, String hoTen, String sdt, String cccd, String email) {
-		this.maKH = maKH;
-		this.hoTen = hoTen;
-		this.sdt = sdt;
-		this.cccd = cccd;
-		this.email = email;
+	    this.maKH = maKH;
+	    this.hoTen = hoTen;
+	    this.sdt = sdt;
+	    this.cccd = cccd;
+	    this.email = email;
+	    this.trangThai = 1;
 	}
 
 	// Constructor mặc định
@@ -63,10 +65,18 @@ public class KhachHang {
 		this.email = email;
 	}
 
-	// Override toString để debug nếu cần
+	public int getTrangThai() {
+		return trangThai;
+	}
+
+	public void setTrangThai(int trangThai) {
+		this.trangThai = trangThai;
+	}
+
 	@Override
 	public String toString() {
-		return "KhachHang [maKH=" + maKH + ", hoTen=" + hoTen + ", sdt=" + sdt + "]";
+		return "KhachHang [maKH=" + maKH + ", hoTen=" + hoTen + ", sdt=" + sdt + ", cccd=" + cccd + ", email=" + email
+				+ ", trangThai=" + trangThai + "]";
 	}
 
 	// So sánh 2 khách hàng dựa trên mã hoặc CCCD (hữu ích cho việc kiểm tra trùng)

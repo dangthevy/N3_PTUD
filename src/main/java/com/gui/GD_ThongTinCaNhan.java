@@ -3,243 +3,310 @@ package com.gui;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-
 import com.entities.NhanVien;
 import com.dao.DAO_NhanVien;
 import com.connectDB.ConnectDB;
 
 public class GD_ThongTinCaNhan extends JDialog {
+
+    // ================= COLOR (đồng bộ TAB_QLNhanVien) =================
+    private static final Color BG_PAGE    = new Color(0xF4F7FB);
+    private static final Color BG_CARD    = Color.WHITE;
+    private static final Color ACCENT     = new Color(0x1A5EAB);
+    private static final Color ACCENT_HVR = new Color(0x2270CC);
+    private static final Color TEXT_DARK  = new Color(0x1E2B3C);
+    private static final Color TEXT_MID   = new Color(0x5A6A7D);
+    private static final Color BORDER     = new Color(0xE2EAF4);
+    private static final Color BTN_RED    = new Color(0xC0392B);
+    private static final Color BTN_GREEN  = new Color(0x16A34A);
+    private static final Color BTN_GREEN_HVR = new Color(0x22C55E);
+    private static final Color COLOR_BORDER = new Color(226, 232, 240);
+
+    // ================= FONT (đồng bộ TAB_QLNhanVien) =================
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 22);
+    private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
+    private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
+    private static final Font F_MUTED = new Font("Segoe UI", Font.BOLD, 12);
+
+    private enum BtnStyle { PRIMARY, SUCCESS, DANGER }
+
     private NhanVien nv;
     private DAO_NhanVien daoNV;
 
-    private final Color PRIMARY_COLOR = new Color(41, 128, 185);
-    private final Color SECONDARY_COLOR = new Color(236, 240, 241);
-    private final Color SUCCESS_COLOR = new Color(39, 174, 96);
-    private final Color DANGER_COLOR = new Color(192, 57, 43);
-
     private JTextField txtTen, txtSdt, txtEmail;
     private JLabel lblMa, lblTaiKhoan, lblChucVu, lblNgayVao, lblTrangThai, lblHeaderName;
-    private JButton btnEditSave, btnChangePass;
+    private JButton btnEditSave, btnLogout;
     private boolean isEditMode = false;
 
     public GD_ThongTinCaNhan(JFrame parent, NhanVien nv) {
         super(parent, "Thông tin cá nhân", true);
-        this.nv = nv;
+        this.nv    = nv;
         this.daoNV = new DAO_NhanVien(ConnectDB.getConnection());
 
-        setSize(750, 600);
+        setSize(780, 560);
         setLocationRelativeTo(parent);
-        getContentPane().setBackground(Color.WHITE);
+        getContentPane().setBackground(BG_PAGE);
         setLayout(new BorderLayout());
 
-        // --- 1. HEADER PANEL ---
-        JPanel pnlHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 20));
-        pnlHeader.setBackground(PRIMARY_COLOR);
+        add(buildHeader(),  BorderLayout.NORTH);
+        add(buildContent(), BorderLayout.CENTER);
+        add(buildFooter(),  BorderLayout.SOUTH);
 
-        JLabel lblAvatar = new JLabel();
-        // Cập nhật đường dẫn ảnh mới theo yêu cầu
-        java.net.URL imgURL = getClass().getResource("/com/img/avatar.jpg");
-        if (imgURL != null) {
-            lblAvatar.setIcon(
-                    new ImageIcon(new ImageIcon(imgURL).getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH)));
-        } else {
-            lblAvatar.setText("👤");
-            lblAvatar.setFont(new Font("Segoe UI", Font.PLAIN, 40));
-            lblAvatar.setForeground(Color.WHITE);
-        }
+        setEditMode(false);
+        initEvents(parent);
+    }
 
+    // ─── HEADER (giống table header của QLNhanVien: ACCENT đậm) ──────────────
+    private JPanel buildHeader() {
+        JPanel pnl = new JPanel(new BorderLayout());
+        pnl.setBackground(ACCENT);
+        pnl.setBorder(new EmptyBorder(14, 24, 14, 24));
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        left.setOpaque(false);
+        JLabel lblAvatar = new JLabel("👤");
+        lblAvatar.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 36));
+        lblAvatar.setForeground(Color.WHITE);
         lblHeaderName = new JLabel(nv.getTenNV().toUpperCase());
-        lblHeaderName.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        lblHeaderName.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblHeaderName.setForeground(Color.WHITE);
+        left.add(lblAvatar);
+        left.add(lblHeaderName);
 
-        pnlHeader.add(lblAvatar);
-        pnlHeader.add(lblHeaderName);
-        add(pnlHeader, BorderLayout.NORTH);
+        btnLogout = makeBtn("Đăng xuất", BtnStyle.DANGER);
+        btnLogout.setPreferredSize(new Dimension(110, 34));
 
-        // --- 2. CENTER PANEL ---
-        JPanel pnlContent = new JPanel(new GridBagLayout());
-        pnlContent.setOpaque(false);
-        pnlContent.setBorder(new EmptyBorder(30, 40, 30, 40));
+        pnl.add(left,      BorderLayout.WEST);
+        pnl.add(btnLogout, BorderLayout.EAST);
+        return pnl;
+    }
+
+    // ─── CONTENT: card trắng chứa 2 cột thông tin ────────────────────────────
+    private JPanel buildContent() {
+        // Wrapper nền xám
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(BG_PAGE);
+        wrapper.setBorder(new EmptyBorder(20, 24, 10, 24));
+
+        // Card trắng
+        JPanel card = new JPanel(new GridBagLayout());
+        card.setBackground(BG_CARD);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                new ShadowBorder(),
+                new EmptyBorder(24, 30, 24, 30)));
+
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(10, 15, 10, 15);
+        gbc.fill    = GridBagConstraints.HORIZONTAL;
+        gbc.insets  = new Insets(10, 12, 10, 12);
         gbc.weightx = 0.5;
 
-        lblMa = new JLabel(nv.getMaNV());
-        txtTen = createInfoField(nv.getTenNV());
-        txtSdt = createInfoField(nv.getSdt());
-        txtEmail = createInfoField(nv.getEmail());
-        lblTaiKhoan = new JLabel(nv.getTaiKhoan());
-        lblChucVu = new JLabel(nv.getChucVu() != null ? nv.getChucVu().name() : "N/A");
-        lblTrangThai = new JLabel(nv.getTrangThai() != null ? nv.getTrangThai().name() : "N/A");
-        lblNgayVao = new JLabel(nv.getNgayVaoLam() != null ? nv.getNgayVaoLam().toString() : "N/A");
+        // Fields
+        lblMa        = makeReadOnly(nv.getMaNV());
+        txtTen       = makeStyledField(nv.getTenNV());
+        txtSdt       = makeStyledField(nv.getSdt());
 
-        addInfoComponent(pnlContent, "Mã nhân viên", lblMa, 0, 0, gbc);
-        addInfoComponent(pnlContent, "Họ và tên", txtTen, 0, 1, gbc);
-        addInfoComponent(pnlContent, "Số điện thoại", txtSdt, 1, 0, gbc);
-        addInfoComponent(pnlContent, "Email", txtEmail, 1, 1, gbc);
-        addInfoComponent(pnlContent, "Tài khoản", lblTaiKhoan, 2, 0, gbc);
-        addInfoComponent(pnlContent, "Chức vụ", lblChucVu, 2, 1, gbc);
-        addInfoComponent(pnlContent, "Ngày vào làm", lblNgayVao, 3, 0, gbc);
-        addInfoComponent(pnlContent, "Trạng thái", lblTrangThai, 3, 1, gbc);
+        String emailPfx = nv.getEmail().contains("@")
+                ? nv.getEmail().split("@")[0] : nv.getEmail();
+        txtEmail = makeStyledField(emailPfx);
 
-        add(pnlContent, BorderLayout.CENTER);
+        // Email + suffix
+        JPanel pnlEmail = new JPanel(new BorderLayout(6, 0));
+        pnlEmail.setOpaque(false);
+        pnlEmail.add(txtEmail, BorderLayout.CENTER);
+        JLabel lblSfx = new JLabel("@gmail.com");
+        lblSfx.setFont(F_CELL);
+        lblSfx.setForeground(TEXT_MID);
+        pnlEmail.add(lblSfx, BorderLayout.EAST);
 
-        // --- 3. FOOTER PANEL ---
-        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
-        pnlFooter.setBackground(SECONDARY_COLOR);
+        lblTaiKhoan  = makeReadOnly(nv.getTaiKhoan());
+        lblChucVu    = makeReadOnly(nv.getChucVu().name());
+        lblNgayVao   = makeReadOnly(nv.getNgayVaoLam().toString());
 
-        btnChangePass = createBottomButton("Đổi mật khẩu", DANGER_COLOR);
-        btnEditSave = createBottomButton("Chỉnh sửa", PRIMARY_COLOR);
+        lblTrangThai = new JLabel(nv.getTrangThai().name());
+        lblTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTrangThai.setForeground(new Color(0x16A34A));
 
-        pnlFooter.add(btnChangePass);
-        pnlFooter.add(btnEditSave);
-        add(pnlFooter, BorderLayout.SOUTH);
+        addCell(card, "Mã nhân viên",  lblMa,       0, 0, gbc);
+        addCell(card, "Họ và tên",     txtTen,      0, 1, gbc);
+        addCell(card, "Số điện thoại", txtSdt,      1, 0, gbc);
+        addCell(card, "Email",         pnlEmail,    1, 1, gbc);
+        addCell(card, "Tài khoản",     lblTaiKhoan, 2, 0, gbc);
+        addCell(card, "Chức vụ",       lblChucVu,   2, 1, gbc);
+        addCell(card, "Ngày vào làm",  lblNgayVao,  3, 0, gbc);
+        addCell(card, "Trạng thái",    lblTrangThai,3, 1, gbc);
 
-        setEditMode(false); // Khởi tạo ở chế độ xem
+        wrapper.add(card, BorderLayout.CENTER);
+        return wrapper;
+    }
 
-        // --- EVENTS ---
+    /** Mỗi ô: label nhỏ màu muted phía trên, component phía dưới */
+    private void addCell(JPanel panel, String title, JComponent comp,
+                         int row, int col, GridBagConstraints gbc) {
+        JPanel cell = new JPanel(new BorderLayout(0, 4));
+        cell.setOpaque(false);
+        JLabel lbl = new JLabel(title);
+        lbl.setFont(F_MUTED);
+        lbl.setForeground(new Color(100, 116, 139)); // COLOR_TEXT_MUTED
+        cell.add(lbl,  BorderLayout.NORTH);
+        cell.add(comp, BorderLayout.CENTER);
+        gbc.gridx = col;
+        gbc.gridy = row;
+        panel.add(cell, gbc);
+    }
+
+    // ─── FOOTER ───────────────────────────────────────────────────────────────
+    private JPanel buildFooter() {
+        JPanel pnl = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 14));
+        pnl.setBackground(BG_PAGE);
+        pnl.setBorder(new MatteBorder(1, 0, 0, 0, BORDER));
+        btnEditSave = makeBtn("Chỉnh sửa thông tin", BtnStyle.PRIMARY);
+        btnEditSave.setPreferredSize(new Dimension(180, 36));
+        pnl.add(btnEditSave);
+        return pnl;
+    }
+
+    // ─── EVENTS ───────────────────────────────────────────────────────────────
+    private void initEvents(JFrame parent) {
+        btnLogout.addActionListener(e -> {
+            if (isEditMode) {
+                JOptionPane.showMessageDialog(this, "Đang chỉnh sửa, hãy lưu trước!");
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn đăng xuất?", "Xác nhận",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                dispose();
+                if (parent != null) parent.dispose();
+                JFrame loginFrame = new JFrame("Đăng nhập");
+                GUI_Login loginPanel = new GUI_Login();
+                loginPanel.setParentFrame(loginFrame);
+                loginFrame.setContentPane(loginPanel);
+                loginFrame.pack();
+                loginFrame.setLocationRelativeTo(null);
+                loginFrame.setVisible(true);
+            }
+        });
+
         btnEditSave.addActionListener(e -> {
             if (!isEditMode) {
                 setEditMode(true);
-                btnEditSave.setText("Lưu thông tin");
-                btnEditSave.setBackground(SUCCESS_COLOR);
-                btnChangePass.setEnabled(false); // Khóa nút đổi mật khẩu khi đang sửa
+                btnEditSave.setText("Lưu thay đổi");
             } else {
                 handleSave();
             }
         });
-
-        btnChangePass.addActionListener(e -> {
-            if (!isEditMode) {
-                openChangePasswordDialog();
-            }
-        });
-    }
-
-    private void setEditMode(boolean editable) {
-        this.isEditMode = editable;
-
-        JTextField[] fields = { txtTen, txtSdt, txtEmail };
-        // Khi không sửa: dùng màu trong suốt. Khi sửa: dùng màu trắng.
-        Color bgColor = editable ? Color.WHITE : new Color(0, 0, 0, 0);
-        Border border = editable ? new LineBorder(Color.LIGHT_GRAY, 1) : new EmptyBorder(1, 1, 1, 1);
-
-        for (JTextField tf : fields) {
-            tf.setEditable(editable);
-            tf.setBackground(bgColor);
-            tf.setBorder(border);
-            tf.setFocusable(editable);
-
-            // QUAN TRỌNG: Sửa lỗi đè chữ
-            // setOpaque(false) giúp Swing vẽ lại vùng nền phía dưới khi thành phần thay đổi
-            tf.setOpaque(editable);
-
-            tf.getCaret().setVisible(editable);
-        }
-
-        if (!editable) {
-            btnChangePass.setEnabled(true);
-        }
-
-        // Ép giao diện vẽ lại toàn bộ để xóa bỏ "rác" đồ họa cũ
-        revalidate();
-        repaint();
     }
 
     private void handleSave() {
-        String ten = txtTen.getText().trim();
-        String sdt = txtSdt.getText().trim();
-        String email = txtEmail.getText().trim();
+        String ten  = capitalizeWords(txtTen.getText().trim());
+        String sdt  = txtSdt.getText().trim();
+        String mail = txtEmail.getText().trim();
 
-        if (ten.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tên không được để trống!");
-            return;
+        if (!ten.matches("^[A-Za-zÀ-ỹ\\s]+$")) {
+            JOptionPane.showMessageDialog(this, "Tên chỉ chứa chữ!"); return;
+        }
+        if (!sdt.matches("\\d{10}")) {
+            JOptionPane.showMessageDialog(this, "SĐT phải 10 số!"); return;
+        }
+        if (!mail.matches("^[a-zA-Z0-9]+$")) {
+            JOptionPane.showMessageDialog(this, "Email chỉ gồm chữ và số!"); return;
         }
 
         nv.setTenNV(ten);
         nv.setSdt(sdt);
-        nv.setEmail(email);
+        nv.setEmail(mail + "@gmail.com");
 
         if (daoNV.updateProfile(nv)) {
             lblHeaderName.setText(ten.toUpperCase());
-            JOptionPane.showMessageDialog(this, "Đã lưu thay đổi!");
+            JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             setEditMode(false);
-            btnEditSave.setText("Chỉnh sửa");
-            btnEditSave.setBackground(PRIMARY_COLOR);
+            btnEditSave.setText("Chỉnh sửa thông tin");
         }
     }
 
-    private void addInfoComponent(JPanel panel, String title, JComponent comp, int row, int col,
-                                  GridBagConstraints gbc) {
-        JPanel p = new JPanel(new BorderLayout(0, 5));
-        p.setOpaque(false);
-        JLabel l = new JLabel(title);
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        l.setForeground(Color.GRAY);
-
-        comp.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        if (comp instanceof JLabel) {
-            comp.setForeground(new Color(44, 62, 80));
+    private void setEditMode(boolean editable) {
+        this.isEditMode = editable;
+        for (JTextField tf : new JTextField[]{txtTen, txtSdt, txtEmail}) {
+            tf.setEditable(editable);
+            tf.setBackground(editable ? Color.WHITE : new Color(0xF8FAFC));
+            tf.setBorder(editable
+                    ? new LineBorder(ACCENT, 1, true)
+                    : new LineBorder(BORDER, 1, true));
         }
-
-        p.add(l, BorderLayout.NORTH);
-        p.add(comp, BorderLayout.CENTER);
-
-        gbc.gridx = col;
-        gbc.gridy = row;
-        panel.add(p, gbc);
+        btnLogout.setEnabled(!editable);
     }
 
-    private JTextField createInfoField(String text) {
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
+    /** Field chỉ đọc (hiển thị như label nhưng dạng JLabel căn lề trái) */
+    private JLabel makeReadOnly(String text) {
+        JLabel l = new JLabel(text);
+        l.setFont(F_CELL);
+        l.setForeground(TEXT_DARK);
+        return l;
+    }
+
+    /** JTextField có style đồng nhất */
+    private JTextField makeStyledField(String text) {
         JTextField tf = new JTextField(text);
-        tf.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        tf.setMargin(new Insets(5, 5, 5, 5));
+        tf.setFont(F_CELL);
+        tf.setBorder(new LineBorder(BORDER, 1, true));
+        tf.setPreferredSize(new Dimension(200, 34));
         return tf;
     }
 
-    private JButton createBottomButton(String text, Color bg) {
-        JButton btn = new JButton(text);
-        btn.setPreferredSize(new Dimension(130, 35));
-        btn.setBackground(bg);
+    private JButton makeBtn(String text, BtnStyle style) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                switch (style) {
+                    case PRIMARY:
+                        g2.setColor(getModel().isPressed()  ? new Color(0x0F3F8C)
+                                  : getModel().isRollover() ? ACCENT_HVR : ACCENT);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                        break;
+                    case SUCCESS:
+                        g2.setColor(getModel().isPressed()  ? new Color(0x166534)
+                                  : getModel().isRollover() ? BTN_GREEN_HVR : BTN_GREEN);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                        break;
+                    case DANGER:
+                        g2.setColor(getModel().isPressed()  ? new Color(0x922B21)
+                                  : getModel().isRollover() ? new Color(0xE74C3C) : BTN_RED);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                        break;
+                }
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(F_LABEL);
         btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setPreferredSize(new Dimension(140, 36));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
         btn.setFocusPainted(false);
-        btn.setBorder(new EmptyBorder(5, 5, 5, 5));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return btn;
     }
 
-    private void openChangePasswordDialog() {
-        JPasswordField pfOld = new JPasswordField();
-        JPasswordField pfNew = new JPasswordField();
-        JPasswordField pfConfirm = new JPasswordField();
-        Object[] message = { "Mật khẩu hiện tại:", pfOld, "Mật khẩu mới:", pfNew, "Xác nhận mật khẩu mới:", pfConfirm };
+    private String capitalizeWords(String str) {
+        if (str == null || str.isEmpty()) return str;
+        String[] words = str.toLowerCase().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words)
+            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1)).append(" ");
+        return sb.toString().trim();
+    }
 
-        int option = JOptionPane.showConfirmDialog(this, message, "Đổi mật khẩu", JOptionPane.OK_CANCEL_OPTION);
-        if (option == JOptionPane.OK_OPTION) {
-            String oldP = new String(pfOld.getPassword()).trim();
-            String newP = new String(pfNew.getPassword()).trim();
-            String confP = new String(pfConfirm.getPassword()).trim();
-
-            if (!oldP.equals(nv.getMatKhau())) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu hiện tại không chính xác!");
-                return;
-            }
-            if (newP.isEmpty() || newP.length() < 3) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu mới phải từ 3 ký tự trở lên!");
-                return;
-            }
-            if (!newP.equals(confP)) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!");
-                return;
-            }
-            if (daoNV.updatePassword(nv.getTaiKhoan(), newP)) { // Truyền TaiKhoan thay vì MaNV
-                nv.setMatKhau(newP);
-                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công!");
-            } else {
-                JOptionPane.showMessageDialog(this, "Đổi mật khẩu thất bại!");
-            }
+    private static class ShadowBorder extends AbstractBorder {
+        public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setColor(new Color(0xE2EAF4));
+            g2.drawRoundRect(x, y, w - 1, h - 1, 12, 12);
         }
     }
 }

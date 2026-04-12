@@ -285,7 +285,7 @@ INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, n
 (N'Nguyễn Văn A', '0909090901', 'vana@tau.com', 'vana', '123', N'QUANLY', 'HOATDONG', '2025-01-01'),
 (N'Lê Thị Bán Vé', '0909012323', 'banve@tau.com', 'banve', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
 (N'Nguyễn Văn B', '0923122312', 'vanb@tau.com', 'vanb', '123', N'QUANLY', 'HOATDONG', '2025-01-01'),
-(N'Phạm Quang Khải', '0963212321', 'khai@tau.com', 'khai', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01');
+(N'Phạm Quang Khải', '0963212321', 'khai@tau.com', 'khai', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
 (N'admin', '0963212322', 'admin@tau.com', 'admin', '123', N'ADMIN', 'HOATDONG', '2025-02-01');
 
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES 
@@ -333,7 +333,7 @@ GO
 
 INSERT INTO ChuyenTau VALUES 
 ('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01'),
-('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T01');
+('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T02');
 
 INSERT INTO LichTrinh VALUES 
 ('LT01', '2026-04-01', '08:00:00', '2026-04-02 08:00:00', 'CT01'),
