@@ -102,20 +102,19 @@ public class TAB_Dashboard extends JPanel {
         double tiLeLapDay = 0;
 
         try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
-            // FIX: Đổi thanhTien thành tongTien theo DB mới
             ResultSet rs1 = st.executeQuery("SELECT ISNULL(SUM(tongTien), 0) FROM HoaDon WHERE CAST(ngayLap AS DATE) = CAST(GETDATE() AS DATE)");
             if(rs1.next()) tongDoanhThu = rs1.getLong(1);
 
-            // FIX: JOIN với ChiTietHoaDon để đếm chính xác số lượng vé bán ra thay vì số hóa đơn
             ResultSet rs2 = st.executeQuery("SELECT COUNT(cthd.maVe) FROM ChiTietHoaDon cthd JOIN HoaDon hd ON cthd.maHD = hd.maHD WHERE CAST(hd.ngayLap AS DATE) = CAST(GETDATE() AS DATE)");
             if(rs2.next()) tongVe = rs2.getInt(1);
 
             ResultSet rs3 = st.executeQuery("SELECT COUNT(*) FROM Tau WHERE trangThai = 'HOATDONG'");
             if(rs3.next()) tauHoatDong = rs3.getInt(1);
 
+            // FIX: Tính tỉ lệ lấp đầy dựa trên bảng GheLichTrinh thay vì ChoNgoi
             ResultSet rs4 = st.executeQuery("SELECT " +
-                    "ISNULL(CAST((SELECT COUNT(*) FROM ChoNgoi WHERE trangThai='DADAT') AS FLOAT) / " +
-                    "NULLIF((SELECT COUNT(*) FROM ChoNgoi), 0) * 100, 0)");
+                    "ISNULL(CAST((SELECT COUNT(*) FROM GheLichTrinh WHERE trangThai='DADAT') AS FLOAT) / " +
+                    "NULLIF((SELECT COUNT(*) FROM GheLichTrinh), 0) * 100, 0)");
             if(rs4.next()) tiLeLapDay = rs4.getDouble(1);
         } catch(Exception e) { e.printStackTrace(); }
 
@@ -226,7 +225,6 @@ public class TAB_Dashboard extends JPanel {
     private JFreeChart createRevenue7DaysChart() {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
-            // FIX: Đổi thanhTien thành tongTien
             String sql = "SELECT TOP 7 FORMAT(ngayLap, 'dd/MM') as Ngay, SUM(tongTien) as DoanhThu FROM HoaDon WHERE ngayLap >= CAST(DATEADD(day, -6, GETDATE()) AS DATE) GROUP BY FORMAT(ngayLap, 'dd/MM'), CAST(ngayLap AS DATE) ORDER BY CAST(ngayLap AS DATE) ASC";
             ResultSet rs = st.executeQuery(sql);
             boolean hasData = false;
@@ -263,9 +261,10 @@ public class TAB_Dashboard extends JPanel {
     private JFreeChart createSeatTypePieChart() {
         DefaultPieDataset dataset = new DefaultPieDataset();
         try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
+            // FIX: Bảng Ve giờ liên kết trực tiếp với bảng Toa (Bỏ ChoNgoi)
             String sql = "SELECT lt.tenLoaiToa, COUNT(v.maVe) as SL " +
-                    "FROM Ve v JOIN ChoNgoi cn ON v.maCho = cn.maCho " +
-                    "JOIN Toa t ON cn.maToa = t.maToa JOIN LoaiToa lt ON t.maLoaiToa = lt.maLoaiToa " +
+                    "FROM Ve v JOIN Toa t ON v.maToa = t.maToa " +
+                    "JOIN LoaiToa lt ON t.maLoaiToa = lt.maLoaiToa " +
                     "GROUP BY lt.tenLoaiToa";
             ResultSet rs = st.executeQuery(sql);
             boolean hasData = false;
@@ -295,8 +294,8 @@ public class TAB_Dashboard extends JPanel {
         plot.setShadowPaint(null);
         plot.setLabelGenerator(null);
 
-        plot.setSectionPaint("Ghế cứng có ĐH", C_BLUE_FG);
-        plot.setSectionPaint("Ghế mềm có ĐH", C_PURPLE_FG);
+        plot.setSectionPaint("Ghế cứng", C_BLUE_FG);
+        plot.setSectionPaint("Ghế mềm", C_PURPLE_FG);
         plot.setSectionPaint("Giường nằm", C_ORANGE_FG);
         return chart;
     }
@@ -305,7 +304,6 @@ public class TAB_Dashboard extends JPanel {
     private JFreeChart createRevenueByRouteChart() {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
-            // FIX: Đổi cthd.donGia thành cthd.thanhTien theo DB mới
             String sql = "SELECT TOP 5 t.tenTuyen, SUM(cthd.thanhTien) as DoanhThu FROM ChiTietHoaDon cthd JOIN Ve v ON cthd.maVe = v.maVe JOIN LichTrinh lt ON v.maLT = lt.maLT JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen JOIN Tuyen t ON ct.maTuyen = t.maTuyen GROUP BY t.tenTuyen ORDER BY DoanhThu DESC";
             ResultSet rs = st.executeQuery(sql);
             boolean hasData = false;

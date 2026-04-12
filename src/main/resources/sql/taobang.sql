@@ -37,7 +37,10 @@ CREATE TABLE Tuyen (
 
 CREATE TABLE LoaiToa (
     maLoaiToa VARCHAR(10) PRIMARY KEY,
-    tenLoaiToa NVARCHAR(100) NOT NULL
+    tenLoaiToa NVARCHAR(100) NOT NULL,
+    soHang INT DEFAULT 0,
+    soCot INT DEFAULT 0,
+    kieuHienThi NVARCHAR(50) DEFAULT 'GHE'
 );
 
 CREATE TABLE LoaiVe (
@@ -47,7 +50,7 @@ CREATE TABLE LoaiVe (
 );
 
 -- =============================================
--- 2. TÀU, TOA & SƠ ĐỒ GHẾ
+-- 2. TÀU, TOA & LẮP RÁP (KHỚP LOGIC JAVA)
 -- =============================================
 CREATE TABLE Tau (
     maTau VARCHAR(15) PRIMARY KEY, 
@@ -60,17 +63,17 @@ CREATE TABLE Toa (
     maToa VARCHAR(25) PRIMARY KEY, 
     tenToa NVARCHAR(100),
     soGhe INT CHECK (soGhe > 0),
-    maTau VARCHAR(15),
     maLoaiToa VARCHAR(10),
-    FOREIGN KEY (maTau) REFERENCES Tau(maTau) ON DELETE CASCADE,
+    trangThai NVARCHAR(20) DEFAULT 'SAN_SANG',
     FOREIGN KEY (maLoaiToa) REFERENCES LoaiToa(maLoaiToa)
 );
 
-CREATE TABLE ChoNgoi (
-    maCho VARCHAR(30) PRIMARY KEY, 
-    tenCho NVARCHAR(10),
+CREATE TABLE ChiTietTau (
+    maTau VARCHAR(15),
     maToa VARCHAR(25),
-    trangThai NVARCHAR(20) DEFAULT 'TRONG' CHECK (trangThai IN ('TRONG','DADAT','GIUCHO','BAOTRI')),
+    thuTu INT NOT NULL,
+    PRIMARY KEY (maTau, maToa),
+    FOREIGN KEY (maTau) REFERENCES Tau(maTau) ON DELETE CASCADE,
     FOREIGN KEY (maToa) REFERENCES Toa(maToa) ON DELETE CASCADE
 );
 
@@ -93,6 +96,17 @@ CREATE TABLE LichTrinh (
     ngayDen TIME,
     maChuyen VARCHAR(15),
     FOREIGN KEY (maChuyen) REFERENCES ChuyenTau(maChuyen) ON DELETE CASCADE
+);
+
+-- Bảng Ghế động: Java quét bảng này để vẽ Sơ đồ (Đỏ/Trống)
+CREATE TABLE GheLichTrinh (
+    maLT VARCHAR(15),
+    maToa VARCHAR(25),
+    viTri VARCHAR(10), 
+    trangThai NVARCHAR(20) DEFAULT 'TRONG' CHECK (trangThai IN ('TRONG','DADAT','GIUCHO')),
+    PRIMARY KEY (maLT, maToa, viTri),
+    FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT) ON DELETE CASCADE,
+    FOREIGN KEY (maToa) REFERENCES Toa(maToa)
 );
 
 -- =============================================
@@ -171,9 +185,7 @@ CREATE TABLE KhuyenMaiDetail (
     maLoaiToa VARCHAR(10) NOT NULL,
     MaLoai VARCHAR(10) NOT NULL,
     An BIT DEFAULT 0,
-    
     CONSTRAINT UQ_KMDetail UNIQUE (MaKM, MaTuyen, maLoaiToa, MaLoai),
-
     FOREIGN KEY (MaKM) REFERENCES KhuyenMai(MaKM) ON DELETE CASCADE,
     FOREIGN KEY (MaTuyen) REFERENCES Tuyen(maTuyen),
     FOREIGN KEY (MaLoai) REFERENCES LoaiVe(MaLoai),
@@ -181,17 +193,14 @@ CREATE TABLE KhuyenMaiDetail (
 );
 
 -- =============================================
--- 7. GIAO DỊCH (HÓA ĐƠN & VÉ) - ITEM-LEVEL DISCOUNT
+-- 7. GIAO DỊCH (HÓA ĐƠN & VÉ)
 -- =============================================
 CREATE TABLE HoaDon (
     maHD VARCHAR(20) PRIMARY KEY,
     ngayLap DATETIME DEFAULT GETDATE(),
     maNV VARCHAR(6), 
     maKH VARCHAR(15),
-    
-    -- Chỉ lưu Tổng Tiền Cuối Cùng
     tongTien DECIMAL(12,0) DEFAULT 0,
-    
     FOREIGN KEY (maNV) REFERENCES NhanVien(maNV),
     FOREIGN KEY (maKH) REFERENCES KhachHang(maKH)
 );
@@ -199,31 +208,27 @@ CREATE TABLE HoaDon (
 CREATE TABLE Ve (
     maVe VARCHAR(20) PRIMARY KEY,
     maKH VARCHAR(15),
-    maCho VARCHAR(30),
     maLT VARCHAR(15),
+    maToa VARCHAR(25),    
+    viTriGhe VARCHAR(10), 
     maLoaiVe VARCHAR(10),
     giaVe DECIMAL(12,0) CHECK (giaVe >= 0),
     trangThaiVe NVARCHAR(20) DEFAULT 'CHUASUDUNG' CHECK (trangThaiVe IN ('CHUASUDUNG','DASUDUNG','HETHAN','DAHOAN')),
     
-    CONSTRAINT UQ_Ve_Cho_LichTrinh UNIQUE (maCho, maLT),
+    CONSTRAINT UQ_Ve_Cho_LichTrinh UNIQUE (maLT, maToa, viTriGhe),
     
     FOREIGN KEY (maKH) REFERENCES KhachHang(maKH),
-    FOREIGN KEY (maCho) REFERENCES ChoNgoi(maCho),
-    FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT),
-    FOREIGN KEY (maLoaiVe) REFERENCES LoaiVe(maLoai)
+    FOREIGN KEY (maLoaiVe) REFERENCES LoaiVe(maLoai),
+    FOREIGN KEY (maLT, maToa, viTriGhe) REFERENCES GheLichTrinh(maLT, maToa, viTri)
 );
 
 CREATE TABLE ChiTietHoaDon (
     maHD VARCHAR(20),
     maVe VARCHAR(20),
-    
-    -- Liên kết Khuyến mãi chi tiết vào từng vé (Cho phép NULL nếu không có KM)
     MaKMDetail VARCHAR(7) NULL,
-    
     tienGoc DECIMAL(12,0) DEFAULT 0,
     tienGiam DECIMAL(12,0) DEFAULT 0,
     thanhTien DECIMAL(12,0) DEFAULT 0,
-    
     PRIMARY KEY (maHD, maVe),
     FOREIGN KEY (maHD) REFERENCES HoaDon(maHD) ON DELETE CASCADE,
     FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE,
@@ -236,7 +241,6 @@ GO
 -- ============================ BƠM DỮ LIỆU CHUẨN ==========================
 -- =========================================================================
 
--- CẬP NHẬT: Thứ tự INSERT -> maGa, tenGa, diaChi (địa chỉ trước), tinhThanh (tỉnh thành sau), trangThai
 INSERT INTO Ga (maGa, tenGa, diaChi, tinhThanh, trangThai) VALUES 
 ('GA01', N'Ga Hà Nội', N'120 Lê Duẩn, Cửa Nam, Hoàn Kiếm', N'Hà Nội', 1),
 ('GA02', N'Ga Phủ Lý', N'Quốc lộ 1A, Hai Bà Trưng, TP. Phủ Lý', N'Hà Nam', 1),
@@ -269,7 +273,12 @@ INSERT INTO Ga (maGa, tenGa, diaChi, tinhThanh, trangThai) VALUES
 ('GA29', N'Ga Bắc Giang', N'Xương Giang, TP. Bắc Giang', N'Bắc Giang', 1),
 ('GA30', N'Ga Diễn Châu', N'Khối 4, Thị trấn Diễn Châu, Huyện Diễn Châu', N'Nghệ An', 1);
 
-INSERT INTO LoaiToa VALUES ('G_CUNG', N'Ghế cứng'), ('G_MEM', N'Ghế mềm'), ('G_NAM', N'Giường nằm');
+-- Bơm Cấu hình Khuôn Mẫu Loại Toa (Khớp Code UI)
+INSERT INTO LoaiToa VALUES 
+('G_CUNG', N'Ghế cứng', 16, 4, 'GHE'),   
+('G_MEM', N'Ghế mềm', 12, 4, 'GHE'),     
+('G_NAM', N'Giường nằm', 7, 4, 'GIUONG');
+
 INSERT INTO LoaiVe VALUES ('LV01', N'Người lớn', 0), ('LV02', N'Trẻ em', 0.5), ('LV03', N'Sinh viên', 0.3);
 
 INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, ngayVaoLam) VALUES 
@@ -279,60 +288,50 @@ INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, n
 (N'Phạm Quang Khải', '0963212321', 'khai@tau.com', 'khai', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01');
 
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES 
-('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com'),
-('KH02', N'Phạm Minh Bình', '0912333444', '079123456782', 'binh@gmail.com');
+('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com');
 
+INSERT INTO Tuyen (maTuyen, tenTuyen, thoiGianChay, gaDi, gaDen, trangThai) VALUES 
+('T01', N'Sài Gòn - Hà Nội', 1800, 'GA23', 'GA01', 1),
+('T02', N'Hà Nội - Sài Gòn', 1800, 'GA01', 'GA23', 1);
+
+-- Tạo 2 Tàu
 INSERT INTO Tau VALUES 
 ('TAU0001', N'Tàu SE1', 11, 'HOATDONG'), 
-('TAU0002', N'Tàu SE2', 11, 'HOATDONG'), 
-('TAU0003', N'Tàu SE3', 11, 'HOATDONG');
-GO 
+('TAU0002', N'Tàu SE2', 11, 'HOATDONG');
+GO
 
+-- Sản xuất 22 Toa và Gắn vào 2 Tàu (Dùng chuẩn mã TOAXXXX)
 DECLARE @t_idx INT = 1;
-WHILE @t_idx <= 3
+DECLARE @global_toa_idx INT = 1;
+WHILE @t_idx <= 2
 BEGIN
     DECLARE @maT VARCHAR(15) = 'TAU' + RIGHT('0000' + CAST(@t_idx AS VARCHAR), 4);
     DECLARE @toa_idx INT = 1;
     
     WHILE @toa_idx <= 11
     BEGIN
-        DECLARE @maToa VARCHAR(25) = @maT + '_T_' + RIGHT('00' + CAST(@toa_idx AS VARCHAR(2)), 2);
+        DECLARE @maToa VARCHAR(25) = 'TOA' + RIGHT('0000' + CAST(@global_toa_idx AS VARCHAR), 4);
         DECLARE @loai VARCHAR(10) = CASE WHEN @toa_idx <= 4 THEN 'G_CUNG' WHEN @toa_idx <= 8 THEN 'G_MEM' ELSE 'G_NAM' END;
-        
-        DECLARE @maxGhe INT = CASE 
-                                WHEN @loai = 'G_CUNG' THEN 64 
-                                WHEN @loai = 'G_MEM' THEN 60 
-                                ELSE 32 END;
+        DECLARE @tenToa NVARCHAR(100) = CASE WHEN @toa_idx <= 4 THEN N'Toa ghế ngồi cứng' WHEN @toa_idx <= 8 THEN N'Toa ghế ngồi mềm chất lượng cao' ELSE N'Toa giường nằm điều hòa' END;
+        DECLARE @maxGhe INT = CASE WHEN @loai = 'G_CUNG' THEN 64 WHEN @loai = 'G_MEM' THEN 48 ELSE 28 END;
 
-        INSERT INTO Toa (maToa, tenToa, soGhe, maTau, maLoaiToa) 
-        VALUES (@maToa, N'Toa ' + CAST(@toa_idx AS VARCHAR(2)), @maxGhe, @maT, @loai);
+        -- Thêm vào Kho
+        INSERT INTO Toa (maToa, tenToa, soGhe, maLoaiToa, trangThai) 
+        VALUES (@maToa, @tenToa, @maxGhe, @loai, 'SAN_SANG');
         
-        DECLARE @g_idx INT = 1;
-        WHILE @g_idx <= @maxGhe
-        BEGIN
-            INSERT INTO ChoNgoi (maCho, tenCho, maToa, trangThai)
-            VALUES (@maToa + '_S' + RIGHT('00' + CAST(@g_idx AS VARCHAR(2)), 2), CAST(@g_idx AS VARCHAR(2)), @maToa, 'TRONG');
-            SET @g_idx = @g_idx + 1;
-        END
+        -- Lắp ráp vào Tàu
+        INSERT INTO ChiTietTau (maTau, maToa, thuTu)
+        VALUES (@maT, @maToa, @toa_idx);
         
         SET @toa_idx = @toa_idx + 1;
+        SET @global_toa_idx = @global_toa_idx + 1;
     END
     SET @t_idx = @t_idx + 1;
 END
 GO 
 
-INSERT INTO Tuyen (maTuyen, tenTuyen, thoiGianChay, gaDi, gaDen, trangThai) VALUES 
-('T01', N'Sài Gòn - Hà Nội', 1800, 'GA23', 'GA01', 1),
-('T02', N'Hà Nội - Sài Gòn', 1800, 'GA01', 'GA23', 1),
-('T03', N'Sài Gòn - Nha Trang', 480, 'GA23', 'GA17', 1);
-
-INSERT INTO ChuyenTau VALUES 
-('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01'),
-('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T01');
-
-INSERT INTO LichTrinh VALUES 
-('LT01', '2026-04-01', '08:00:00', '20:00:00', 'CT01'),
-('LT02', '2026-04-02', '08:00:00', '20:00:00', 'CT02');
+INSERT INTO ChuyenTau VALUES ('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01');
+INSERT INTO LichTrinh VALUES ('LT01', '2026-04-01', '08:00:00', '20:00:00', 'CT01');
 
 INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maLT) VALUES 
 ('GIA0001', N'Giá vé tháng 4/2026', N'Áp dụng cao điểm hè', '2026-01-01', '2026-12-31', 'LT01');
@@ -340,12 +339,11 @@ INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maLT) VALUE
 INSERT INTO GiaDetail (maGia, maLoaiToa, maLoaiVe, maTuyen, gia) VALUES 
 ('GIA0001', 'G_CUNG', 'LV01', 'T01', 500000),
 ('GIA0001', 'G_MEM',  'LV01', 'T01', 800000),
-('GIA0001', 'G_NAM',  'LV01', 'T01', 1200000),
-('GIA0001', 'G_CUNG', 'LV02', 'T01', 250000);
-GO 
+('GIA0001', 'G_NAM',  'LV01', 'T01', 1200000);
+GO
 
 -- =======================================================================
--- LẤY GIÁ THỰC TẾ TỪ DB ĐỂ TẠO 30 HÓA ĐƠN THỐNG KÊ (HÓA ĐƠN KHÔNG KM)
+-- BƠM 30 GHẾ ĐÃ ĐẶT (ĐỂ JAVA BÔI ĐỎ TRÊN SƠ ĐỒ) - LUÔN DÙNG MÃ SỐ 1,2,3...
 -- =======================================================================
 DECLARE @i INT = 1;
 WHILE @i <= 30
@@ -353,45 +351,32 @@ BEGIN
     DECLARE @hd VARCHAR(10) = 'HD' + RIGHT('000' + CAST(@i AS VARCHAR(3)), 3);
     DECLARE @ve VARCHAR(10) = 'V' + RIGHT('000' + CAST(@i AS VARCHAR(3)), 3);
     
-    DECLARE @toa_num INT = CASE 
-                            WHEN @i % 3 = 1 THEN 1 
-                            WHEN @i % 3 = 2 THEN 5 
-                            ELSE 9                 
-                           END;
+    -- Chia vé vào 3 toa đầu (TOA0001, TOA0002, TOA0003)
+    DECLARE @toa_num INT = CASE WHEN @i % 3 = 1 THEN 1 WHEN @i % 3 = 2 THEN 2 ELSE 3 END;
+    DECLARE @maToa_HD VARCHAR(25) = 'TOA' + RIGHT('0000' + CAST(@toa_num AS VARCHAR), 4);
     
-    DECLARE @maToa_HD VARCHAR(25) = 'TAU0001_T_' + RIGHT('00' + CAST(@toa_num AS VARCHAR(2)), 2);
-    DECLARE @ghe VARCHAR(30) = @maToa_HD + '_S' + RIGHT('00' + CAST(@i AS VARCHAR(2)), 2);
+    -- Lưu vị trí bằng số nguyên chuẩn để UI Java đọc được (VD: '1', '2', '3'...)
+    DECLARE @viTri VARCHAR(10) = CAST((@i / 3) + 1 AS VARCHAR(10)); 
     
-    DECLARE @maLoaiToa_HD VARCHAR(10) = (SELECT maLoaiToa FROM Toa WHERE maToa = @maToa_HD);
+    DECLARE @giaThucTe DECIMAL(12,0) = 500000; -- Tạm gán 500k cho nhanh
     
-    DECLARE @giaThucTe DECIMAL(12,0) = (
-        SELECT gd.gia 
-        FROM GiaDetail gd 
-        JOIN GiaHeader gh ON gd.maGia = gh.maGia
-        WHERE gh.maLT = 'LT01' 
-          AND gd.maTuyen = 'T01' 
-          AND gd.maLoaiToa = @maLoaiToa_HD 
-          AND gd.maLoaiVe = 'LV01'
-    );
-    
-    DECLARE @ngayLapHD DATETIME = DATEADD(DAY, -(@i % 7), GETDATE());
+    -- Bơm ghế vào Lịch Trình
+    INSERT INTO GheLichTrinh (maLT, maToa, viTri, trangThai) VALUES ('LT01', @maToa_HD, @viTri, 'DADAT');
 
+    -- Bơm Hóa đơn
     INSERT INTO HoaDon (maHD, ngayLap, maNV, maKH, tongTien)
-    VALUES (@hd, @ngayLapHD, 'NV0001', 'KH01', @giaThucTe);
+    VALUES (@hd, DATEADD(DAY, -(@i % 7), GETDATE()), 'NV0001', 'KH01', @giaThucTe);
 
-    INSERT INTO Ve (maVe, maKH, maCho, maLT, maLoaiVe, giaVe, trangThaiVe)
-    VALUES (@ve, 'KH01', @ghe, 'LT01', 'LV01', @giaThucTe, CASE WHEN @i % 3 = 0 THEN 'CHUASUDUNG' ELSE 'DASUDUNG' END);
+    -- Bơm Vé
+    INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe)
+    VALUES (@ve, 'KH01', 'LT01', @maToa_HD, @viTri, 'LV01', @giaThucTe, 'CHUASUDUNG');
 
-    -- Insert CTHD không có KM (MaKMDetail = NULL)
     INSERT INTO ChiTietHoaDon (maHD, maVe, MaKMDetail, tienGoc, tienGiam, thanhTien) 
     VALUES (@hd, @ve, NULL, @giaThucTe, 0, @giaThucTe);
-
-    UPDATE ChoNgoi SET trangThai = 'DADAT' WHERE maCho = @ghe;
 
     SET @i = @i + 1;
 END
 GO 
-
 -- =============================================
 -- BƠM KHUYẾN MÃI VÀ ÁP DỤNG TRỪ TIỀN (CHUẨN LOGIC CHITIET)
 -- =============================================
@@ -411,7 +396,7 @@ VALUES
 (@KM_HE, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'LV01', 'G_CUNG'),
 (@KM_HE, 'GIAM_PHAN_TRAM', 15, 1, 'T02', 'LV02', 'G_MEM'),
 (@KM_SV, 'GIAM_TIEN', 50000, 1, 'T01', 'LV01', 'G_MEM'),
-(@KM_SV, 'GIAM_TIEN', 30000, 1, 'T03', 'LV03', 'G_NAM'),
+(@KM_SV, 'GIAM_TIEN', 30000, 1, 'T01', 'LV03', 'G_NAM'),
 (@KM_FS, 'GIAM_PHAN_TRAM', 25, 1, 'T01', 'LV02', 'G_CUNG'),
 (@KM_FS, 'GIAM_TIEN', 100000, 1, 'T02', 'LV03', 'G_NAM');
 GO
@@ -438,4 +423,5 @@ SET tongTien = (SELECT SUM(thanhTien) FROM ChiTietHoaDon WHERE ChiTietHoaDon.maH
 WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
 GO
 
-PRINT N'✅ Database đã được tái tạo thành công với kiến trúc Item-Level Discount và Cập nhật cấu trúc bảng Ga!';
+PRINT N'✅ Database đã được đồng bộ 100% với Code Java. Hãy chạy Java để thấy các ghế 1,2,3... tự động Bôi Đỏ!';
+

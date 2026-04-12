@@ -1,485 +1,384 @@
 package com.gui;
 
-import com.connectDB.ConnectDB;
-import com.dao.DAO_Tau;
-import com.dao.DAO_Toa;
-import com.dao.DAO_ChoNgoi;
-import com.entities.ChoNgoi;
-import com.entities.Tau;
-import com.entities.Toa;
-import com.enums.TrangThaiCho;
-import com.enums.TrangThaiTau;
-
+import com.dao.*;
+import com.entities.*;
 import javax.swing.*;
-import javax.swing.border.AbstractBorder;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
-import javax.swing.plaf.basic.BasicScrollBarUI;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
-import javax.swing.table.TableCellRenderer;
-
+import javax.swing.border.*;
+import javax.swing.table.*;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.geom.RoundRectangle2D;
+import java.awt.event.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import com.connectDB.ConnectDB;
 
 public class TAB_Tau extends JPanel {
-    // ================= COLOR =================
-    private static final Color BG_PAGE     = new Color(0xF4F7FB);
-    private static final Color BG_CARD     = Color.WHITE;
-    private static final Color ACCENT      = new Color(0x1A5EAB);
-    private static final Color ACCENT_HVR  = new Color(0x2270CC);
-    private static final Color ACCENT_FOC  = new Color(0x4D9DE0);
-    private static final Color TEXT_DARK   = new Color(0x1E2B3C);
-    private static final Color TEXT_MID    = new Color(0x5A6A7D);
-    private static final Color TEXT_LIGHT  = new Color(0xA0AEC0);
-    private static final Color BORDER      = new Color(0xE2EAF4);
-    private static final Color ROW_ALT     = new Color(0xF7FAFF);
-    private static final Color ROW_SEL     = new Color(0xDDEEFF);
-    private static final Color BTN2_BG     = new Color(0xF0F4FA);
-    private static final Color BTN2_FG     = new Color(0x3A5A8C);
+	private JTable tblTau, tblToa;
+	private DefaultTableModel modTau, modToa;
+	private JComboBox<String> cbKho;
+	private String currentTau = null;
+	private int quyDinhSoToa = 0;
+	private DAO_Tau dao = new DAO_Tau();
+	private DAO_ChiTietTau daoCT = new DAO_ChiTietTau();
 
-    // ================= FONT =================
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 22);
-    private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
-    private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
+	public TAB_Tau() {
+		setLayout(new BorderLayout(15, 15));
+		setBackground(new Color(0xF4F7FB));
+		setBorder(new EmptyBorder(10, 10, 10, 10));
 
-    private enum BtnStyle { PRIMARY, SECONDARY, DANGER, SUCCESS, WARNING }
+		JPanel pLeft = new JPanel(new BorderLayout(0, 10));
+		pLeft.setBackground(Color.WHITE);
+		pLeft.setPreferredSize(new Dimension(380, 0));
+		pLeft.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(10, 10, 10, 10)));
 
-    private JTable table;
-    private DefaultTableModel model;
-    private JTextField txtSearch;
-    private JButton btnAdd, btnRefresh, btnSearch, btnDelete, btnUndo;
+		JPanel pLT = new JPanel(new BorderLayout());
+		pLT.setOpaque(false);
+		JLabel lblL = new JLabel(" 1. TÀU ĐẦU KÉO");
+		lblL.setFont(new Font("Segoe UI", Font.BOLD, 16));
+		lblL.setForeground(new Color(0x1A5EAB));
+		pLT.add(lblL, BorderLayout.WEST);
 
-    private JLabel lblTotal, lblActive, lblMaintenance, lblStopped;
-    private DAO_Tau tauDAO = new DAO_Tau();
-    
-    // --- LƯU TRỮ DỮ LIỆU ĐỂ HOÀN TÁC ---
-    private Tau deletedTau = null;
-    private List<Toa> deletedToaList = null;
-    private Map<String, List<ChoNgoi>> deletedChoNgoiMap = new HashMap<>();
+		JPanel pnlActionLeft = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+		pnlActionLeft.setOpaque(false);
+		JButton bAddT = makeBtn("+ Thêm", new Color(39, 174, 96));
+		bAddT.setPreferredSize(new Dimension(80, 32));
+		JButton bDelT = makeBtn("- Xóa", new Color(192, 57, 43));
+		bDelT.setPreferredSize(new Dimension(70, 32));
+		pnlActionLeft.add(bDelT);
+		pnlActionLeft.add(bAddT);
+		pLT.add(pnlActionLeft, BorderLayout.EAST);
+		pLeft.add(pLT, BorderLayout.NORTH);
 
-    public TAB_Tau() {
-        setLayout(new BorderLayout(0, 20));
-        setBackground(BG_PAGE);
-        setBorder(new EmptyBorder(24, 24, 24, 24));
+		bAddT.addActionListener(e -> {
+			Form_Tau f = new Form_Tau((Frame) SwingUtilities.getWindowAncestor(this), "Thêm Tàu Mới");
+			f.setVisible(true);
+			if (f.isConfirmed()) {
+				dao.insertTau(f.getEntity());
+				refreshData();
+			}
+		});
 
-        initUI();
-        initEvents();
-        loadDataFromDatabase();
-    }
+		bDelT.addActionListener(e -> {
+			int r = tblTau.getSelectedRow();
+			if (r < 0)
+				return;
+			if (JOptionPane.showConfirmDialog(this, "Xóa tàu này?", "Xác nhận", JOptionPane.YES_NO_OPTION) == 0) {
+				try (Connection c = ConnectDB.getConnection();
+						PreparedStatement p = c.prepareStatement("DELETE FROM Tau WHERE maTau=?")) {
+					p.setString(1, modTau.getValueAt(r, 0).toString());
+					p.executeUpdate();
+					refreshData();
+				} catch (Exception ex) {
+					JOptionPane.showMessageDialog(this, "Không thể xóa tàu đã có hóa đơn!");
+				}
+			}
+		});
 
-    private void initUI() {
-        JPanel pnlTop = new JPanel(new BorderLayout(0, 20));
-        pnlTop.setOpaque(false);
+		modTau = new DefaultTableModel(new String[] { "Mã Tàu", "Tên", "Quy Định", "Sửa" }, 0);
+		tblTau = buildTable(modTau);
+		tblTau.getColumnModel().getColumn(3).setCellRenderer(new BtnRnd());
+		tblTau.getColumnModel().getColumn(3).setCellEditor(new BtnEd(new JCheckBox()));
+		pLeft.add(new JScrollPane(tblTau));
 
-        JLabel lblTitle = new JLabel("QUẢN LÝ ĐOÀN TÀU");
-        lblTitle.setFont(F_TITLE);
-        lblTitle.setForeground(ACCENT);
-        pnlTop.add(lblTitle, BorderLayout.NORTH);
+		tblTau.getSelectionModel().addListSelectionListener(e -> {
+			if (tblTau.getSelectedRow() >= 0) {
+				currentTau = modTau.getValueAt(tblTau.getSelectedRow(), 0).toString();
+				quyDinhSoToa = Integer.parseInt(modTau.getValueAt(tblTau.getSelectedRow(), 2).toString().split(" ")[0]);
+				loadToa();
+			}
+		});
 
-        JPanel pnlDashboard = new JPanel(new GridLayout(1, 4, 20, 0));
-        pnlDashboard.setOpaque(false);
-        pnlDashboard.add(createStatCard("TỔNG SỐ TÀU", lblTotal = new JLabel("0"), ACCENT));
-        pnlDashboard.add(createStatCard("ĐANG HOẠT ĐỘNG", lblActive = new JLabel("0"), new Color(39, 174, 96)));
-        pnlDashboard.add(createStatCard("ĐANG BẢO TRÌ", lblMaintenance = new JLabel("0"), new Color(243, 156, 18)));
-        pnlDashboard.add(createStatCard("NGƯNG HOẠT ĐỘNG", lblStopped = new JLabel("0"), new Color(192, 57, 43)));
-        pnlTop.add(pnlDashboard, BorderLayout.CENTER);
+		JPanel pRight = new JPanel(new BorderLayout(0, 10));
+		pRight.setBackground(Color.WHITE);
+		pRight.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(10, 10, 10, 10)));
 
-        JPanel pnlCenter = makeCard(new BorderLayout(0, 15));
-        pnlCenter.setBorder(BorderFactory.createCompoundBorder(
-                new ShadowBorder(), new EmptyBorder(15, 15, 15, 15)
-        ));
+		JPanel pRT = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+		pRT.setOpaque(false);
+		JLabel lblR = new JLabel("2. LẮP RÁP TOA: ");
+		lblR.setFont(new Font("Segoe UI", Font.BOLD, 16));
+		lblR.setForeground(new Color(0x1A5EAB));
+		pRT.add(lblR);
 
-        JPanel pnlToolbar = new JPanel(new BorderLayout());
-        pnlToolbar.setOpaque(false);
+		cbKho = new JComboBox<>();
+		cbKho.setPreferredSize(new Dimension(160, 36));
+		cbKho.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+		pRT.add(cbKho);
 
-        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        pnlSearch.setOpaque(false);
-        txtSearch = makeField("Nhập tên tàu để tìm...");
-        txtSearch.setPreferredSize(new Dimension(300, 36));
-        btnSearch = makeBtn("Tìm kiếm", BtnStyle.PRIMARY);
-        pnlSearch.add(txtSearch);
-        pnlSearch.add(Box.createHorizontalStrut(10));
-        pnlSearch.add(btnSearch);
+		JButton bIn = makeBtn("<< Gắn", new Color(39, 174, 96));
+		bIn.setPreferredSize(new Dimension(80, 36));
+		JButton bOut = makeBtn("Gỡ >>", new Color(243, 156, 18));
+		bOut.setPreferredSize(new Dimension(70, 36));
+		JButton bAuto = makeBtn("⚡ Auto Sinh Toa", new Color(142, 68, 173));
+		bAuto.setPreferredSize(new Dimension(140, 36));
 
-        JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        pnlButtons.setOpaque(false);
-        
-        btnUndo = makeBtn("↩ Hoàn tác", BtnStyle.WARNING);
-        btnUndo.setVisible(false); 
-        btnDelete = makeBtn("- Xóa Tàu", BtnStyle.DANGER);
-        btnAdd = makeBtn("+ Thêm Mới", BtnStyle.SUCCESS);
-        btnRefresh = makeBtn("Làm Mới", BtnStyle.SECONDARY);
-        
-        pnlButtons.add(btnUndo);
-        pnlButtons.add(btnDelete);
-        pnlButtons.add(btnAdd);
-        pnlButtons.add(btnRefresh);
+		bIn.addActionListener(e -> {
+			if (currentTau == null) {
+				JOptionPane.showMessageDialog(this, "Chọn tàu bên trái trước!");
+				return;
+			}
+			if (modToa.getRowCount() >= quyDinhSoToa) {
+				JOptionPane.showMessageDialog(this, "Tàu này đã gắn đủ " + quyDinhSoToa + " toa theo quy định!");
+				return;
+			}
+			if (cbKho.getSelectedItem() != null) {
+				try (Connection c = ConnectDB.getConnection();
+						PreparedStatement ps = c.prepareStatement("INSERT INTO ChiTietTau VALUES(?,?,?)")) {
+					ps.setString(1, currentTau);
+					ps.setString(2, cbKho.getSelectedItem().toString().split(" - ")[0]);
+					ps.setInt(3, modToa.getRowCount() + 1);
+					ps.executeUpdate();
+					loadToa();
+					refreshData();
+				} catch (Exception ex) {
+					JOptionPane.showMessageDialog(this, "Lỗi gắn toa!");
+				}
+			}
+		});
 
-        pnlToolbar.add(pnlSearch, BorderLayout.WEST);
-        pnlToolbar.add(pnlButtons, BorderLayout.EAST);
+		bOut.addActionListener(e -> {
+			int r = tblToa.getSelectedRow();
+			if (r >= 0) {
+				try (Connection c = ConnectDB.getConnection();
+						PreparedStatement ps = c.prepareStatement("DELETE FROM ChiTietTau WHERE maTau=? AND maToa=?")) {
+					ps.setString(1, currentTau);
+					ps.setString(2, modToa.getValueAt(r, 1).toString());
+					ps.executeUpdate();
+					PreparedStatement p2 = c
+							.prepareStatement("UPDATE ChiTietTau SET thuTu=? WHERE maTau=? AND maToa=?");
+					for (int i = 0; i < tblToa.getRowCount(); i++) {
+						if (i == r)
+							continue;
+						p2.setInt(1, i < r ? i + 1 : i);
+						p2.setString(2, currentTau);
+						p2.setString(3, modToa.getValueAt(i, 1).toString());
+						p2.executeUpdate();
+					}
+					loadToa();
+					refreshData();
+				} catch (Exception ex) {
+					JOptionPane.showMessageDialog(this, "Lỗi!");
+				}
+			} else {
+				JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 toa bên dưới để gỡ!");
+			}
+		});
 
-        String[] columns = {"STT", "Mã Tàu", "Tên Tàu", "Số Toa", "Trạng thái"};
-        model = new DefaultTableModel(columns, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
-        };
-        table = buildTable();
+		bAuto.addActionListener(e -> {
+			if (currentTau == null) {
+				JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 tàu bên trái trước!");
+				return;
+			}
+			if (modToa.getRowCount() > 0) {
+				JOptionPane.showMessageDialog(this, "Chỉ được tạo tự động khi Tàu chưa gắn toa nào!");
+				return;
+			}
+			if (JOptionPane.showConfirmDialog(this,
+					"Hệ thống sẽ tự động sản xuất " + quyDinhSoToa + " toa xe mới và gắn lên tàu này. Tiếp tục?",
+					"Auto Sinh Toa", JOptionPane.YES_NO_OPTION) == 0) {
+				autoGenerateToa();
+			}
+		});
 
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(new LineBorder(BORDER));
-        scrollPane.getViewport().setBackground(BG_CARD);
-        styleScrollBar(scrollPane.getVerticalScrollBar());
+		pRT.add(bIn);
+		pRT.add(bOut);
+		pRT.add(bAuto);
+		pRight.add(pRT, BorderLayout.NORTH);
 
-        pnlCenter.add(pnlToolbar, BorderLayout.NORTH);
-        pnlCenter.add(scrollPane, BorderLayout.CENTER);
+		modToa = new DefaultTableModel(new String[] { "Vị Trí Nối", "Mã Toa", "Tên Toa", "Cấu Hình Loại" }, 0);
+		tblToa = buildTable(modToa);
+		pRight.add(new JScrollPane(tblToa));
 
-        add(pnlTop, BorderLayout.NORTH);
-        add(pnlCenter, BorderLayout.CENTER);
-    }
+		JSplitPane sp = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, pLeft, pRight);
+		sp.setBorder(null);
+		sp.setOpaque(false);
+		add(sp);
 
-    private void initEvents() {
-        txtSearch.addKeyListener(new KeyAdapter() {
-            @Override public void keyReleased(KeyEvent e) { performSearch(); }
-        });
+		addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentShown(ComponentEvent e) {
+				refreshData();
+			}
+		});
 
-        table.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2 && table.getSelectedRow() != -1) openUpdateForm();
-            }
-        });
+		// ==========================================
+		// FIX: GỌI HÀM NÀY ĐỂ LOAD DATA NGAY KHI MỞ
+		// ==========================================
+		refreshData();
+	}
 
-        btnAdd.addActionListener(e -> {
-            Form_Tau form = new Form_Tau((Frame) SwingUtilities.getWindowAncestor(this), "Thêm Tàu Mới");
-            form.setVisible(true);
-            if (form.isConfirmed()) {
-                Tau newTau = form.getEntity();
-                if (tauDAO.getTauByMa(newTau.getMaTau()) != null) {
-                    JOptionPane.showMessageDialog(this, "Mã tàu đã tồn tại trong hệ thống!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                if (tauDAO.insertTau(newTau)) {
-                    loadDataFromDatabase();
-                    
-                    // Xóa bộ nhớ hoàn tác để tránh lỗi trùng lặp khi vừa Xóa xong lại Thêm mới
-                    clearUndoCache();
-                    
-                    JOptionPane.showMessageDialog(this, "Đã thêm tàu mới thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                }
-            }
-        });
+	private void handleEdit(int r) {
+		Tau t = dao.getTauByMa(modTau.getValueAt(r, 0).toString());
+		Form_Tau f = new Form_Tau((Frame) SwingUtilities.getWindowAncestor(this), "Sửa Tàu");
+		f.setEntity(t);
+		f.setVisible(true);
+		if (f.isConfirmed()) {
+			dao.updateTau(f.getEntity());
+			refreshData();
+		}
+	}
 
-        btnRefresh.addActionListener(e -> { txtSearch.setText(""); loadDataFromDatabase(); });
-        btnSearch.addActionListener(e -> performSearch());
-        
-        btnDelete.addActionListener(e -> handleDeleteTau());
-        btnUndo.addActionListener(e -> handleUndoDelete());
-    }
+	private void autoGenerateToa() {
+		try (Connection c = ConnectDB.getConnection()) {
+			c.setAutoCommit(false);
+			List<LoaiToa> dsLoai = new DAO_LoaiToa().getAllLoaiToa();
+			LoaiToa ltCung = dsLoai.stream().filter(l -> l.getTenLoaiToa().toLowerCase().contains("cứng")).findFirst()
+					.orElse(dsLoai.get(0));
+			LoaiToa ltMem = dsLoai.stream().filter(l -> l.getTenLoaiToa().toLowerCase().contains("mềm")).findFirst()
+					.orElse(dsLoai.get(0));
+			LoaiToa ltNam = dsLoai.stream().filter(l -> l.getTenLoaiToa().toLowerCase().contains("nằm")).findFirst()
+					.orElse(dsLoai.get(0));
 
-    // ================= XỬ LÝ NGHIỆP VỤ XÓA & HOÀN TÁC =================
-    private void handleDeleteTau() {
-        int row = table.getSelectedRow();
-        if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 tàu trong bảng để xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        String maTau = (String) model.getValueAt(row, 1);
-        
-        DAO_Toa toaDAO = new DAO_Toa();
-        DAO_ChoNgoi cnDAO = new DAO_ChoNgoi();
-        List<Toa> listToa = toaDAO.getToaByMaTau(maTau);
-        
-        int totalSold = 0;
-        for (Toa t : listToa) {
-            totalSold += cnDAO.countGheByTrangThai(t.getMaToa(), TrangThaiCho.DADAT);
-        }
-        
-        if (totalSold > 0) {
-            JOptionPane.showMessageDialog(this, "Không thể xóa! Tàu này đang có " + totalSold + " ghế đã được bán vé.", "Lỗi Ràng Buộc", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        
-        int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa Tàu " + maTau + " và toàn bộ sơ đồ toa/ghế của nó?", "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
-        if(confirm != JOptionPane.YES_OPTION) return;
+			int part1 = quyDinhSoToa / 3;
+			int part2 = quyDinhSoToa / 3;
 
-        // Lưu trữ lại dữ liệu trước khi xóa
-        deletedTau = tauDAO.getTauByMa(maTau);
-        deletedToaList = listToa;
-        deletedChoNgoiMap.clear();
-        for (Toa t : listToa) {
-            deletedChoNgoiMap.put(t.getMaToa(), cnDAO.getChoNgoiByToa(t.getMaToa()));
-        }
-        
-        // Thực hiện xóa Cascade (SQL Server sẽ tự động xóa Toa và Chỗ Ngồi nhờ ON DELETE CASCADE)
-        try (Connection con = ConnectDB.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                // Ta chỉ cần xóa Tàu, DB sẽ tự động xóa các bảng con
-                PreparedStatement ps = con.prepareStatement("DELETE FROM Tau WHERE maTau = ?");
-                ps.setString(1, maTau); 
-                ps.executeUpdate();
-                
-                con.commit();
-                
-                loadDataFromDatabase();
-                btnUndo.setVisible(true); // Hiện nút hoàn tác
-                JOptionPane.showMessageDialog(this, "Đã xóa tàu thành công! Bạn có thể hoàn tác nếu muốn.");
-            } catch (Exception ex) {
-                con.rollback();
-                JOptionPane.showMessageDialog(this, "Xóa thất bại do lỗi hệ thống!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception ex) { ex.printStackTrace(); }
-    }
+			PreparedStatement psToa = c.prepareStatement(
+					"INSERT INTO Toa (maToa, tenToa, soGhe, maLoaiToa, trangThai) VALUES (?,?,?,?,'SAN_SANG')");
+			PreparedStatement psGan = c.prepareStatement("INSERT INTO ChiTietTau (maTau, maToa, thuTu) VALUES (?,?,?)");
 
-    private void handleUndoDelete() {
-        if (deletedTau == null) return;
-        
-        try (Connection con = ConnectDB.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                // 1. Phục hồi Tàu
-                PreparedStatement psTau = con.prepareStatement("INSERT INTO Tau (maTau, tenTau, soToa, trangThai) VALUES (?, ?, ?, ?)");
-                psTau.setString(1, deletedTau.getMaTau());
-                psTau.setString(2, deletedTau.getTenTau());
-                psTau.setInt(3, deletedTau.getSoToa());
-                psTau.setString(4, deletedTau.getTrangThaiTau().name());
-                psTau.executeUpdate();
-                
-                // 2. Phục hồi Toa
-                PreparedStatement psToa = con.prepareStatement("INSERT INTO Toa (maToa, tenToa, soGhe, maTau, maLoaiToa) VALUES (?, ?, ?, ?, ?)");
-                for (Toa t : deletedToaList) {
-                    psToa.setString(1, t.getMaToa());
-                    psToa.setString(2, t.getTenToa());
-                    psToa.setInt(3, t.getSoGhe());
-                    psToa.setString(4, t.getTau().getMaTau());
-                    psToa.setString(5, t.getLoaiToa().getMaLoaiToa());
-                    psToa.addBatch();
-                }
-                psToa.executeBatch();
-                
-                // 3. Phục hồi Ghế
-                PreparedStatement psGhe = con.prepareStatement("INSERT INTO ChoNgoi (maCho, tenCho, maToa, trangThai) VALUES (?, ?, ?, ?)");
-                for (List<ChoNgoi> listGhe : deletedChoNgoiMap.values()) {
-                    for (ChoNgoi cn : listGhe) {
-                        psGhe.setString(1, cn.getMaCho());
-                        psGhe.setString(2, cn.getTenCho());
-                        // Pharse mã toa từ mã ghế
-                        String maToa = cn.getMaCho().split("-")[0];
-                        psGhe.setString(3, maToa);
-                        psGhe.setString(4, cn.getTrangThai().name());
-                        psGhe.addBatch();
-                    }
-                }
-                psGhe.executeBatch();
-                
-                con.commit();
-                
-                clearUndoCache();
-                loadDataFromDatabase();
-                JOptionPane.showMessageDialog(this, "Hoàn tác thành công! Toàn bộ dữ liệu tàu đã được phục hồi.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                
-            } catch (Exception ex) {
-                con.rollback();
-                JOptionPane.showMessageDialog(this, "Hoàn tác thất bại do lỗi dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
-            }
-        } catch (Exception ex) { ex.printStackTrace(); }
-    }
+			for (int i = 1; i <= quyDinhSoToa; i++) {
+				String newMaToa = currentTau + "_T_" + String.format("%02d", i);
+				LoaiToa loaiChon = (i <= part1) ? ltCung : (i <= part1 + part2) ? ltMem : ltNam;
+				int soGhe = loaiChon.getSoHang() * loaiChon.getSoCot();
 
-    private void openUpdateForm() {
-        int row = table.getSelectedRow();
-        if(row < 0) return;
-        
-        String ma = (String) model.getValueAt(row, 1);
-        Tau tauData = tauDAO.getTauByMa(ma);
-        if (tauData != null) {
-            Form_Tau form = new Form_Tau((Frame) SwingUtilities.getWindowAncestor(this), "Cập Nhật Thông Tin Tàu");
-            form.setEntity(tauData);
-            form.setVisible(true);
-            
-            if (form.isConfirmed()) {
-                Tau updatedTau = form.getEntity();
-                if (tauDAO.updateTau(updatedTau)) {
-                    JOptionPane.showMessageDialog(this, "Cập nhật thông tin tàu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                    clearUndoCache(); // Xóa bộ nhớ hoàn tác để tránh xung đột
-                    loadDataFromDatabase();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Cập nhật thất bại, vui lòng thử lại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }
-    }
-    
-    private void clearUndoCache() {
-        deletedTau = null;
-        deletedToaList = null;
-        deletedChoNgoiMap.clear();
-        btnUndo.setVisible(false);
-    }
+				psToa.setString(1, newMaToa);
+				psToa.setString(2, "Toa " + i);
+				psToa.setInt(3, soGhe);
+				psToa.setString(4, loaiChon.getMaLoaiToa());
+				psToa.executeUpdate();
+				psGan.setString(1, currentTau);
+				psGan.setString(2, newMaToa);
+				psGan.setInt(3, i);
+				psGan.executeUpdate();
+			}
+			c.commit();
+			c.setAutoCommit(true);
+			JOptionPane.showMessageDialog(this, "Auto sinh toa thành công!");
+			loadToa();
+			refreshData();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+	}
 
-    private void performSearch() { renderTable(tauDAO.searchTau(txtSearch.getText().trim())); }
-    private void loadDataFromDatabase() { renderTable(tauDAO.getAllTau()); }
+	private void loadToa() {
+		modToa.setRowCount(0);
+		if (currentTau == null)
+			return;
+		try (Connection c = ConnectDB.getConnection();
+				java.sql.ResultSet rs = c.createStatement().executeQuery(
+						"SELECT c.thuTu, t.maToa, t.tenToa, l.tenLoaiToa FROM ChiTietTau c JOIN Toa t ON c.maToa=t.maToa JOIN LoaiToa l ON t.maLoaiToa=l.maLoaiToa WHERE c.maTau='"
+								+ currentTau + "' ORDER BY c.thuTu")) {
+			while (rs.next())
+				modToa.addRow(new Object[] { rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4) });
+		} catch (Exception ex) {
+		}
+	}
 
-    private void renderTable(List<Tau> list) {
-        model.setRowCount(0);
-        int stt = 1, active = 0, maintenance = 0, stopped = 0;
-        for (Tau t : list) {
-            model.addRow(new Object[]{ stt++, t.getMaTau(), t.getTenTau(), t.getSoToa(), t.getTrangThaiTau().getMoTa() });
-            if (t.getTrangThaiTau() == TrangThaiTau.HOATDONG) active++;
-            else if (t.getTrangThaiTau() == TrangThaiTau.BAOTRI) maintenance++;
-            else stopped++;
-        }
-        lblTotal.setText(String.valueOf(list.size()));
-        lblActive.setText(String.valueOf(active));
-        lblMaintenance.setText(String.valueOf(maintenance));
-        lblStopped.setText(String.valueOf(stopped));
-    }
+	private void refreshData() {
+		modTau.setRowCount(0);
+		cbKho.removeAllItems();
+		for (Tau t : dao.getAllTau())
+			modTau.addRow(new Object[] { t.getMaTau(), t.getTenTau(), t.getSoToa() + " toa", "" });
+		try (Connection c = ConnectDB.getConnection();
+				java.sql.ResultSet rs = c.createStatement().executeQuery(
+						"SELECT t.maToa, l.tenLoaiToa FROM Toa t JOIN LoaiToa l ON t.maLoaiToa=l.maLoaiToa WHERE t.maToa NOT IN (SELECT maToa FROM ChiTietTau)")) {
+			while (rs.next())
+				cbKho.addItem(rs.getString(1) + " - " + rs.getString(2));
+		} catch (Exception ex) {
+		}
+	}
 
-    // ================= CĂN CHỈNH BẢNG (ALIGNMENT PERFECT) =================
-    private JTable buildTable() {
-        JTable t = new JTable(model) {
-            @Override public Component prepareRenderer(TableCellRenderer r, int row, int col) {
-                Component c = super.prepareRenderer(r, row, col);
-                if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
-                return c;
-            }
-        };
-        t.setRowHeight(38); t.setFont(F_CELL);
-        t.setBackground(BG_CARD); t.setSelectionBackground(ROW_SEL); t.setSelectionForeground(TEXT_DARK);
-        t.setGridColor(BORDER); t.setShowHorizontalLines(true); t.setShowVerticalLines(false);
-        t.setFocusable(false); t.setIntercellSpacing(new Dimension(0, 0));
-        
-        JTableHeader h = t.getTableHeader();
-        h.setDefaultRenderer(new DefaultTableCellRenderer() {
-            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int row, int col) {
-                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, row, col);
-                l.setOpaque(true); l.setBackground(ACCENT); l.setForeground(Color.WHITE); l.setFont(F_LABEL);
-                if (col == 0 || col == 3 || col == 4) {
-                    l.setHorizontalAlignment(CENTER);
-                    l.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-                } else {
-                    l.setHorizontalAlignment(LEFT);
-                    l.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 6));
-                }
-                return l;
-            }
-        });
-        h.setPreferredSize(new Dimension(0, 40)); h.setReorderingAllowed(false);
-        
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        
-        DefaultTableCellRenderer leftPaddingRenderer = new DefaultTableCellRenderer();
-        leftPaddingRenderer.setHorizontalAlignment(JLabel.LEFT);
-        leftPaddingRenderer.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 6));
+	private JButton makeBtn(String t, Color bg) {
+		JButton b = new JButton(t) {
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(getModel().isRollover() ? bg.darker() : bg);
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+				g2.dispose();
+				super.paintComponent(g);
+			}
+		};
+		b.setForeground(Color.WHITE);
+		b.setFont(new Font("Segoe UI", Font.BOLD, 13));
+		b.setContentAreaFilled(false);
+		b.setBorderPainted(false);
+		b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		return b;
+	}
 
-        t.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); 
-        t.getColumnModel().getColumn(1).setCellRenderer(leftPaddingRenderer); 
-        t.getColumnModel().getColumn(2).setCellRenderer(leftPaddingRenderer); 
-        t.getColumnModel().getColumn(3).setCellRenderer(centerRenderer); 
-        
-        t.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
-            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
-                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
-                l.setFont(new Font("Segoe UI", Font.BOLD, 12));
-                l.setHorizontalAlignment(CENTER); 
-                String val = v.toString().toLowerCase();
-                if(val.contains("ngưng")) l.setForeground(new Color(192, 57, 43)); 
-                else if(val.contains("bảo trì")) l.setForeground(new Color(243, 156, 18)); 
-                else l.setForeground(new Color(39, 174, 96)); 
-                return l;
-            }
-        });
-        
-        return t;
-    }
+	private JTable buildTable(DefaultTableModel m) {
+		JTable t = new JTable(m) {
+			public boolean isCellEditable(int r, int c) {
+				return c == 3;
+			}
+		};
+		t.setRowHeight(35);
+		t.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+		t.getTableHeader().setPreferredSize(new Dimension(0, 40));
+		t.getTableHeader().setBackground(new Color(0x1A5EAB));
+		t.getTableHeader().setForeground(Color.WHITE);
+		t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+		return t;
+	}
 
-    private JPanel createStatCard(String title, JLabel lblValue, Color accent) {
-        JPanel p = makeCard(new BorderLayout());
-        p.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(15, 20, 15, 20)));
-        JLabel lblT = new JLabel(title);
-        lblT.setForeground(TEXT_MID);
-        lblT.setFont(F_LABEL);
-        lblValue.setForeground(accent);
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        p.add(lblT, BorderLayout.NORTH); p.add(lblValue, BorderLayout.CENTER);
-        return p;
-    }
+	class BtnRnd extends JPanel implements TableCellRenderer {
+		public BtnRnd() {
+			setLayout(new BorderLayout());
+			JButton b = new JButton("✎ Sửa");
+			b.setFont(new Font("Segoe UI", Font.BOLD, 12));
+			b.setForeground(new Color(243, 156, 18));
+			b.setContentAreaFilled(false);
+			b.setBorderPainted(false);
+			add(b);
+		}
 
-    private JPanel makeCard(LayoutManager lm) {
-        JPanel p = new JPanel(lm); p.setBackground(BG_CARD); return p;
-    }
+		public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+			setBackground(s ? t.getSelectionBackground() : Color.WHITE);
+			return this;
+		}
+	}
 
-    private JTextField makeField(String hint) {
-        JTextField tf = new JTextField() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (getText().isEmpty() && !isFocusOwner()) {
-                    Graphics2D g2 = (Graphics2D) g.create(); g2.setColor(TEXT_LIGHT);
-                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-                    g2.drawString(hint, getInsets().left + 4, getHeight() / 2 + 5); g2.dispose();
-                }
-            }
-        };
-        tf.setFont(F_CELL); tf.setForeground(TEXT_DARK); tf.setBackground(new Color(0xF8FAFD));
-        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-        tf.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusGained(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(ACCENT_FOC, 2, true), BorderFactory.createEmptyBorder(5, 9, 5, 9))); }
-            @Override public void focusLost(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10))); }
-        });
-        return tf;
-    }
+	class BtnEd extends DefaultCellEditor {
+		private JPanel p = new JPanel(new BorderLayout());
+		private int r;
 
-    private JButton makeBtn(String text, BtnStyle style) {
-        JButton b = new JButton(text) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                switch (style) {
-                    case PRIMARY -> { g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); }
-                    case SUCCESS -> { g2.setColor(getModel().isRollover() ? new Color(46, 204, 113) : new Color(39, 174, 96)); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); }
-                    case DANGER  -> { g2.setColor(getModel().isRollover() ? new Color(231, 76, 60) : new Color(192, 57, 43)); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); }
-                    case WARNING -> { g2.setColor(getModel().isRollover() ? new Color(241, 196, 15) : new Color(243, 156, 18)); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); }
-                    default      -> { g2.setColor(getModel().isRollover() ? new Color(0xE0ECFF) : BTN2_BG); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8); g2.setColor(BORDER); g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8); }
-                }
-                g2.dispose(); super.paintComponent(g);
-            }
-        };
-        b.setFont(F_LABEL); b.setForeground(style == BtnStyle.SECONDARY ? BTN2_FG : Color.WHITE);
-        b.setPreferredSize(new Dimension(110, 36));
-        b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b;
-    }
+		public BtnEd(JCheckBox cb) {
+			super(cb);
+			JButton b = new JButton("✎ Sửa");
+			b.setFont(new Font("Segoe UI", Font.BOLD, 12));
+			b.setForeground(new Color(243, 156, 18));
+			b.setContentAreaFilled(false);
+			b.setBorderPainted(false);
+			b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+			b.addActionListener(e -> {
+				fireEditingStopped();
+				handleEdit(r);
+			});
+			p.add(b);
+		}
 
-    private void styleScrollBar(JScrollBar sb) {
-        sb.setUI(new BasicScrollBarUI() {
-            @Override protected void configureScrollBarColors() { thumbColor = new Color(0xC0D4EE); trackColor = BG_PAGE; }
-            @Override protected JButton createDecreaseButton(int o) { JButton b = new JButton(); b.setPreferredSize(new Dimension(0,0)); return b; }
-            @Override protected JButton createIncreaseButton(int o) { JButton b = new JButton(); b.setPreferredSize(new Dimension(0,0)); return b; }
-        });
-    }
+		public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
+			this.r = r;
+			p.setBackground(t.getSelectionBackground());
+			return p;
+		}
+	}
 
-    private static class ShadowBorder extends AbstractBorder {
-        private static final int S = 4;
-        @Override public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            for (int i = S; i > 0; i--) {
-                g2.setColor(new Color(100, 140, 200, (int) (20.0 * (S - i) / S)));
-                g2.drawRoundRect(x + i, y + i, w - 2 * i - 1, h - 2 * i - 1, 12, 12);
-            }
-            g2.setColor(BORDER); g2.drawRoundRect(x, y, w - 1, h - 1, 12, 12);
-            g2.setColor(BG_CARD); g2.setClip(new RoundRectangle2D.Float(x + 1, y + 1, w - 2, h - 2, 12, 12)); g2.fillRect(x + 1, y + 1, w - 2, h - 2);
-            g2.dispose();
-        }
-        @Override public Insets getBorderInsets(Component c) { return new Insets(S, S, S, S); }
-    }
+	private static class ShadowBorder extends AbstractBorder {
+		@Override
+		public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
+			Graphics2D g2 = (Graphics2D) g.create();
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2.setColor(new Color(226, 234, 244));
+			g2.drawRoundRect(x, y, w - 1, h - 1, 10, 10);
+			g2.dispose();
+		}
+
+		@Override
+		public Insets getBorderInsets(Component c) {
+			return new Insets(1, 1, 1, 1);
+		}
+	}
 }

@@ -1,100 +1,124 @@
 package com.dao;
 
 import com.connectDB.ConnectDB;
-import com.entities.LoaiToa;
-import com.entities.Tau;
-import com.entities.Toa;
+import com.entities.*;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class DAO_Toa {
-    
-    // ==== HÀM MỚI: TỰ ĐỘNG SINH MÃ TOA THEO TÀU (Ví dụ: TAU0001_T_03) ====
-	public String phatSinhMaToaTheoTau(String maTau) {
-        String sql = "SELECT TOP 1 maToa FROM Toa WHERE maTau = ? ORDER BY maToa DESC";
-        try (Connection con = ConnectDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, maTau);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String lastMa = rs.getString("maToa");
-                    // Bắt lỗi an toàn: Nếu mã cũ không có chữ "_T_" thì mặc định bắt đầu từ 01
-                    if (lastMa != null && lastMa.contains("_T_")) {
-                        String[] parts = lastMa.split("_T_");
-                        if (parts.length > 1) {
-                            try {
-                                int number = Integer.parseInt(parts[1]) + 1;
-                                return String.format("%s_T_%02d", maTau, number);
-                            } catch (NumberFormatException e) {
-                                // Bỏ qua nếu lỗi format, chạy xuống return mặc định
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-        // Nếu chưa có toa nào hoặc gặp mã cũ không đúng chuẩn thì trả về 01
-        return String.format("%s_T_01", maTau);
-    }
-	
-    public boolean insertToa(Toa toa) {
-        String sql = "INSERT INTO Toa (maToa, tenToa, soGhe, maTau, maLoaiToa) VALUES (?, ?, ?, ?, ?)";
-        try (Connection con = ConnectDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, toa.getMaToa()); ps.setString(2, toa.getTenToa());
-            ps.setInt(3, toa.getSoGhe()); ps.setString(4, toa.getTau().getMaTau());
-            ps.setString(5, toa.getLoaiToa().getMaLoaiToa()); 
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); }
-        return false;
-    }
+	public String phatSinhMaToa() {
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con
+						.prepareStatement("SELECT TOP 1 maToa FROM Toa WHERE maToa LIKE 'TOA%' ORDER BY maToa DESC");
+				ResultSet rs = ps.executeQuery()) {
+			if (rs.next())
+				return String.format("TOA%04d", Integer.parseInt(rs.getString("maToa").substring(3)) + 1);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "TOA0001";
+	}
 
-    public List<Toa> getToaByMaTau(String maTau) {
-        List<Toa> ds = new ArrayList<>();
-        String sql = "SELECT * FROM Toa t JOIN LoaiToa lt ON t.maLoaiToa = lt.maLoaiToa WHERE maTau = ? ORDER BY LEN(tenToa) ASC, tenToa ASC"; 
-        try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maTau); ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                Toa t = new Toa();
-                t.setMaToa(rs.getString("maToa")); t.setTenToa(rs.getString("tenToa")); t.setSoGhe(rs.getInt("soGhe"));
-                LoaiToa lt = new LoaiToa(); lt.setMaLoaiToa(rs.getString("maLoaiToa")); lt.setTenLoaiToa(rs.getString("tenLoaiToa")); t.setLoaiToa(lt);
-                ds.add(t);
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
-        return ds;
-    }
+	public Toa getToaById(String maToa) {
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con.prepareStatement(
+						"SELECT t.*, l.tenLoaiToa, l.soHang, l.soCot, l.kieuHienThi FROM Toa t JOIN LoaiToa l ON t.maLoaiToa=l.maLoaiToa WHERE t.maToa=?")) {
+			ps.setString(1, maToa);
+			ResultSet rs = ps.executeQuery();
+			if (rs.next()) {
+				LoaiToa lt = new LoaiToa(rs.getString("maLoaiToa"), rs.getString("tenLoaiToa"), rs.getInt("soHang"),
+						rs.getInt("soCot"), rs.getString("kieuHienThi"));
+				return new Toa(maToa, rs.getString("tenToa"), rs.getInt("soGhe"), lt, rs.getString("trangThai"));
+			}
+		} catch (Exception e) {
+		}
+		return null;
+	}
 
-    public boolean updateToa(Toa toa) {
-        String sql = "UPDATE Toa SET tenToa = ?, soGhe = ?, maLoaiToa = ? WHERE maToa = ?";
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, toa.getTenToa()); ps.setInt(2, toa.getSoGhe());
-            ps.setString(3, toa.getLoaiToa().getMaLoaiToa()); ps.setString(4, toa.getMaToa());
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); }
-        return false;
-    }
+	public boolean insertToa(Toa t) {
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con.prepareStatement(
+						"INSERT INTO Toa (maToa, tenToa, soGhe, maLoaiToa, trangThai) VALUES (?,?,?,?,'SAN_SANG')")) {
+			ps.setString(1, t.getMaToa());
+			ps.setString(2, t.getTenToa());
+			ps.setInt(3, t.getSoGhe());
+			ps.setString(4, t.getLoaiToa().getMaLoaiToa());
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+		}
+		return false;
+	}
 
-    public Toa getToaById(String maToa) {
-        String sql = "SELECT t.*, lt.tenLoaiToa FROM Toa t JOIN LoaiToa lt ON t.maLoaiToa = lt.maLoaiToa WHERE t.maToa = ?";
-        try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maToa); ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                Toa t = new Toa();
-                t.setMaToa(rs.getString("maToa")); t.setTenToa(rs.getString("tenToa")); t.setSoGhe(rs.getInt("soGhe"));
-                LoaiToa lt = new LoaiToa(); lt.setMaLoaiToa(rs.getString("maLoaiToa")); lt.setTenLoaiToa(rs.getString("tenLoaiToa")); t.setLoaiToa(lt);
-                Tau tau = new Tau(); tau.setMaTau(rs.getString("maTau")); t.setTau(tau);
-                return t;
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
-        return null;
-    }
+	public boolean updateToa(Toa t) {
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con
+						.prepareStatement("UPDATE Toa SET tenToa=?, soGhe=?, maLoaiToa=? WHERE maToa=?")) {
+			ps.setString(1, t.getTenToa());
+			ps.setInt(2, t.getSoGhe());
+			ps.setString(3, t.getLoaiToa().getMaLoaiToa());
+			ps.setString(4, t.getMaToa());
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+		}
+		return false;
+	}
 
-    public boolean deleteToa(String maToa) {
-        String sql = "DELETE FROM Toa WHERE maToa = ?";
-        try (Connection con = ConnectDB.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, maToa); return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); }
-        return false;
-    }
+	public boolean deleteToa(String maToa) {
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con.prepareStatement("DELETE FROM Toa WHERE maToa=?")) {
+			ps.setString(1, maToa);
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+		}
+		return false;
+	}
+
+	public boolean updateTrangThai(String maToa, String trangThai) {
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement("UPDATE Toa SET trangThai=? WHERE maToa=?")) {
+			ps.setString(1, trangThai);
+			ps.setString(2, maToa);
+			return ps.executeUpdate() > 0;
+		} catch (Exception ex) {
+			return false;
+		}
+	}
+
+	public List<Object[]> getToaTrongKhoSanSang() {
+		List<Object[]> list = new ArrayList<>();
+		try (Connection c = ConnectDB.getConnection();
+				ResultSet rs = c.createStatement().executeQuery(
+						"SELECT t.maToa, t.tenToa, t.soGhe, l.tenLoaiToa FROM Toa t JOIN LoaiToa l ON t.maLoaiToa = l.maLoaiToa WHERE t.maToa NOT IN (SELECT maToa FROM ChiTietTau) AND t.trangThai='SAN_SANG' ORDER BY t.maToa")) {
+			while (rs.next())
+				list.add(new Object[] { rs.getString(1), rs.getString(2), rs.getInt(3), rs.getString(4) });
+		} catch (Exception ex) {
+		}
+		return list;
+	}
+
+	public List<Object[]> getAllToaWithViTri() {
+		List<Object[]> list = new ArrayList<>();
+		try (Connection c = ConnectDB.getConnection();
+				ResultSet rs = c.createStatement().executeQuery(
+						"SELECT t.maToa, t.tenToa, l.tenLoaiToa, t.soGhe, t.trangThai, c.maTau FROM Toa t JOIN LoaiToa l ON t.maLoaiToa=l.maLoaiToa LEFT JOIN ChiTietTau c ON t.maToa=c.maToa")) {
+			while (rs.next())
+				list.add(new Object[] { rs.getString(1), rs.getString(2), rs.getString(3), rs.getInt(4),
+						rs.getString(5), rs.getString(6) });
+		} catch (Exception ex) {
+		}
+		return list;
+	}
+
+	public Object[] getThongTinToaForMap(String maToa) {
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement(
+						"SELECT l.soHang, l.soCot, l.kieuHienThi, t.soGhe FROM Toa t JOIN LoaiToa l ON t.maLoaiToa=l.maLoaiToa WHERE t.maToa=?")) {
+			ps.setString(1, maToa);
+			ResultSet rs = ps.executeQuery();
+			if (rs.next())
+				return new Object[] { rs.getInt(1), rs.getInt(2), rs.getString(3), rs.getInt(4) };
+		} catch (Exception e) {
+		}
+		return null;
+	}
 }

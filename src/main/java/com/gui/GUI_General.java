@@ -16,10 +16,13 @@ public class GUI_General extends JPanel {
     private TAB_BanVe tab_BanVe;
     private TAB_HoanVe tab_HoanVe;
     private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
-    private TAB_Tau tab_Tau;
+//    private TAB_Tau tab_Tau;
     private TAB_Ga tab_Ga;
     private TAB_Tuyen tab_Tuyen;
-    private TAB_Toa_ChoNgoi tab_Toa_ChoNgoi;
+//    private TAB_Toa tab_Toa;
+//    private TAB_Cho tab_Cho;
+//    private TAB_LoaiToa tab_LoaiToa;
+    private TAB_QuanLyDoanTau tab_qlDoanTau;
     private TAB_LichTrinh_ChuyenTau tab_LichTrinh_ChuyenTau;
     private TAB_Gia tab_Gia;
     private TAB_QLNhanVien tab_QLNhanVien;
@@ -54,8 +57,11 @@ public class GUI_General extends JPanel {
         tab_BanVe = new TAB_BanVe();
         tab_HoanVe = new TAB_HoanVe();
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
-        tab_Tau = new TAB_Tau();
-        tab_Toa_ChoNgoi = new TAB_Toa_ChoNgoi();
+//        tab_Tau = new TAB_Tau();
+//        tab_Toa = new TAB_Toa();
+//        tab_LoaiToa = new TAB_LoaiToa();
+//        tab_Cho = new TAB_Cho();
+        tab_qlDoanTau = new TAB_QuanLyDoanTau();
         tab_Ga = new TAB_Ga();
         tab_Tuyen = new TAB_Tuyen();
         tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();
@@ -116,8 +122,11 @@ public class GUI_General extends JPanel {
         // Thêm khoảng trống 10px để tách biệt các nhóm
         sidebar.add(Box.createVerticalStrut(10));
         sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
-        addDropdownMenu(sidebar, "Quản lý Đoàn tàu", new String[] { "Tàu", "Toa & Chỗ ngồi" },
-                new JPanel[] { tab_Tau, tab_Toa_ChoNgoi }, canAccessAdminTools);
+//        addDropdownMenu(sidebar, "Quản lý Đoàn Tàu", 
+//        	    new String[] { "Loại Toa", "Toa", "Tàu", "Sơ Đồ Chỗ Ngồi" },
+//        	    new JPanel[] { tab_LoaiToa, tab_Toa, tab_Tau, tab_Cho }, 
+//        	    canAccessAdminTools);
+        addTabButton(sidebar, "Quản lý Đoàn Tàu", tab_qlDoanTau, canAccessAdminTools);
         addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga", "Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
                 new JPanel[] { tab_Ga, tab_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, canAccessAdminTools);
         addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
