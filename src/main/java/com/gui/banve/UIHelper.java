@@ -17,7 +17,7 @@ public class UIHelper {
 	// =========================================================================
 	public static final Color BG_PAGE = new Color(0xF4F7FB);
 	public static final Color BG_CARD = Color.WHITE;
-	public static final Color ACCENT = new Color(0x2D7AF1);
+	public static final Color ACCENT = new Color(0x1A5EAB);
 	public static final Color ACCENT_HVR = new Color(0x1F62C8);
 	public static final Color TEXT_DARK = new Color(0x1E2B3C);
 	public static final Color TEXT_MID = new Color(0x5A6A7D);

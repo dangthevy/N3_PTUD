@@ -16,7 +16,7 @@ public class TAB_BanVe extends JPanel {
 	private int currentStep = 0;
 	private final String[] STEP_NAMES = { "Tìm kiếm", "Chọn chuyến & ghế", "Thông tin KH", "Thanh toán", "Hoàn tất" };
 	private Timer holdTimer;
-	private int timeLeft = 500;
+	private int timeLeft = 900;
 // === DỮ LIỆU DÙNG CHUNG ===
 	private DAO_BanVe daoBanVe = new DAO_BanVe();
 	private List<Map<String, String>> selectedSeatsData = new ArrayList<>();
@@ -33,7 +33,7 @@ public class TAB_BanVe extends JPanel {
 	public TAB_BanVe() {
 		setLayout(new BorderLayout());
 		setBackground(UIHelper.BG_PAGE);
-		setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+		setBorder(BorderFactory.createEmptyBorder(5, 20, 5, 20));
 		stepProgress = new StepProgressPanel(STEP_NAMES);
 		add(stepProgress, BorderLayout.NORTH);
 		cardLayout = new CardLayout();
@@ -172,7 +172,7 @@ public class TAB_BanVe extends JPanel {
 			btnNext.setVisible(false);
 		else if (currentStep == 1) {
 			btnNext.setVisible(true);
-			btnNext.setText("Tiếp tục: Nhập thông tin");
+			btnNext.setText("Tiếp tục");
 		} else if (currentStep == 2) {
 			btnNext.setVisible(true);
 			btnNext.setText("Chuyển đến Thanh toán");
@@ -227,7 +227,7 @@ public class TAB_BanVe extends JPanel {
 			int stepCount = steps.length;
 			int paddingX = 100;
 			int spacing = (width - paddingX * 2) / (stepCount - 1);
-			int circleRadius = 30;
+			int circleRadius = 25;
 			int cy = height / 2 - 10;
 			g2.setColor(UIHelper.BORDER);
 			g2.setStroke(new BasicStroke(4));

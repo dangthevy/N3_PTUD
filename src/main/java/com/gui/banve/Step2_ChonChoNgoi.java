@@ -31,7 +31,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 	private void initUI() {
 		setLayout(new BorderLayout());
 		setOpaque(false);
-		add(UIHelper.createPageTitle("CHỌN CHUYẾN & GHẾ", "Lựa chọn chuyến tàu và vị trí ghế ngồi phù hợp với bạn"),
+		add(UIHelper.createPageTitle("CHỌN CHUYẾN & GHẾ", ""),
 				BorderLayout.NORTH);
 
 		JPanel pnl = new JPanel(new BorderLayout(0, 10)); // Giảm gap

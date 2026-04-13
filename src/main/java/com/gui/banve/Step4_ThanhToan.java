@@ -218,7 +218,7 @@ public class Step4_ThanhToan extends JPanel {
         setLayout(new BorderLayout(0, 16)); setOpaque(false);
         add(UIHelper.createPageTitle(
                         "THANH TOÁN & HOÀN TẤT",
-                        "Kiểm tra lại thông tin hóa đơn, chỉnh sửa khuyến mãi và xác nhận"),
+                        ""),
                 BorderLayout.NORTH);
 
         JPanel body = new JPanel(new GridBagLayout()); body.setOpaque(false);

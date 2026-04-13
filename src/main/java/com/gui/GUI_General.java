@@ -14,7 +14,7 @@ public class GUI_General extends JPanel {
     // Khai báo các Tab
     private TAB_Dashboard tab_Dashboard;
     private TAB_BanVe tab_BanVe;
-    private TAB_HoanVe tab_HoanVe;
+    private TAB_TraCuuVe tab_TraCuuVe;
     private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
 //    private TAB_Tau tab_Tau;
     private TAB_Ga tab_Ga;
@@ -55,7 +55,7 @@ public class GUI_General extends JPanel {
         // Khởi tạo các Tab
         tab_Dashboard = new TAB_Dashboard(this, nv.getChucVu().name());
         tab_BanVe = new TAB_BanVe();
-        tab_HoanVe = new TAB_HoanVe();
+        tab_TraCuuVe = new TAB_TraCuuVe();
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
 //        tab_Tau = new TAB_Tau();
 //        tab_Toa = new TAB_Toa();
@@ -116,7 +116,7 @@ public class GUI_General extends JPanel {
 		sidebar.add(createSideTitle("CHỨC NĂNG CHÍNH"));
 		addTabButton(sidebar, "Màn hình chính", tab_Dashboard, true);
 		addTabButton(sidebar, "Bán vé", tab_BanVe, canAccessMain);
-		addTabButton(sidebar, "Hoàn vé", tab_HoanVe, canAccessMain);
+		addTabButton(sidebar, "Tra cứu vé", tab_TraCuuVe, canAccessMain);
 		addTabButton(sidebar, "Tra cứu hóa đơn", tab_ThanhToanLapHD, canAccessMain);
 
         // Thêm khoảng trống 10px để tách biệt các nhóm

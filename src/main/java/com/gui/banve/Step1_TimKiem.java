@@ -33,7 +33,7 @@ public class Step1_TimKiem extends JPanel {
     private void initUI() {
         setLayout(new BorderLayout());
         setOpaque(false);
-        add(UIHelper.createPageTitle("TÌM KIẾM CHUYẾN TÀU", "Nhập thông tin hành trình để tìm kiếm chuyến đi phù hợp"), BorderLayout.NORTH);
+        add(UIHelper.createPageTitle("TÌM KIẾM CHUYẾN TÀU", ""), BorderLayout.NORTH);
 
         JPanel pnlWrapper = new JPanel(new GridBagLayout());
         pnlWrapper.setOpaque(false);
