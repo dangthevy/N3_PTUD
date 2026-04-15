@@ -12,12 +12,12 @@ public class KhachHang {
 
 	// Constructor đầy đủ tham số
 	public KhachHang(String maKH, String hoTen, String sdt, String cccd, String email) {
-	    this.maKH = maKH;
-	    this.hoTen = hoTen;
-	    this.sdt = sdt;
-	    this.cccd = cccd;
-	    this.email = email;
-	    this.trangThai = 1;
+		this.maKH = maKH;
+		this.hoTen = hoTen;
+		this.sdt = sdt;
+		this.cccd = cccd;
+		this.email = email;
+		this.trangThai = 1;
 	}
 
 	// Constructor mặc định

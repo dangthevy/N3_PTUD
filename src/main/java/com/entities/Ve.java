@@ -9,7 +9,7 @@ public class Ve {
 	private LichTrinh lichTrinh; // Thay cho maLT
 	private LoaiVe loaiVe; // Thay cho maLoaiVe
 	private double giaVe;
-	private TrangThaiVe trangThaiVe; // CHUASUDUNG, DASUDUNG, HETHAN
+	private TrangThaiVe trangThaiVe; // CHUASUDUNG, DASUDUNG, HETHAN, DAHOAN
 
 	// Constructor đầy đủ tham số
 	public Ve(String maVe, KhachHang khachHang, ChoNgoi choNgoi, LichTrinh lichTrinh, LoaiVe loaiVe, double giaVe,

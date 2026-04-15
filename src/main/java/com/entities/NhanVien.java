@@ -81,4 +81,9 @@ public class NhanVien {
     public void setTaiKhoan(String taiKhoan) {
         this.taiKhoan = taiKhoan;
     }
+
+	public Object getHoTen() {
+		// TODO Auto-generated method stub
+		return (this.tenNV != null) ? this.tenNV : "N/A";
+	}
 }
