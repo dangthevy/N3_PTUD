@@ -73,8 +73,8 @@ public class TAB_Gia extends JPanel {
             "_ngayKetThucRaw"  // ẩn, index 5
     };
     private static final String[] COLS_GD = {
-            "Loại Toa", "Loại Vé", "Tuyến", "Giá (VND)",
-            "_maLoaiToa", "_maLoaiVe", "_maTuyen"   // ẩn index 4,5,6
+            "Loại Toa", "Tuyến", "Giá (VND)",
+            "_maLoaiToa", "_maTuyen"   // ẩn index 3, 4
     };
 
     // =========================================================================
@@ -322,7 +322,34 @@ public class TAB_Gia extends JPanel {
         btnThem.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnThem.addActionListener(e -> openAddHeaderDialog());
 
-        JButton btnXoa = makeBtn("Xóa", BtnStyle.DANGER);
+        // Nút Xóa bảng giá — icon thùng rác
+        JButton btnXoa = new JButton("  Xóa bảng giá") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BTN_RED_HVR : BTN_RED);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 14, cy = getHeight() / 2;
+                g2.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
+                g2.drawLine(cx - 2, cy - 5, cx - 2, cy - 7);
+                g2.drawLine(cx + 2, cy - 5, cx + 2, cy - 7);
+                g2.drawLine(cx - 2, cy - 7, cx + 2, cy - 7);
+                g2.drawLine(cx - 4, cy - 5, cx - 3, cy + 5);
+                g2.drawLine(cx + 4, cy - 5, cx + 3, cy + 5);
+                g2.drawLine(cx - 3, cy + 5, cx + 3, cy + 5);
+                g2.drawLine(cx, cy - 3, cx, cy + 3);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnXoa.setFont(F_LABEL);
+        btnXoa.setForeground(Color.WHITE);
+        btnXoa.setPreferredSize(new Dimension(145, 36));
+        btnXoa.setContentAreaFilled(false);
+        btnXoa.setBorderPainted(false);
+        btnXoa.setFocusPainted(false);
+        btnXoa.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnXoa.addActionListener(e -> deleteHeader());
 
         btnBar.add(btnThem);
@@ -361,11 +388,62 @@ public class TAB_Gia extends JPanel {
         styleScrollBar(scDetail.getVerticalScrollBar());
         cardDetail.add(scDetail, BorderLayout.CENTER);
 
-        // Nút thêm/xóa detail
+        // Nút thêm/xóa detail — vẽ icon tự
         JPanel detailBtnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         detailBtnBar.setOpaque(false);
-        JButton btnThemDetail = makeBtn("Thêm chi tiết", BtnStyle.PRIMARY);
-        JButton btnXoaDetail  = makeBtn("Xóa",           BtnStyle.DANGER);
+
+        // Nút Thêm chi tiết — icon +
+        JButton btnThemDetail = new JButton("  Thêm chi tiết") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int x = 14, cy = getHeight() / 2;
+                g2.drawLine(x - 5, cy, x + 5, cy);
+                g2.drawLine(x, cy - 5, x, cy + 5);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnThemDetail.setFont(F_LABEL);
+        btnThemDetail.setForeground(Color.WHITE);
+        btnThemDetail.setPreferredSize(new Dimension(145, 36));
+        btnThemDetail.setContentAreaFilled(false);
+        btnThemDetail.setBorderPainted(false);
+        btnThemDetail.setFocusPainted(false);
+        btnThemDetail.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Nút Xóa chi tiết — icon thùng rác
+        JButton btnXoaDetail = new JButton("  Xóa") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BTN_RED_HVR : BTN_RED);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 14, cy = getHeight() / 2;
+                g2.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
+                g2.drawLine(cx - 2, cy - 5, cx - 2, cy - 7);
+                g2.drawLine(cx + 2, cy - 5, cx + 2, cy - 7);
+                g2.drawLine(cx - 2, cy - 7, cx + 2, cy - 7);
+                g2.drawLine(cx - 4, cy - 5, cx - 3, cy + 5);
+                g2.drawLine(cx + 4, cy - 5, cx + 3, cy + 5);
+                g2.drawLine(cx - 3, cy + 5, cx + 3, cy + 5);
+                g2.drawLine(cx, cy - 3, cx, cy + 3);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnXoaDetail.setFont(F_LABEL);
+        btnXoaDetail.setForeground(Color.WHITE);
+        btnXoaDetail.setPreferredSize(new Dimension(90, 36));
+        btnXoaDetail.setContentAreaFilled(false);
+        btnXoaDetail.setBorderPainted(false);
+        btnXoaDetail.setFocusPainted(false);
+        btnXoaDetail.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
         btnThemDetail.addActionListener(e -> openAddDetailDialog());
         btnXoaDetail .addActionListener(e -> deleteDetail());
         detailBtnBar.add(btnThemDetail);
@@ -450,15 +528,15 @@ public class TAB_Gia extends JPanel {
             }
         };
         styleTable(t);
-        // Ẩn 3 cột mã raw (index 4,5,6)
-        for (int i = 4; i <= 6; i++) {
+        // Ẩn 2 cột mã raw (index 3, 4)
+        for (int i = 3; i <= 4; i++) {
             t.getColumnModel().getColumn(i).setMinWidth(0);
             t.getColumnModel().getColumn(i).setMaxWidth(0);
             t.getColumnModel().getColumn(i).setWidth(0);
         }
-        int[] w = {150, 130, 140, 130};
+        int[] w = {180, 180, 150};
         for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
-        applyPaddingRenderer(t, 4);
+        applyPaddingRenderer(t, 3);
         return t;
     }
 
@@ -607,18 +685,16 @@ public class TAB_Gia extends JPanel {
             for (GiaDetailRow d : list) {
                 modelGD.addRow(new Object[]{
                         tenLoaiToa(d.maLoaiToa),
-                        tenLoaiVe(d.maLoaiVe),
                         tenTuyen(d.maTuyen),
                         formatGia(d.gia),
-                        d.maLoaiToa,   // ẩn index 4
-                        d.maLoaiVe,    // ẩn index 5
-                        d.maTuyen      // ẩn index 6
+                        d.maLoaiToa,   // ẩn index 3
+                        d.maTuyen      // ẩn index 4
                 });
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        updateStats(); // cập nhật số chi tiết giá khi chọn bảng giá khác
+        updateStats();
     }
 
     // =========================================================================
@@ -839,16 +915,26 @@ public class TAB_Gia extends JPanel {
     }
 
     // =========================================================================
-    // XÓA GIA HEADER
+    // XÓA GIA HEADER — Validate đã có hóa đơn dùng chưa
     // =========================================================================
     private void deleteHeader() {
         int row = tblGH.getSelectedRow();
         if (row < 0) { warn("Vui lòng chọn một bảng giá để xóa."); return; }
+        String maGia = modelGH.getValueAt(row, 0).toString();
+
+        // --- Kiểm tra hóa đơn phát sinh ---
+        int soVe = demSoVeDungBangGia(maGia);
+        if (soVe > 0) {
+            warn("Không thể xóa bảng giá " + maGia + "!\n" +
+                    "Đã có " + soVe + " vé được bán theo bảng giá này.\n" +
+                    "Để bảo toàn dữ liệu, hãy chuyển trạng thái sang \"Ngừng áp dụng\" thay vì xóa.");
+            return;
+        }
+
         int ok = JOptionPane.showConfirmDialog(this,
-                "Xóa bảng giá này sẽ xóa luôn các chi tiết giá liên quan.\nBạn có chắc chắn?",
+                "Xóa bảng giá " + maGia + "?\nTất cả chi tiết giá liên quan cũng sẽ bị xóa.",
                 "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
-            String maGia = modelGH.getValueAt(row, 0).toString();
             boolean deleted = daoGia.deleteHeader(maGia);
             if (deleted) {
                 modelGH.removeRow(row);
@@ -869,6 +955,17 @@ public class TAB_Gia extends JPanel {
         if (row < 0) { warn("Vui lòng chọn một bảng giá trước."); return; }
         String maGia = modelGH.getValueAt(row, 0).toString();
 
+        // --- Validate bảng giá còn hiệu lực ---
+        String trangThai = modelGH.getValueAt(row, 4).toString();
+        if ("Ngừng áp dụng".equals(trangThai)) {
+            int choice = JOptionPane.showConfirmDialog(this,
+                    "Bảng giá này đã NGỪNG ÁP DỤNG.\n" +
+                            "Thêm chi tiết giá vào đây sẽ không có tác dụng thực tế.\n" +
+                            "Bạn vẫn muốn tiếp tục?",
+                    "Cảnh báo", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (choice != JOptionPane.YES_OPTION) return;
+        }
+
         JDialog dlg = makeDialog("Thêm Chi Tiết Giá — " + maGia);
 
         // ComboBox Loại Toa
@@ -876,18 +973,12 @@ public class TAB_Gia extends JPanel {
         for (int i = 0; i < DS_LOAI_TOA.length; i++) tenToaArr[i] = DS_LOAI_TOA[i][1];
         JComboBox<String> cbToa = makeCombo(tenToaArr);
 
-        // ComboBox Loại Vé
-        String[] tenVeArr = new String[DS_LOAI_VE.length];
-        for (int i = 0; i < DS_LOAI_VE.length; i++)
-            tenVeArr[i] = DS_LOAI_VE[i][1] + " (giảm " + DS_LOAI_VE[i][2] + "%)";
-        JComboBox<String> cbVe = makeCombo(tenVeArr);
-
         // ComboBox Tuyến
         String[] tenTuyenArr = new String[DS_TUYEN.length];
         for (int i = 0; i < DS_TUYEN.length; i++) tenTuyenArr[i] = DS_TUYEN[i][1];
         JComboBox<String> cbTuyen = makeCombo(tenTuyenArr);
 
-        JTextField txtGia = makeField("VD: 1150000");
+        JTextField txtGia = makeField("VD: 1150000  (giá người lớn - các loại vé khác tự giảm theo quy định)");
 
         JPanel form = new JPanel(new GridBagLayout());
         form.setOpaque(false);
@@ -895,7 +986,6 @@ public class TAB_Gia extends JPanel {
         GridBagConstraints gc = defaultGC();
         int r = 0;
         addRow(form, gc, r++, "Loại toa:",  cbToa);
-        addRow(form, gc, r++, "Loại vé:",   cbVe);
         addRow(form, gc, r++, "Tuyến:",     cbTuyen);
         addRow(form, gc, r,   "Giá (VND):", txtGia);
 
@@ -903,7 +993,6 @@ public class TAB_Gia extends JPanel {
         btnLuu.addActionListener(e -> {
             String giaStr = txtGia.getText().trim();
 
-            // --- Validate giá ---
             if (giaStr.isEmpty()) { warn("Vui lòng nhập Giá vé."); txtGia.requestFocus(); return; }
             long giaVal;
             try {
@@ -915,28 +1004,28 @@ public class TAB_Gia extends JPanel {
             if (giaVal > 100_000_000) { warn("Giá vé vượt quá giới hạn cho phép (100 triệu VND)."); return; }
 
             int idxToa   = cbToa.getSelectedIndex();
-            int idxVe    = cbVe.getSelectedIndex();
             int idxTuyen = cbTuyen.getSelectedIndex();
             String maToa      = DS_LOAI_TOA[idxToa][0];
-            String maVe       = DS_LOAI_VE[idxVe][0];
             String maTuyenSel = DS_TUYEN[idxTuyen][0];
 
-            // --- Validate trùng tổ hợp ---
+            // --- Validate trùng tổ hợp (Toa + Tuyến) ---
             for (int i = 0; i < modelGD.getRowCount(); i++) {
-                if (modelGD.getValueAt(i, 4).toString().equals(maToa)
-                        && modelGD.getValueAt(i, 5).toString().equals(maVe)
-                        && modelGD.getValueAt(i, 6).toString().equals(maTuyenSel)) {
-                    warn("Tổ hợp (Loại toa / Loại vé / Tuyến) này đã tồn tại trong bảng giá!\n"
+                if (modelGD.getValueAt(i, 3).toString().equals(maToa)
+                        && modelGD.getValueAt(i, 4).toString().equals(maTuyenSel)) {
+                    warn("Tổ hợp (Loại toa / Tuyến) này đã tồn tại trong bảng giá!\n"
                             + "Vui lòng chọn tổ hợp khác hoặc cập nhật dòng đã có.");
                     return;
                 }
             }
 
-            boolean ok = daoGia.insertDetail(maGia, maToa, maVe, maTuyenSel, giaVal);
+            // --- Insert 1 dòng (giá cơ sở) ---
+            // Mức giảm theo loại vé (trẻ em, sinh viên) được xử lý ở Khuyến mãi khi tính tiền
+            boolean ok = daoGia.insertDetail(maGia, maToa, maTuyenSel, giaVal);
+
             if (ok) {
                 modelGD.addRow(new Object[]{
-                        tenLoaiToa(maToa), tenLoaiVe(maVe), tenTuyen(maTuyenSel),
-                        formatGia(giaVal), maToa, maVe, maTuyenSel
+                        tenLoaiToa(maToa), tenTuyen(maTuyenSel),
+                        formatGia(giaVal), maToa, maTuyenSel
                 });
                 updateStats();
                 dlg.dispose();
@@ -955,15 +1044,13 @@ public class TAB_Gia extends JPanel {
         if (row < 0) { warn("Vui lòng chọn một dòng chi tiết giá."); return; }
 
         String tenToa   = modelGD.getValueAt(row, 0).toString();
-        String tenVe    = modelGD.getValueAt(row, 1).toString();
-        String tenTuyen = modelGD.getValueAt(row, 2).toString();
-        String giaHienTai = modelGD.getValueAt(row, 3).toString()
+        String tenTuyen = modelGD.getValueAt(row, 1).toString();
+        String giaHienTai = modelGD.getValueAt(row, 2).toString()
                 .replace(".", "").replace(" VND", "");
 
         JDialog dlg = makeDialog("Cập Nhật Chi Tiết Giá");
 
         JTextField txtToa   = roField(tenToa);
-        JTextField txtVe    = roField(tenVe);
         JTextField txtTuyen = roField(tenTuyen);
         JTextField txtGia   = makeFieldVal(giaHienTai);
 
@@ -973,16 +1060,13 @@ public class TAB_Gia extends JPanel {
         GridBagConstraints gc = defaultGC();
         int r = 0;
         addRow(form, gc, r++, "Loại toa:",  txtToa);
-        addRow(form, gc, r++, "Loại vé:",   txtVe);
         addRow(form, gc, r++, "Tuyến:",     txtTuyen);
         addRow(form, gc, r,   "Giá (VND):", txtGia);
 
-        // Đọc mã raw từ cột ẩn
-        String maToa   = modelGD.getValueAt(row, 4).toString();
-        String maVe    = modelGD.getValueAt(row, 5).toString();
-        String maTuyenSel = modelGD.getValueAt(row, 6).toString();
-        // maGia lấy từ header đang chọn
-        String maGiaHdr = modelGH.getValueAt(tblGH.getSelectedRow(), 0).toString();
+        // Đọc mã raw từ cột ẩn (index mới: 3, 4)
+        String maToa      = modelGD.getValueAt(row, 3).toString();
+        String maTuyenSel = modelGD.getValueAt(row, 4).toString();
+        String maGiaHdr   = modelGH.getValueAt(tblGH.getSelectedRow(), 0).toString();
 
         final int selRow = row;
         JButton btnLuu = makeBtn("Cập nhật", BtnStyle.PRIMARY);
@@ -998,9 +1082,29 @@ public class TAB_Gia extends JPanel {
             if (giaVal <= 0) { warn("Giá vé phải lớn hơn 0!"); return; }
             if (giaVal > 100_000_000) { warn("Giá vé vượt quá giới hạn cho phép (100 triệu VND)."); return; }
 
-            boolean ok = daoGia.updateDetail(maGiaHdr, maToa, maVe, maTuyenSel, giaVal);
-            if (ok) {
-                modelGD.setValueAt(formatGia(giaVal), selRow, 3);
+            // Nếu giá không đổi → không làm gì
+            long giaCu;
+            try { giaCu = Long.parseLong(giaHienTai.replaceAll("[^0-9]", "")); }
+            catch (Exception ex) { giaCu = 0; }
+            if (giaVal == giaCu) { dlg.dispose(); return; }
+
+            // --- Cảnh báo nếu đã có vé bán ---
+            int soVeTong = demSoVeDungChiTietGia(maGiaHdr, maToa, maTuyenSel);
+            if (soVeTong > 0) {
+                int choice = JOptionPane.showConfirmDialog(dlg,
+                        "<html><b>⚠ Cảnh báo: Đã có " + soVeTong + " vé được bán với giá cũ!</b><br><br>"
+                                + "Nếu sửa giá, thống kê doanh thu sẽ bị sai lệch vì các<br>"
+                                + "hóa đơn cũ vẫn tính theo giá cũ.<br><br>"
+                                + "<b>Khuyến nghị:</b> Tạo bảng giá MỚI thay vì sửa.<br><br>"
+                                + "Bạn vẫn muốn ghi đè giá cũ?</html>",
+                        "Xác nhận ghi đè giá",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (choice != JOptionPane.YES_OPTION) return;
+            }
+
+            // --- Update (chỉ 1 dòng theo PK mới) ---
+            if (daoGia.updateDetail(maGiaHdr, maToa, maTuyenSel, giaVal)) {
+                modelGD.setValueAt(formatGia(giaVal), selRow, 2);
                 dlg.dispose();
             } else {
                 warn("Lỗi khi cập nhật database!");
@@ -1010,27 +1114,76 @@ public class TAB_Gia extends JPanel {
     }
 
     // =========================================================================
-    // XÓA GIA DETAIL
+    // XÓA GIA DETAIL — Validate nếu đã có hóa đơn dùng
     // =========================================================================
     private void deleteDetail() {
         int row = tblGD.getSelectedRow();
         if (row < 0) { warn("Vui lòng chọn một dòng chi tiết giá để xóa."); return; }
+
+        String maToa      = modelGD.getValueAt(row, 3).toString();
+        String maTuyenSel = modelGD.getValueAt(row, 4).toString();
+        String maGiaHdr   = modelGH.getValueAt(tblGH.getSelectedRow(), 0).toString();
+
+        // --- Đếm số vé đã bán với tổ hợp (maGia + Toa + Tuyến) ---
+        int soVeDung = demSoVeDungChiTietGia(maGiaHdr, maToa, maTuyenSel);
+        if (soVeDung > 0) {
+            warn("Không thể xóa chi tiết giá này!\n" +
+                    "Đã có " + soVeDung + " vé được bán với tổ hợp này.\n" +
+                    "Để bảo toàn dữ liệu lịch sử, hãy tạo bảng giá mới thay vì xóa.");
+            return;
+        }
+
         int ok = JOptionPane.showConfirmDialog(this,
                 "Bạn có chắc muốn xóa dòng chi tiết giá này?",
                 "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
-            String maToa      = modelGD.getValueAt(row, 4).toString();
-            String maVe       = modelGD.getValueAt(row, 5).toString();
-            String maTuyenSel = modelGD.getValueAt(row, 6).toString();
-            String maGiaHdr   = modelGH.getValueAt(tblGH.getSelectedRow(), 0).toString();
-            boolean deleted = daoGia.deleteDetail(maGiaHdr, maToa, maVe, maTuyenSel);
-            if (deleted) {
+            if (daoGia.deleteDetail(maGiaHdr, maToa, maTuyenSel)) {
                 modelGD.removeRow(row);
                 updateStats();
             } else {
                 warn("Lỗi khi xóa chi tiết giá!");
             }
         }
+    }
+
+    /**
+     * Đếm số vé đã bán với tổ hợp maGia + maLoaiToa + maTuyen.
+     * Một vé dùng tổ hợp này khi:
+     *  - Lịch trình (Ve.maLT) nằm trong bảng giá (GiaHeader.maLT)
+     *  - Loại toa của chỗ ngồi khớp maLoaiToa
+     *  - Tuyến khớp maTuyen
+     */
+    private int demSoVeDungChiTietGia(String maGia, String maLoaiToa, String maTuyen) {
+        String sql = "SELECT COUNT(*) FROM Ve v " +
+                "JOIN ChoNgoi cn ON v.maCho = cn.maCho " +
+                "JOIN Toa t       ON cn.maToa = t.maToa " +
+                "JOIN LichTrinh lt ON v.maLT = lt.maLT " +
+                "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
+                "JOIN GiaHeader gh ON gh.maLT = lt.maLT " +
+                "WHERE gh.maGia = ? AND t.maLoaiToa = ? AND ct.maTuyen = ?";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maGia);
+            ps.setString(2, maLoaiToa);
+            ps.setString(3, maTuyen);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (Exception e) { e.printStackTrace(); }
+        return 0;
+    }
+
+    /** Đếm tổng số vé đã bán với một bảng giá (dùng để validate xóa/sửa header) */
+    private int demSoVeDungBangGia(String maGia) {
+        String sql = "SELECT COUNT(*) FROM Ve v " +
+                "JOIN GiaHeader gh ON gh.maLT = v.maLT " +
+                "WHERE gh.maGia = ?";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maGia);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (Exception e) { e.printStackTrace(); }
+        return 0;
     }
 
     // =========================================================================

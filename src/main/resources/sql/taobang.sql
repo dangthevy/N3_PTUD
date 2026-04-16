@@ -1,7 +1,7 @@
 ﻿-- =============================================
 -- RESET DATABASE & CREATE NEW
 -- =============================================
-IF DB_ID('BanVeTau') IS NOT NULL 
+IF DB_ID('BanVeTau') IS NOT NULL
 BEGIN
     USE master;
     ALTER DATABASE BanVeTau SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
@@ -25,14 +25,14 @@ CREATE TABLE Ga (
 );
 
 CREATE TABLE Tuyen (
-    maTuyen VARCHAR(10) PRIMARY KEY,
-    tenTuyen NVARCHAR(100) NOT NULL,
-    thoiGianChay INT, 
-    gaDi VARCHAR(10),
-    gaDen VARCHAR(10),
-    trangThai BIT DEFAULT 1,
-    FOREIGN KEY (gaDi) REFERENCES Ga(maGa),
-    FOREIGN KEY (gaDen) REFERENCES Ga(maGa)
+                       maTuyen VARCHAR(10) PRIMARY KEY,
+                       tenTuyen NVARCHAR(100) NOT NULL,
+                       thoiGianChay INT,
+                       gaDi VARCHAR(10),
+                       gaDen VARCHAR(10),
+                       trangThai BIT DEFAULT 1,
+                       FOREIGN KEY (gaDi) REFERENCES Ga(maGa),
+                       FOREIGN KEY (gaDen) REFERENCES Ga(maGa)
 );
 
 CREATE TABLE LoaiToa (
@@ -44,19 +44,19 @@ CREATE TABLE LoaiToa (
 );
 
 CREATE TABLE LoaiVe (
-    maLoai VARCHAR(10) PRIMARY KEY,
-    tenLoai NVARCHAR(50) NOT NULL,
-    mucGiam DECIMAL(5,2) DEFAULT 0 
+                        maLoai VARCHAR(10) PRIMARY KEY,
+                        tenLoai NVARCHAR(50) NOT NULL,
+                        mucGiam DECIMAL(5,2) DEFAULT 0
 );
 
 -- =============================================
 -- 2. TÀU, TOA & LẮP RÁP (KHỚP LOGIC JAVA)
 -- =============================================
 CREATE TABLE Tau (
-    maTau VARCHAR(15) PRIMARY KEY, 
-    tenTau NVARCHAR(100),
-    soToa INT CHECK (soToa > 0),
-    trangThai NVARCHAR(20) DEFAULT 'HOATDONG' CHECK (trangThai IN ('HOATDONG','BAOTRI','NGUNGHOATDONG'))
+                     maTau VARCHAR(15) PRIMARY KEY,
+                     tenTau NVARCHAR(100),
+                     soToa INT CHECK (soToa > 0),
+                     trangThai NVARCHAR(20) DEFAULT 'HOATDONG' CHECK (trangThai IN ('HOATDONG','BAOTRI','NGUNGHOATDONG'))
 );
 
 CREATE TABLE Toa (
@@ -81,12 +81,12 @@ CREATE TABLE ChiTietTau (
 -- 3. LỊCH TRÌNH VÀ VẬN HÀNH
 -- =============================================
 CREATE TABLE ChuyenTau (
-    maChuyen VARCHAR(15) PRIMARY KEY,
-    tenChuyen NVARCHAR(100),
-    maTau VARCHAR(15),
-    maTuyen VARCHAR(10),
-    FOREIGN KEY (maTau) REFERENCES Tau(maTau),
-    FOREIGN KEY (maTuyen) REFERENCES Tuyen(maTuyen)
+                           maChuyen VARCHAR(15) PRIMARY KEY,
+                           tenChuyen NVARCHAR(100),
+                           maTau VARCHAR(15),
+                           maTuyen VARCHAR(10),
+                           FOREIGN KEY (maTau) REFERENCES Tau(maTau),
+                           FOREIGN KEY (maTuyen) REFERENCES Tuyen(maTuyen)
 );
 
 CREATE TABLE LichTrinh (
@@ -124,65 +124,63 @@ CREATE TABLE GheBaoTri (
 -- 4. BẢNG GIÁ
 -- =============================================
 CREATE TABLE GiaHeader (
-    maGia VARCHAR(15) PRIMARY KEY,
-    tenGia NVARCHAR(100), 
-    moTa NVARCHAR(255),   
-    ngayApDung DATE,
-    ngayKetThuc DATE,
-    maLT VARCHAR(15),
-    FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT) ON DELETE CASCADE
+                           maGia VARCHAR(15) PRIMARY KEY,
+                           tenGia NVARCHAR(100),
+                           moTa NVARCHAR(255),
+                           ngayApDung DATE,
+                           ngayKetThuc DATE,
+                           maLT VARCHAR(15),
+                           FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT) ON DELETE CASCADE
 );
 
 CREATE TABLE GiaDetail (
-    maGia VARCHAR(15),
-    maLoaiToa VARCHAR(10),
-    maLoaiVe VARCHAR(10),
-    maTuyen VARCHAR(10),
-    gia DECIMAL(12,0) CHECK (gia >= 0), 
-    PRIMARY KEY (maGia, maLoaiToa, maLoaiVe, maTuyen),
-    FOREIGN KEY (maGia) REFERENCES GiaHeader(maGia),
-    FOREIGN KEY (maLoaiToa) REFERENCES LoaiToa(maLoaiToa),
-    FOREIGN KEY (maLoaiVe) REFERENCES LoaiVe(maLoai),
-    FOREIGN KEY (maTuyen) REFERENCES Tuyen(maTuyen)
+                           maGia VARCHAR(15),
+                           maLoaiToa VARCHAR(10),
+                           maTuyen VARCHAR(10),
+                           gia DECIMAL(12,0) CHECK (gia >= 0),
+                           PRIMARY KEY (maGia, maLoaiToa, maTuyen),
+                           FOREIGN KEY (maGia) REFERENCES GiaHeader(maGia),
+                           FOREIGN KEY (maLoaiToa) REFERENCES LoaiToa(maLoaiToa),
+                           FOREIGN KEY (maTuyen) REFERENCES Tuyen(maTuyen)
 );
 
 -- =============================================
 -- 5. ĐỐI TÁC & NHÂN SỰ
 -- =============================================
 CREATE TABLE NhanVien (
-    ID INT IDENTITY(1,1) NOT NULL,
-    maNV AS ('NV' + RIGHT('0000' + CAST(ID AS VARCHAR(10)), 4)) PERSISTED PRIMARY KEY,
-    tenNV NVARCHAR(100) NOT NULL,
-    sdt NVARCHAR(20),
-    email NVARCHAR(50),
-    taiKhoan VARCHAR(50) NOT NULL UNIQUE,
-    matKhau VARCHAR(50) NOT NULL,
-    chucVu NVARCHAR(50), 
-    trangThai NVARCHAR(20) CHECK (trangThai IN ('HOATDONG', 'NGUNGHOATDONG', 'NGHIPHEP')),
-    An BIT DEFAULT 0,
-    ngayVaoLam DATE
+                          ID INT IDENTITY(1,1) NOT NULL,
+                          maNV AS ('NV' + RIGHT('0000' + CAST(ID AS VARCHAR(10)), 4)) PERSISTED PRIMARY KEY,
+                          tenNV NVARCHAR(100) NOT NULL,
+                          sdt NVARCHAR(20),
+                          email NVARCHAR(50),
+                          taiKhoan VARCHAR(50) NOT NULL UNIQUE,
+                          matKhau VARCHAR(50) NOT NULL,
+                          chucVu NVARCHAR(50),
+                          trangThai NVARCHAR(20) CHECK (trangThai IN ('HOATDONG', 'NGUNGHOATDONG', 'NGHIPHEP')),
+                          An BIT DEFAULT 0,
+                          ngayVaoLam DATE
 );
 
 CREATE TABLE KhachHang (
-    maKH VARCHAR(15) PRIMARY KEY,
-    tenKH NVARCHAR(100) NOT NULL,
-    sdt VARCHAR(15) UNIQUE,
-    cccd VARCHAR(20) UNIQUE,
-    email VARCHAR(100)
+                           maKH VARCHAR(15) PRIMARY KEY,
+                           tenKH NVARCHAR(100) NOT NULL,
+                           sdt VARCHAR(15) UNIQUE,
+                           cccd VARCHAR(20) UNIQUE,
+                           email VARCHAR(100)
 );
 
 -- =============================================
 -- 6. KHUYẾN MÃI & CHI TIẾT
 -- =============================================
 CREATE TABLE KhuyenMai (
-    ID INT IDENTITY(1,1) NOT NULL,
-    MaKM AS ('KM' + RIGHT('0000' + CAST(ID AS VARCHAR(10)), 4)) PERSISTED PRIMARY KEY,
-    TenKM NVARCHAR(255) NOT NULL,
-    NgayBatDau DATE NOT NULL,
-    NgayKetThuc DATE NOT NULL,
-    TrangThai BIT DEFAULT 1,
-    MoTa NVARCHAR(500),
-    An BIT DEFAULT 0
+                           ID INT IDENTITY(1,1) NOT NULL,
+                           MaKM AS ('KM' + RIGHT('0000' + CAST(ID AS VARCHAR(10)), 4)) PERSISTED PRIMARY KEY,
+                           TenKM NVARCHAR(255) NOT NULL,
+                           NgayBatDau DATE NOT NULL,
+                           NgayKetThuc DATE NOT NULL,
+                           TrangThai BIT DEFAULT 1,
+                           MoTa NVARCHAR(500),
+                           An BIT DEFAULT 0
 );
 
 CREATE TABLE KhuyenMaiDetail (
@@ -328,7 +326,7 @@ WHILE @t_idx <= 2
 BEGIN
     DECLARE @maT VARCHAR(15) = 'TAU' + RIGHT('0000' + CAST(@t_idx AS VARCHAR), 4);
     DECLARE @toa_idx INT = 1;
-    
+
     WHILE @toa_idx <= 11
     BEGIN
         DECLARE @maToa VARCHAR(25) = 'TOA' + RIGHT('0000' + CAST(@global_toa_idx AS VARCHAR), 4);
@@ -349,23 +347,28 @@ BEGIN
     END
     SET @t_idx = @t_idx + 1;
 END
-GO 
+GO
 
-INSERT INTO ChuyenTau VALUES 
-('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01'),
-('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T02');
+INSERT INTO Tuyen (maTuyen, tenTuyen, thoiGianChay, gaDi, gaDen, trangThai) VALUES
+('T01', N'Sài Gòn - Hà Nội', 1800, 'GA23', 'GA01', 1),
+('T02', N'Hà Nội - Sài Gòn', 1800, 'GA01', 'GA23', 1),
+('T03', N'Sài Gòn - Nha Trang', 480, 'GA23', 'GA17', 1);
 
-INSERT INTO LichTrinh VALUES 
-('LT01', '2026-04-01', '08:00:00', '2026-04-02 08:00:00', 'CT01'),
-('LT02', '2026-04-02', '08:00:00', '2026-04-03 08:00:00', 'CT02');
+INSERT INTO ChuyenTau VALUES
+                          ('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01'),
+                          ('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T01');
 
-INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maLT) VALUES 
-('GIA0001', N'Giá vé tháng 4/2026', N'Áp dụng cao điểm hè', '2026-01-01', '2026-12-31', 'LT01');
+INSERT INTO LichTrinh VALUES
+                          ('LT01', '2026-04-01', '08:00:00', '20:00:00', 'CT01'),
+                          ('LT02', '2026-04-02', '08:00:00', '20:00:00', 'CT02');
 
-INSERT INTO GiaDetail (maGia, maLoaiToa, maLoaiVe, maTuyen, gia) VALUES 
-('GIA0001', 'G_CUNG', 'LV01', 'T01', 500000),
-('GIA0001', 'G_MEM',  'LV01', 'T01', 800000),
-('GIA0001', 'G_NAM',  'LV01', 'T01', 1200000);
+INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maLT) VALUES
+    ('GIA0001', N'Giá vé tháng 4/2026', N'Áp dụng cao điểm hè', '2026-01-01', '2026-12-31', 'LT01');
+
+INSERT INTO GiaDetail (maGia, maLoaiToa, maTuyen, gia) VALUES
+                                                           ('GIA0001', 'G_CUNG', 'T01', 500000),
+                                                           ('GIA0001', 'G_MEM',  'T01', 800000),
+                                                           ('GIA0001', 'G_NAM',  'T01', 1200000);
 GO
 
 -- =======================================================================
@@ -400,7 +403,7 @@ BEGIN
     INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien)
     VALUES (@hd, @ve, @giaThucTe, 0, @giaThucTe);
 
-    SET @i = @i + 1;
+SET @i = @i + 1;
 END
 GO 
 -- =============================================
