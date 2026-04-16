@@ -6,7 +6,6 @@ import javax.swing.*;
 
 public class main {
 	public static void main(String[] args) {
-
 		SwingUtilities.invokeLater(() -> {
 			JFrame frame = new JFrame("Hệ thống quản lý bán vé ga tàu - Đăng nhập");
 

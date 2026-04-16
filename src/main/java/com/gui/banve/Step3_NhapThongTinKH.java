@@ -2,7 +2,6 @@ package com.gui.banve;
 
 import com.dao.DAO_KhachHang;
 import com.entities.KhachHang;
-import com.formdev.flatlaf.FlatClientProperties;
 import com.gui.UITheme;
 
 import javax.swing.*;
@@ -18,7 +17,6 @@ import java.util.List;
 
 /**
  * Step3_NhapThongTinKH - Nhập thông tin hành khách khi bán vé
- * UI đồng bộ UITheme: card trắng bo góc, field label-trên, nút PRIMARY/SUCCESS/DANGER
  */
 public class Step3_NhapThongTinKH extends JPanel {
 
@@ -29,8 +27,9 @@ public class Step3_NhapThongTinKH extends JPanel {
 
     // BOOKER
     private JTextField txtBkSdt, txtBkHoTen, txtBkCccd, txtBkEmail;
-    private JLabel lblBkStatus, lblCccdError;
-    private JButton btnConfirmBooker, btnEditBooker;
+    private JLabel lblBkStatus;
+    private JLabel lblBkSdtError, lblBkHoTenError, lblBkCccdError, lblBkEmailError;
+    private JButton btnConfirmBooker;
     private KhachHang confirmedBooker = null;
 
     // PASSENGER
@@ -39,7 +38,7 @@ public class Step3_NhapThongTinKH extends JPanel {
     private JComboBox<String> cbLoaiVe;
     private JButton btnConfirmPax, btnCopyBooker;
     private JPanel pnlPaxSection;
-    private JLabel lblPaxSdtError, lblPaxCccdError;
+    private JLabel lblPaxSdtError, lblPaxHoTenError, lblPaxCccdError, lblPaxEmailError;
 
     // Debounce
     private final Timer debounceBk  = new Timer(400, e -> searchBookerFromDB());
@@ -86,9 +85,7 @@ public class Step3_NhapThongTinKH extends JPanel {
         add(pnlBody, BorderLayout.CENTER);
     }
 
-    // ============================================================
-    //  LEFT PANEL
-    // ============================================================
+    // LEFT PANNEL
     private JPanel buildLeftPanel() {
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
@@ -117,6 +114,17 @@ public class Step3_NhapThongTinKH extends JPanel {
     private JPanel buildBookerCard() {
         JPanel card = UITheme.makeCard(new BorderLayout(0, 10));
 
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        card.setToolTipText("Nhấp đúp chuột để sửa thông tin");
+        card.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && !txtBkSdt.isEditable()) {
+                    unlockBooker();
+                }
+            }
+        });
+
         // Title row
         JPanel pnlTop = new JPanel(new BorderLayout(0, 3));
         pnlTop.setOpaque(false);
@@ -135,38 +143,42 @@ public class Step3_NhapThongTinKH extends JPanel {
         form.setOpaque(false);
 
         txtBkSdt   = makePlainField("Nhập 10 số");   applyNumberOnly(txtBkSdt);
-        txtBkHoTen = makePlainField("Họ và tên");    applyTitleCase(txtBkHoTen); applyTextOnly(txtBkHoTen);
+        txtBkHoTen = makePlainField("Họ và tên");    applyTextOnly(txtBkHoTen);
         txtBkCccd  = makePlainField("Nhập 12 số");   applyNumberOnly(txtBkCccd);
-        txtBkEmail = makePlainField("Tên tài khoản"); applyEmailOnly(txtBkEmail);
+        txtBkEmail = makePlainField("Ví dụ: abc@gmail.com"); applyEmailOnly(txtBkEmail);
 
-        lblCccdError = makeErrorLabel();
+        lblBkSdtError   = makeErrorLabel();
+        lblBkHoTenError = makeErrorLabel();
+        lblBkCccdError  = makeErrorLabel();
+        lblBkEmailError = makeErrorLabel();
 
-        addFormRow(form, "Số điện thoại", txtBkSdt);
-        addFormRow(form, "Họ và Tên",     txtBkHoTen);
-        addFormRow(form, "Số CCCD",       txtBkCccd);
-        form.add(lblCccdError);
-        addFormRowSuffix(form, "Email", txtBkEmail, "@gmail.com");
+        addFormRow(form, "Số điện thoại", txtBkSdt); form.add(lblBkSdtError);
+        addFormRow(form, "Họ và Tên",     txtBkHoTen); form.add(lblBkHoTenError);
+        addFormRow(form, "Số CCCD",       txtBkCccd); form.add(lblBkCccdError);
+        addFormRow(form, "Email",         txtBkEmail); form.add(lblBkEmailError);
+
         card.add(form, BorderLayout.CENTER);
 
         // Buttons
         btnConfirmBooker = UITheme.makePrimaryBtn("XÁC NHẬN NGƯỜI ĐẶT");
         btnConfirmBooker.addActionListener(e -> confirmBooker());
 
-        btnEditBooker = UITheme.makeBtn("SỬA THÔNG TIN", UITheme.TEXT_MID);
-        btnEditBooker.setVisible(false);
-        btnEditBooker.addActionListener(e -> unlockBooker());
-
-        JPanel pnlBtn = new JPanel(new GridLayout(1, 2, 10, 0));
+        JPanel pnlBtn = new JPanel(new GridLayout(1, 1, 10, 0));
         pnlBtn.setOpaque(false);
         pnlBtn.setBorder(new EmptyBorder(12, 0, 0, 0));
         pnlBtn.add(btnConfirmBooker);
-        pnlBtn.add(btnEditBooker);
         card.add(pnlBtn, BorderLayout.SOUTH);
 
-        // Events
+        // Sự kiện Enter từng ô bên người đặt
+        txtBkSdt.addActionListener(e -> {
+            debounceBk.stop();
+            if (validateBkSdt()) txtBkHoTen.requestFocus();
+        });
+        txtBkHoTen.addActionListener(e -> { if (validateBkHoTen()) txtBkCccd.requestFocus(); });
+        txtBkCccd.addActionListener(e -> { if (validateBkCccd()) txtBkEmail.requestFocus(); });
+        txtBkEmail.addActionListener(e -> { if (validateBkEmail()) btnConfirmBooker.doClick(); });
+
         txtBkSdt.getDocument().addDocumentListener(docListener(debounceBk));
-        chainEnter(txtBkSdt, txtBkHoTen); chainEnter(txtBkHoTen, txtBkCccd);
-        chainEnter(txtBkCccd, txtBkEmail); chainEnter(txtBkEmail, btnConfirmBooker);
         return card;
     }
 
@@ -190,22 +202,24 @@ public class Step3_NhapThongTinKH extends JPanel {
         form.setOpaque(false);
 
         txtPaxSdt   = makePlainField("SĐT");          applyNumberOnly(txtPaxSdt);
-        txtPaxHoTen = makePlainField("Họ và tên");    applyTitleCase(txtPaxHoTen); applyTextOnly(txtPaxHoTen);
+        txtPaxHoTen = makePlainField("Họ và tên");    applyTextOnly(txtPaxHoTen);
         txtPaxCccd  = makePlainField("CCCD (12 số)"); applyNumberOnly(txtPaxCccd);
-        txtPaxEmail = makePlainField("Email");         applyEmailOnly(txtPaxEmail);
+        txtPaxEmail = makePlainField("Ví dụ: abc@gmail.com"); applyEmailOnly(txtPaxEmail);
+
         cbLoaiVe    = new JComboBox<>(new String[]{"Người lớn", "Trẻ em", "Sinh viên", "Người cao tuổi"});
         cbLoaiVe.setFont(UITheme.FONT_LABEL);
 
-        lblPaxSdtError  = makeErrorLabel();
-        lblPaxCccdError = makeErrorLabel();
+        lblPaxSdtError   = makeErrorLabel();
+        lblPaxHoTenError = makeErrorLabel();
+        lblPaxCccdError  = makeErrorLabel();
+        lblPaxEmailError = makeErrorLabel();
 
-        addFormRow(form, "Số điện thoại", txtPaxSdt);
-        form.add(lblPaxSdtError);
-        addFormRow(form, "Họ và Tên",     txtPaxHoTen);
-        addFormRow(form, "Số CCCD",       txtPaxCccd);
-        form.add(lblPaxCccdError);
-        addFormRow(form, "Loại vé",       cbLoaiVe);
-        addFormRowSuffix(form, "Email",   txtPaxEmail, "@gmail.com");
+        addFormRow(form, "Số điện thoại", txtPaxSdt);   form.add(lblPaxSdtError);
+        addFormRow(form, "Họ và Tên",     txtPaxHoTen); form.add(lblPaxHoTenError);
+        addFormRow(form, "Số CCCD",       txtPaxCccd);  form.add(lblPaxCccdError);
+        addFormRow(form, "Loại vé",       cbLoaiVe);    form.add(Box.createVerticalStrut(5));
+        addFormRow(form, "Email",         txtPaxEmail); form.add(lblPaxEmailError);
+
         card.add(form, BorderLayout.CENTER);
 
         btnCopyBooker = UITheme.makeBtn("Lấy thông tin người đặt", UITheme.TEXT_MID);
@@ -220,13 +234,22 @@ public class Step3_NhapThongTinKH extends JPanel {
         pnlBtn.add(btnConfirmPax);
         card.add(pnlBtn, BorderLayout.SOUTH);
 
+        // ==============================================================
+        // SỰ KIỆN ENTER TỪNG Ô BÊN HÀNH KHÁCH
+        // ==============================================================
+        txtPaxSdt.addActionListener(e -> {
+            debounceBk.stop();
+            if (validatePaxSdt()) txtPaxHoTen.requestFocus();
+        });
+        txtPaxHoTen.addActionListener(e -> { if (validatePaxHoTen()) txtPaxCccd.requestFocus(); });
+        txtPaxCccd.addActionListener(e -> { if (validatePaxCccd()) cbLoaiVe.requestFocus(); });
+        txtPaxEmail.addActionListener(e -> { if (validatePaxEmail()) btnConfirmPax.doClick(); });
+
         txtPaxSdt.getDocument().addDocumentListener(docListener(debouncePax));
         return card;
     }
 
-    // ============================================================
-    //  RIGHT PANEL: Danh sách vé
-    // ============================================================
+    // Right panel: DS bán vé
     private JPanel buildRightPanel() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 10));
         wrapper.setBackground(UITheme.BG_PAGE);
@@ -248,37 +271,16 @@ public class Step3_NhapThongTinKH extends JPanel {
         return wrapper;
     }
 
-    // ============================================================
     //  FORM HELPERS
-    // ============================================================
     private void addFormRow(JPanel parent, String label, JComponent field) {
         JPanel row = new JPanel(new BorderLayout(0, 4));
         row.setOpaque(false);
-        row.setBorder(new EmptyBorder(0, 0, 10, 0));
+        row.setBorder(new EmptyBorder(0, 0, 2, 0));
         JLabel lbl = new JLabel(label);
         lbl.setFont(UITheme.FONT_STAT_LABEL);
         lbl.setForeground(UITheme.TEXT_MID);
         row.add(lbl,   BorderLayout.NORTH);
         row.add(field, BorderLayout.CENTER);
-        parent.add(row);
-    }
-
-    private void addFormRowSuffix(JPanel parent, String label, JTextField field, String suffix) {
-        JPanel row = new JPanel(new BorderLayout(0, 4));
-        row.setOpaque(false);
-        row.setBorder(new EmptyBorder(0, 0, 10, 0));
-        JLabel lbl = new JLabel(label);
-        lbl.setFont(UITheme.FONT_STAT_LABEL);
-        lbl.setForeground(UITheme.TEXT_MID);
-        row.add(lbl, BorderLayout.NORTH);
-        JPanel fg = new JPanel(new BorderLayout(5, 0));
-        fg.setOpaque(false);
-        fg.add(field, BorderLayout.CENTER);
-        JLabel sfx = new JLabel(suffix);
-        sfx.setFont(UITheme.FONT_LABEL);
-        sfx.setForeground(UITheme.TEXT_MID);
-        fg.add(sfx, BorderLayout.EAST);
-        row.add(fg, BorderLayout.CENTER);
         parent.add(row);
     }
 
@@ -296,45 +298,186 @@ public class Step3_NhapThongTinKH extends JPanel {
         JLabel lbl = new JLabel(" ");
         lbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lbl.setForeground(UITheme.DANGER);
+        lbl.setBorder(new EmptyBorder(0, 0, 8, 0));
         return lbl;
     }
 
+    private void clearBookerErrors() {
+        lblBkSdtError.setText(" ");
+        lblBkHoTenError.setText(" ");
+        lblBkCccdError.setText(" ");
+        lblBkEmailError.setText(" ");
+    }
+
+    private void clearPaxErrors() {
+        lblPaxSdtError.setText(" ");
+        lblPaxHoTenError.setText(" ");
+        lblPaxCccdError.setText(" ");
+        lblPaxEmailError.setText(" ");
+    }
+
+    // CỤM 4 HÀM BỊ THIẾU TỪ LẦN TRƯỚC ĐƯỢC CHÈN LẠI VÀO ĐÂY
+    private void setBookerFieldsEditable(boolean e) {
+        txtBkSdt.setEditable(e);
+        txtBkHoTen.setEditable(e);
+        txtBkCccd.setEditable(e);
+        txtBkEmail.setEditable(e);
+    }
+
+    private void clearBookerFields() {
+        txtBkSdt.setText("");
+        txtBkHoTen.setText("");
+        txtBkCccd.setText("");
+        txtBkEmail.setText("");
+        btnConfirmBooker.setVisible(true);
+        setBookerFieldsEditable(true);
+        clearBookerErrors();
+    }
+
+    private void setPaxFieldsEditable(boolean e) {
+        txtPaxSdt.setEditable(e);
+        txtPaxHoTen.setEditable(e);
+        txtPaxCccd.setEditable(e);
+        txtPaxEmail.setEditable(e);
+        cbLoaiVe.setEnabled(e);
+    }
+
+    private void clearPaxFields() {
+        txtPaxSdt.setText("");
+        txtPaxHoTen.setText("");
+        txtPaxCccd.setText("");
+        txtPaxEmail.setText("");
+        cbLoaiVe.setSelectedIndex(0);
+        clearPaxErrors();
+    }
+
+    private void copyBookerToPax() {
+        if (confirmedBooker == null) return;
+        txtPaxSdt.setText(confirmedBooker.getSdt());
+        txtPaxHoTen.setText(confirmedBooker.getHoTen());
+        txtPaxCccd.setText(confirmedBooker.getCccd());
+        txtPaxEmail.setText(confirmedBooker.getEmail() != null ? confirmedBooker.getEmail() : "");
+        clearPaxErrors();
+    }
+
     // ============================================================
-    //  BUSINESS LOGIC (giữ nguyên, chỉ đổi màu status)
+    //  HÀM CHUẨN HÓA (VIẾT HOA CHỮ CÁI ĐẦU)
+    // ============================================================
+    private String toTitleCase(String text) {
+        if (text == null || text.trim().isEmpty()) return "";
+        String[] words = text.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (!w.isEmpty()) {
+                sb.append(Character.toUpperCase(w.charAt(0)));
+                if (w.length() > 1) {
+                    sb.append(w.substring(1).toLowerCase());
+                }
+                sb.append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    // ============================================================
+    //  HÀM VALIDATE (KIỂM TRA LỖI) CHO TỪNG Ô NGƯỜI ĐẶT VÉ
+    // ============================================================
+    private boolean validateBkSdt() {
+        String sdt = txtBkSdt.getText().trim();
+        if (sdt.isEmpty()) { lblBkSdtError.setText("Vui lòng nhập Số điện thoại"); return false; }
+        if (!sdt.matches("^\\d{10}$")) { lblBkSdtError.setText("Số điện thoại phải bao gồm đúng 10 chữ số"); return false; }
+        lblBkSdtError.setText(" "); return true;
+    }
+
+    private boolean validateBkHoTen() {
+        String name = txtBkHoTen.getText().trim();
+        if (name.isEmpty()) { lblBkHoTenError.setText("Vui lòng nhập Họ và Tên"); return false; }
+
+        name = toTitleCase(name);
+        txtBkHoTen.setText(name);
+
+        lblBkHoTenError.setText(" "); return true;
+    }
+
+    private boolean validateBkCccd() {
+        String cccd = txtBkCccd.getText().trim();
+        if (cccd.isEmpty()) { lblBkCccdError.setText("Vui lòng nhập Số CCCD"); return false; }
+        if (!cccd.matches("^\\d{12}$")) { lblBkCccdError.setText("Số CCCD phải bao gồm đúng 12 chữ số"); return false; }
+        lblBkCccdError.setText(" "); return true;
+    }
+
+    private boolean validateBkEmail() {
+        String email = txtBkEmail.getText().trim();
+        if (email.isEmpty()) { lblBkEmailError.setText("Vui lòng nhập Email"); return false; }
+        if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$")) {
+            lblBkEmailError.setText("Email không hợp lệ! (Ví dụ: abc@gmail.com)"); return false;
+        }
+        lblBkEmailError.setText(" "); return true;
+    }
+
+    //  HÀM VALIDATE (KIỂM TRA LỖI) CHO TỪNG Ô HÀNH KHÁCH
+    private boolean validatePaxSdt() {
+        String sdt = txtPaxSdt.getText().trim();
+        if (sdt.isEmpty()) { lblPaxSdtError.setText("Vui lòng nhập Số điện thoại"); return false; }
+        if (!sdt.matches("^\\d{10}$")) { lblPaxSdtError.setText("Số điện thoại phải bao gồm đúng 10 chữ số"); return false; }
+        lblPaxSdtError.setText(" "); return true;
+    }
+
+    private boolean validatePaxHoTen() {
+        String name = txtPaxHoTen.getText().trim();
+        if (name.isEmpty()) { lblPaxHoTenError.setText("Vui lòng nhập Họ và Tên"); return false; }
+
+        name = toTitleCase(name);
+        txtPaxHoTen.setText(name);
+
+        lblPaxHoTenError.setText(" "); return true;
+    }
+
+    private boolean validatePaxCccd() {
+        String cccd = txtPaxCccd.getText().trim();
+        if (cccd.isEmpty()) { lblPaxCccdError.setText("Vui lòng nhập Số CCCD"); return false; }
+        if (!cccd.matches("^\\d{12}$")) { lblPaxCccdError.setText("Số CCCD phải bao gồm đúng 12 chữ số"); return false; }
+        lblPaxCccdError.setText(" "); return true;
+    }
+
+    private boolean validatePaxEmail() {
+        String email = txtPaxEmail.getText().trim();
+        if (email.isEmpty()) { lblPaxEmailError.setText("Vui lòng nhập Email"); return false; }
+        if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$")) {
+            lblPaxEmailError.setText("Email hành khách không hợp lệ! (Ví dụ: abc@gmail.com)"); return false;
+        }
+        lblPaxEmailError.setText(" "); return true;
+    }
+
+
+    // ============================================================
+    //  BUSINESS LOGIC CHÍNH
     // ============================================================
     private void confirmBooker() {
+        boolean ok = true;
+        if (!validateBkSdt()) ok = false;
+        if (!validateBkHoTen()) ok = false;
+        if (!validateBkCccd()) ok = false;
+        if (!validateBkEmail()) ok = false;
+        if (!ok) return;
+
         String hoTen = txtBkHoTen.getText().trim();
         String sdt   = txtBkSdt.getText().trim();
         String cccd  = txtBkCccd.getText().trim();
-        String emailName = txtBkEmail.getText().trim();
-        String fullEmail = emailName.isEmpty() ? "" : emailName + "@gmail.com";
-
-        if (hoTen.isEmpty() || sdt.isEmpty() || cccd.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Họ tên, SĐT và CCCD!");
-            return;
-        }
-        if (!sdt.matches("^(03|05|07|08|09)\\d{8}$")) {
-            JOptionPane.showMessageDialog(this, "SĐT phải 10 số và bắt đầu bằng 03, 05, 07, 08, 09!");
-            txtBkSdt.requestFocus(); return;
-        }
-        if (!cccd.matches("^09\\d{10}$")) {
-            JOptionPane.showMessageDialog(this, "CCCD phải 12 số và bắt đầu bằng 09!");
-            txtBkCccd.requestFocus(); return;
-        }
+        String email = txtBkEmail.getText().trim();
 
         if (confirmedBooker != null && !confirmedBooker.getMaKH().isEmpty()) {
             confirmedBooker.setHoTen(hoTen); confirmedBooker.setSdt(sdt);
-            confirmedBooker.setCccd(cccd);   confirmedBooker.setEmail(fullEmail);
+            confirmedBooker.setCccd(cccd);   confirmedBooker.setEmail(email);
             kh_dao.updateKhachHang(confirmedBooker);
         } else {
-            confirmedBooker = new KhachHang("", hoTen, sdt, cccd, fullEmail);
+            confirmedBooker = new KhachHang("", hoTen, sdt, cccd, email);
             kh_dao.addKhachHang(confirmedBooker);
         }
 
         setBookerFieldsEditable(false);
-        btnConfirmBooker.setEnabled(false);
-        btnEditBooker.setVisible(true);
-        lblBkStatus.setText("✓ Đã xác nhận: " + hoTen);
+        btnConfirmBooker.setVisible(false);
+        lblBkStatus.setText("✓ Đã xác nhận: " + hoTen + " (Nhấp đúp để sửa)");
         lblBkStatus.setForeground(UITheme.SUCCESS);
         pnlPaxSection.setVisible(true);
         if (!passengerCards.isEmpty()) selectCard(0);
@@ -343,78 +486,123 @@ public class Step3_NhapThongTinKH extends JPanel {
 
     private void unlockBooker() {
         setBookerFieldsEditable(true);
-        btnConfirmBooker.setEnabled(true);
-        btnEditBooker.setVisible(false);
+        btnConfirmBooker.setVisible(true);
+        lblBkStatus.setText("Nhập SĐT để tìm khách hàng...");
+        lblBkStatus.setForeground(UITheme.TEXT_MID);
         pnlPaxSection.setVisible(false);
         txtBkSdt.requestFocusInWindow();
     }
 
     private void searchBookerFromDB() {
         String sdt = txtBkSdt.getText().trim();
-        if (sdt.length() != 10) return;
-        List<KhachHang> list = kh_dao.searchBySdt(sdt);
-        if (list != null && !list.isEmpty()) {
-            KhachHang kh = list.get(0);
-            confirmedBooker = kh;
-            txtBkHoTen.setText(kh.getHoTen());
-            txtBkCccd.setText(kh.getCccd());
-            txtBkEmail.setText((kh.getEmail() != null ? kh.getEmail() : "").replace("@gmail.com", ""));
-            lblBkStatus.setText("Khách hàng cũ: " + kh.getHoTen());
-            lblBkStatus.setForeground(UITheme.SUCCESS);
-            btnEditBooker.setVisible(true);
-        } else {
-            lblBkStatus.setText("Khách hàng mới");
-            lblBkStatus.setForeground(UITheme.PRIMARY);
-            btnEditBooker.setVisible(false);
+
+        if (sdt.length() < 10) {
+            confirmedBooker = null;
+            txtBkHoTen.setText("");
+            txtBkCccd.setText("");
+            txtBkEmail.setText("");
+            lblBkStatus.setText("Nhập SĐT để tìm khách hàng...");
+            lblBkStatus.setForeground(UITheme.TEXT_MID);
+            clearBookerErrors();
+            return;
+        }
+
+        if (sdt.length() == 10) {
+            List<KhachHang> list = kh_dao.searchBySdt(sdt);
+            if (list != null && !list.isEmpty()) {
+                KhachHang kh = list.get(0);
+                confirmedBooker = kh;
+                txtBkHoTen.setText(kh.getHoTen());
+                txtBkCccd.setText(kh.getCccd());
+                txtBkEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
+                lblBkStatus.setText("Khách hàng cũ: " + kh.getHoTen());
+                lblBkStatus.setForeground(UITheme.SUCCESS);
+                clearBookerErrors();
+            } else {
+                lblBkStatus.setText("Khách hàng mới");
+                lblBkStatus.setForeground(UITheme.PRIMARY);
+                confirmedBooker = null;
+                txtBkHoTen.setText("");
+                txtBkCccd.setText("");
+                txtBkEmail.setText("");
+            }
         }
     }
 
     private void searchPaxFromDB() {
         String sdt = txtPaxSdt.getText().trim();
-        if (sdt.length() != 10) return;
-        List<KhachHang> list = kh_dao.searchBySdt(sdt);
-        if (list != null && !list.isEmpty()) {
-            KhachHang kh = list.get(0);
-            txtPaxHoTen.setText(kh.getHoTen());
-            txtPaxCccd.setText(kh.getCccd());
-            txtPaxEmail.setText((kh.getEmail() != null ? kh.getEmail() : "").replace("@gmail.com", ""));
+
+        if (sdt.length() < 10) {
+            txtPaxHoTen.setText("");
+            txtPaxCccd.setText("");
+            txtPaxEmail.setText("");
+            lblPaxStatus.setText("Nhập SĐT hoặc điền tay");
+            clearPaxErrors();
+            return;
+        }
+
+        if (sdt.length() == 10) {
+            List<KhachHang> list = kh_dao.searchBySdt(sdt);
+            if (list != null && !list.isEmpty()) {
+                KhachHang kh = list.get(0);
+                txtPaxHoTen.setText(kh.getHoTen());
+                txtPaxCccd.setText(kh.getCccd());
+                txtPaxEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
+                lblPaxStatus.setText("Tìm thấy: " + kh.getHoTen());
+                clearPaxErrors();
+            } else {
+                lblPaxStatus.setText("Hành khách mới");
+                txtPaxHoTen.setText("");
+                txtPaxCccd.setText("");
+                txtPaxEmail.setText("");
+            }
         }
     }
 
     private void confirmPassenger() {
         if (currentIdx >= passengerCards.size()) return;
+
+        boolean ok = true;
+        if (!validatePaxSdt()) ok = false;
+        if (!validatePaxHoTen()) ok = false;
+        if (!validatePaxCccd()) ok = false;
+        if (!validatePaxEmail()) ok = false;
+        if (!ok) return;
+
         String hoTen = txtPaxHoTen.getText().trim();
         String sdt   = txtPaxSdt.getText().trim();
         String cccd  = txtPaxCccd.getText().trim();
         String email = txtPaxEmail.getText().trim();
-        if (!email.isEmpty()) email += "@gmail.com";
 
-        lblPaxSdtError.setText(" "); lblPaxCccdError.setText(" ");
-        boolean hasError = false;
-        if (hoTen.isEmpty()) hasError = true;
-        if (sdt.isEmpty())   { lblPaxSdtError.setText("Không được để trống SĐT"); hasError = true; }
-        if (cccd.isEmpty())  { lblPaxCccdError.setText("Không được để trống CCCD"); hasError = true; }
-        if (!sdt.isEmpty() && !sdt.matches("^(03|05|07|08|09)\\d{8}$"))
-            { lblPaxSdtError.setText("SĐT phải 10 số (03,05,07,08,09)"); hasError = true; }
-        if (!cccd.isEmpty() && !cccd.matches("^09\\d{10}$"))
-            { lblPaxCccdError.setText("CCCD phải 12 số, bắt đầu 09"); hasError = true; }
-        if (hasError) return;
-
+        // Lưu DB
         String maKH = savePassengerToDB(hoTen, sdt, cccd, email);
-        mainTab.getSelectedSeatsData().get(currentIdx).put("maKH", maKH);
-        passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, cbLoaiVe.getSelectedItem().toString());
 
-        // Thêm dòng này vào hàm confirmPassenger() của Step 3:
+        // CẬP NHẬT TẤT CẢ DỮ LIỆU VÀO GIỎ HÀNG (MAP)
+        Map<String, String> seatMap = mainTab.getSelectedSeatsData().get(currentIdx);
+        seatMap.put("maKH", maKH);
+        seatMap.put("hoTen", hoTen);
+        seatMap.put("sdt", sdt);
+        seatMap.put("cccd", cccd);
+        seatMap.put("email", email);
+
         String tenLoaiVe = cbLoaiVe.getSelectedItem().toString();
         String maLoaiVe = tenLoaiVe.equals("Người lớn") ? "LV01" : (tenLoaiVe.equals("Trẻ em") ? "LV02" : "LV03");
-        mainTab.getSelectedSeatsData().get(currentIdx).put("maLoaiVe", maLoaiVe);
+        seatMap.put("loaiVe", tenLoaiVe);
+        seatMap.put("maLoaiVe", maLoaiVe);
 
+        // Cập nhật thẻ hiển thị
+        passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, tenLoaiVe);
+
+        // Khóa form hiện tại lại
+        setPaxFieldsEditable(false);
+        btnConfirmPax.setVisible(false);
+
+        // Chuyển sang thẻ tiếp theo nếu chưa điền xong
         if (currentIdx < passengerCards.size() - 1) {
             selectCard(currentIdx + 1);
         } else {
             lblCurrentTicket.setText("ĐÃ HOÀN TẤT NHẬP LIỆU");
             lblCurrentTicket.setForeground(UITheme.SUCCESS);
-            btnConfirmPax.setEnabled(false);
         }
         mainTab.setNextButtonEnabled(isAllPassengersFilled());
     }
@@ -438,39 +626,32 @@ public class Step3_NhapThongTinKH extends JPanel {
         currentIdx = idx;
         lblCurrentTicket.setText("HÀNH KHÁCH " + (idx + 1));
         lblCurrentTicket.setForeground(UITheme.PRIMARY);
-        for (int i = 0; i < passengerCards.size(); i++)
+        clearPaxErrors();
+
+        for (int i = 0; i < passengerCards.size(); i++) {
             passengerCards.get(i).setSelected(i == idx);
-        clearPaxFields();
-        btnCopyBooker.setVisible(idx == 0);
-    }
+        }
 
-    private void setBookerFieldsEditable(boolean e) {
-        txtBkSdt.setEditable(e); txtBkHoTen.setEditable(e);
-        txtBkCccd.setEditable(e); txtBkEmail.setEditable(e);
-    }
+        Map<String, String> seatMap = mainTab.getSelectedSeatsData().get(idx);
+        if (seatMap.containsKey("hoTen")) {
+            txtPaxHoTen.setText(seatMap.get("hoTen"));
+            txtPaxSdt.setText(seatMap.get("sdt"));
+            txtPaxCccd.setText(seatMap.get("cccd"));
+            txtPaxEmail.setText(seatMap.get("email"));
+            cbLoaiVe.setSelectedItem(seatMap.get("loaiVe"));
 
-    private void clearBookerFields() {
-        txtBkSdt.setText(""); txtBkHoTen.setText("");
-        txtBkCccd.setText(""); txtBkEmail.setText("");
-        btnEditBooker.setVisible(false);
-        btnConfirmBooker.setEnabled(true);
-        setBookerFieldsEditable(true);
-    }
-
-    private void clearPaxFields() {
-        txtPaxSdt.setText(""); txtPaxHoTen.setText("");
-        txtPaxCccd.setText(""); txtPaxEmail.setText("");
-        lblPaxSdtError.setText(" "); lblPaxCccdError.setText(" ");
-        cbLoaiVe.setSelectedIndex(0); btnConfirmPax.setEnabled(true);
-    }
-
-    private void copyBookerToPax() {
-        if (confirmedBooker == null) return;
-        txtPaxSdt.setText(confirmedBooker.getSdt());
-        txtPaxHoTen.setText(confirmedBooker.getHoTen());
-        txtPaxCccd.setText(confirmedBooker.getCccd());
-        String mail = confirmedBooker.getEmail() != null ? confirmedBooker.getEmail() : "";
-        txtPaxEmail.setText(mail.replace("@gmail.com", ""));
+            setPaxFieldsEditable(false);
+            btnConfirmPax.setVisible(false);
+            btnCopyBooker.setVisible(false);
+            lblPaxStatus.setText("Thông tin đã được lưu (Nhấp đúp vào thẻ để sửa)");
+        } else {
+            clearPaxFields();
+            setPaxFieldsEditable(true);
+            btnConfirmPax.setText("XÁC NHẬN VÉ NÀY");
+            btnConfirmPax.setVisible(true);
+            btnCopyBooker.setVisible(idx == 0);
+            lblPaxStatus.setText("Nhập SĐT hoặc điền tay");
+        }
     }
 
     public void updateTimerDisplay(String text) {
@@ -482,15 +663,27 @@ public class Step3_NhapThongTinKH extends JPanel {
         pnlPaxSection.setVisible(false);
         mainTab.setNextButtonEnabled(false);
         pnlTicketList.removeAll(); passengerCards.clear();
+
         List<Map<String, String>> seats = mainTab.getSelectedSeatsData();
         for (int i = 0; i < seats.size(); i++) {
             Map<String, String> sd = seats.get(i);
             String info = sd.get("tenTau") + " | " + sd.get("tenToa") + " - Ghế " + sd.get("tenCho");
             PassengerCard pc = new PassengerCard(i + 1, info);
             final int idx = i;
+
             pc.addMouseListener(new MouseAdapter() {
                 public void mouseClicked(MouseEvent e) {
-                    if (pnlPaxSection.isVisible()) selectCard(idx);
+                    if (pnlPaxSection.isVisible()) {
+                        selectCard(idx);
+
+                        if (e.getClickCount() == 2) {
+                            setPaxFieldsEditable(true);
+                            btnConfirmPax.setText("CẬP NHẬT VÉ NÀY");
+                            btnConfirmPax.setVisible(true);
+                            lblPaxStatus.setText("Đang chỉnh sửa thông tin hành khách");
+                            if (idx == 0) btnCopyBooker.setVisible(true);
+                        }
+                    }
                 }
             });
             passengerCards.add(pc);
@@ -527,22 +720,8 @@ public class Step3_NhapThongTinKH extends JPanel {
     private void applyEmailOnly(JTextField tf) {
         ((AbstractDocument) tf.getDocument()).setDocumentFilter(new DocumentFilter() {
             public void replace(FilterBypass fb, int off, int len, String text, AttributeSet a) throws BadLocationException {
-                if (text != null && text.matches("[a-zA-Z0-9]*")) super.replace(fb, off, len, text, a);
-            }
-        });
-    }
-
-    private void applyTitleCase(JTextField tf) {
-        ((AbstractDocument) tf.getDocument()).setDocumentFilter(new DocumentFilter() {
-            public void replace(FilterBypass fb, int offset, int len, String text, AttributeSet a) throws BadLocationException {
-                if (text != null && !text.isEmpty()) {
-                    StringBuilder sb = new StringBuilder(text);
-                    try {
-                        if (offset == 0 || fb.getDocument().getText(offset - 1, 1).equals(" "))
-                            sb.setCharAt(0, Character.toUpperCase(sb.charAt(0)));
-                    } catch (Exception ignored) {}
-                    super.replace(fb, offset, len, sb.toString(), a);
-                } else super.replace(fb, offset, len, text, a);
+                // CHO PHÉP NHẬP CẢ CHỮ, SỐ, @, DẤU CHẤM VÀ DẤU GẠCH
+                if (text != null && text.matches("[a-zA-Z0-9@._-]*")) super.replace(fb, off, len, text, a);
             }
         });
     }
@@ -563,9 +742,7 @@ public class Step3_NhapThongTinKH extends JPanel {
         };
     }
 
-    // ============================================================
     //  PassengerCard (đồng bộ UITheme)
-    // ============================================================
     private class PassengerCard extends JPanel {
         private final JLabel lblName, lblSeat, lblInfo;
         private final JPanel indicator;
@@ -575,6 +752,8 @@ public class Step3_NhapThongTinKH extends JPanel {
             setLayout(new BorderLayout(10, 0));
             setBackground(UITheme.BG_CARD);
             setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+            setToolTipText("Nhấp 1 lần để xem, Nhấp đúp để sửa");
 
             indicator = new JPanel();
             indicator.setPreferredSize(new Dimension(5, 0));

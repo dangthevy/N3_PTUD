@@ -49,7 +49,7 @@ public class TAB_Ga extends JPanel {
     private DefaultTableModel dataModel;
     private JTable table;
     private JTextField txtSearch;
-    private JLabel lblTotal, lblActive, lblInactive;
+    private JLabel lblTotal;
     private final DAO_Ga dsGa = new DAO_Ga();
 
     public TAB_Ga() {
@@ -66,16 +66,21 @@ public class TAB_Ga extends JPanel {
         JPanel pnlTop = new JPanel(new BorderLayout(0, 20));
         pnlTop.setOpaque(false);
 
-        JLabel title = new JLabel("QUẢN LÝ GA");
-        title.setFont(F_TITLE); title.setForeground(ACCENT);
-        pnlTop.add(title, BorderLayout.NORTH);
-
         JPanel pnlDashboard = new JPanel(new GridLayout(1, 3, 20, 0));
         pnlDashboard.setOpaque(false);
         pnlDashboard.add(createStatCard("TỔNG SỐ GA", lblTotal = new JLabel("0"), ACCENT));
-        pnlDashboard.add(createStatCard("ĐANG HOẠT ĐỘNG", lblActive = new JLabel("0"), new Color(39, 174, 96)));
-        pnlDashboard.add(createStatCard("NGƯNG HOẠT ĐỘNG", lblInactive = new JLabel("0"), new Color(192, 57, 43)));
-        pnlTop.add(pnlDashboard, BorderLayout.CENTER);
+
+        // Thêm 2 panel rỗng để giữ cho thẻ Tổng Số Ga không bị kéo giãn toàn bộ chiều rộng
+        JPanel dummy1 = new JPanel(); dummy1.setOpaque(false);
+        JPanel dummy2 = new JPanel(); dummy2.setOpaque(false);
+        pnlDashboard.add(dummy1);
+        pnlDashboard.add(dummy2);
+
+        pnlTop.add(pnlDashboard, BorderLayout.NORTH);
+
+        JLabel title = new JLabel("QUẢN LÝ GA");
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
+        pnlTop.add(title, BorderLayout.CENTER);
 
         // ================= CENTER PANEL (TOOL BAR & TABLE) =================
         JPanel centerPnl = makeCard(new BorderLayout(0, 15));
@@ -97,8 +102,9 @@ public class TAB_Ga extends JPanel {
 
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlButtons.setOpaque(false);
-        pnlButtons.add(btnXoa);
         pnlButtons.add(btnThem);
+        pnlButtons.add(btnXoa);
+
 
         pnlToolbar.add(pnlSearch, BorderLayout.WEST);
         pnlToolbar.add(pnlButtons, BorderLayout.EAST);
@@ -166,8 +172,6 @@ public class TAB_Ga extends JPanel {
 
         // Cập nhật thẻ Dashboard
         lblTotal.setText(String.valueOf(list.size()));
-        lblActive.setText(String.valueOf(list.size()));
-        lblInactive.setText("0"); // Do DAO hiện tại chỉ lấy Ga đang hoạt động
     }
 
     private void xoaGa() {

@@ -16,11 +16,10 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.awt.geom.RoundRectangle2D;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.awt.event.KeyEvent;
+import java.awt.geom.RoundRectangle2D;
+import java.util.*;
+import java.util.List;
 
 public class TAB_Tuyen extends JPanel {
 
@@ -54,10 +53,15 @@ public class TAB_Tuyen extends JPanel {
     private DefaultTableModel dataModel;
     private JTable table;
     private JTextField txtSearch;
-    private JLabel lblTotal, lblActive, lblInactive;
+    private JLabel lblTotal;
+
+    private JComboBox<String> cbFilterNoiDi;
+    private JComboBox<String> cbFilterNoiDen;
 
     private final DAO_Tuyen dsTuyen = new DAO_Tuyen();
     private final DAO_Ga dsGa = new DAO_Ga();
+
+    private List<Tuyen> allTuyenList = new ArrayList<>();
 
     public TAB_Tuyen() {
         setLayout(new BorderLayout(0, 20));
@@ -65,52 +69,69 @@ public class TAB_Tuyen extends JPanel {
         setBorder(new EmptyBorder(24, 24, 24, 24));
 
         initUI();
-        updateTableData();
+        loadDataFromDB();
     }
 
     private void initUI() {
-        // ================= TOP PANEL (TITLE & DASHBOARD) =================
         JPanel pnlTop = new JPanel(new BorderLayout(0, 20));
         pnlTop.setOpaque(false);
 
+        JPanel pnlDashboard = new JPanel(new GridLayout(1, 1, 0, 0));
+        pnlDashboard.setOpaque(false);
+        pnlDashboard.add(createStatCard("TỔNG SỐ TUYẾN ĐƯỜNG", lblTotal = new JLabel("0"), ACCENT));
+        pnlTop.add(pnlDashboard, BorderLayout.NORTH);
+
         JLabel title = new JLabel("QUẢN LÝ TUYẾN ĐƯỜNG");
         title.setFont(F_TITLE); title.setForeground(ACCENT);
-        pnlTop.add(title, BorderLayout.NORTH);
+        pnlTop.add(title, BorderLayout.CENTER);
 
-        JPanel pnlDashboard = new JPanel(new GridLayout(1, 3, 20, 0));
-        pnlDashboard.setOpaque(false);
-        pnlDashboard.add(createStatCard("TỔNG SỐ TUYẾN", lblTotal = new JLabel("0"), ACCENT));
-        pnlDashboard.add(createStatCard("ĐANG HOẠT ĐỘNG", lblActive = new JLabel("0"), new Color(39, 174, 96)));
-        pnlDashboard.add(createStatCard("NGƯNG HOẠT ĐỘNG", lblInactive = new JLabel("0"), new Color(192, 57, 43)));
-        pnlTop.add(pnlDashboard, BorderLayout.CENTER);
-
-        // ================= CENTER PANEL (TOOL BAR & TABLE) =================
         JPanel centerPnl = makeCard(new BorderLayout(0, 15));
         centerPnl.setBorder(BorderFactory.createCompoundBorder(
                 new ShadowBorder(), new EmptyBorder(15, 15, 15, 15)
         ));
 
-        JPanel pnlToolbar = new JPanel(new BorderLayout());
+        JPanel pnlToolbar = new JPanel(new BorderLayout(10, 0));
         pnlToolbar.setOpaque(false);
 
-        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        pnlSearch.setOpaque(false);
-        txtSearch = makeField("Nhập tên hoặc mã tuyến để tìm kiếm...");
-        txtSearch.setPreferredSize(new Dimension(300, 36));
-        pnlSearch.add(txtSearch);
+        JPanel pnlFilterAndSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        pnlFilterAndSearch.setOpaque(false);
 
-        JButton btnXoa = makeBtn("- Xóa", BtnStyle.DANGER);
-        JButton btnThem = makeBtn("+ Thêm Mới", BtnStyle.PRIMARY);
+        cbFilterNoiDi = makeCombo(new String[]{"Tất cả (Nơi đi)"});
+        cbFilterNoiDen = makeCombo(new String[]{"Tất cả (Nơi đến)"});
+        cbFilterNoiDi.setPreferredSize(new Dimension(180, 36));
+        cbFilterNoiDen.setPreferredSize(new Dimension(180, 36));
+
+        cbFilterNoiDi.addActionListener(e -> performFilter());
+        cbFilterNoiDen.addActionListener(e -> performFilter());
+
+        txtSearch = makeField("Nhập mã hoặc tên tuyến...");
+        txtSearch.setPreferredSize(new Dimension(250, 36));
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { performFilter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { performFilter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { performFilter(); }
+        });
+
+        pnlFilterAndSearch.add(txtSearch);
+        pnlFilterAndSearch.add(new JLabel("Nơi đi"));
+        pnlFilterAndSearch.add(cbFilterNoiDi);
+        pnlFilterAndSearch.add(new JLabel("Nơi đến"));
+        pnlFilterAndSearch.add(cbFilterNoiDen);
+
 
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlButtons.setOpaque(false);
+        JButton btnXoa = makeBtn("- Xóa", BtnStyle.DANGER);
+        JButton btnThem = makeBtn("+ Thêm Mới", BtnStyle.PRIMARY);
+        btnXoa.addActionListener(e -> xoaTuyen());
+        btnThem.addActionListener(e -> hienThiDialogThemTuyen());
+
         pnlButtons.add(btnXoa);
         pnlButtons.add(btnThem);
 
-        pnlToolbar.add(pnlSearch, BorderLayout.WEST);
+        pnlToolbar.add(pnlFilterAndSearch, BorderLayout.WEST);
         pnlToolbar.add(pnlButtons, BorderLayout.EAST);
 
-        // Đổi Header thành "Nơi Đi", "Nơi Đến"
         String[] cols = {"Mã Tuyến", "Tên Tuyến", "Thời gian", "Nơi Đi", "Nơi Đến"};
         dataModel = new DefaultTableModel(cols, 0);
         table = buildTable(dataModel);
@@ -126,32 +147,6 @@ public class TAB_Tuyen extends JPanel {
 
         centerPnl.add(pnlToolbar, BorderLayout.NORTH);
         centerPnl.add(scrollPane, BorderLayout.CENTER);
-
-        // XỬ LÝ SỰ KIỆN TÌM KIẾM LIVE
-        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { thucHienTimKiem(); }
-            private void thucHienTimKiem() {
-                String tuKhoa = txtSearch.getText().trim();
-                if(tuKhoa.equals("Nhập tên hoặc mã tuyến để tìm kiếm...")) return;
-
-                List<Tuyen> listKetQua = dsTuyen.timKiemTuyen(tuKhoa);
-                dataModel.setRowCount(0);
-                for (Tuyen tuyen : listKetQua) {
-                    int tongPhut = tuyen.getThoiGianChay();
-                    String thoiGianHienThi = (tongPhut / 60) + "h " + (tongPhut % 60) + "m";
-                    dataModel.addRow(new Object[]{
-                            tuyen.getMaTuyen(), tuyen.getTenTuyen(), thoiGianHienThi,
-                            tuyen.getGaDi() != null ? tuyen.getGaDi().getTenGa() : "",
-                            tuyen.getGaDen() != null ? tuyen.getGaDen().getTenGa() : ""
-                    });
-                }
-            }
-        });
-
-        btnThem.addActionListener(e -> hienThiDialogThemTuyen());
-        btnXoa.addActionListener(e -> xoaTuyen());
 
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -170,25 +165,83 @@ public class TAB_Tuyen extends JPanel {
         add(centerPnl, BorderLayout.CENTER);
     }
 
-    private void updateTableData() {
-        List<Tuyen> list = dsTuyen.getAllTuyen();
+    private void loadDataFromDB() {
+        allTuyenList = dsTuyen.getAllTuyen();
+
+        Set<String> setTinhThanh = new TreeSet<>();
+        List<Ga> listGa = dsGa.getAllGa();
+        for (Ga g : listGa) {
+            if(g.getTinhThanh() != null && !g.getTinhThanh().isEmpty()){
+                setTinhThanh.add(g.getTinhThanh());
+            }
+        }
+
+        cbFilterNoiDi.removeAllItems();
+        cbFilterNoiDen.removeAllItems();
+        cbFilterNoiDi.addItem("Tất cả (Nơi đi)");
+        cbFilterNoiDen.addItem("Tất cả (Nơi đến)");
+
+        for (String tinh : setTinhThanh) {
+            cbFilterNoiDi.addItem(tinh);
+            cbFilterNoiDen.addItem(tinh);
+        }
+
+        updateTableData(allTuyenList);
+        lblTotal.setText(String.valueOf(allTuyenList.size()));
+    }
+
+    private void performFilter() {
+        String keyword = txtSearch.getText().trim().toLowerCase();
+        if (keyword.equals("nhập mã hoặc tên tuyến...")) keyword = "";
+
+        String filterDi = cbFilterNoiDi.getSelectedItem() != null ? cbFilterNoiDi.getSelectedItem().toString() : "";
+        String filterDen = cbFilterNoiDen.getSelectedItem() != null ? cbFilterNoiDen.getSelectedItem().toString() : "";
+
+        List<Tuyen> filteredList = new ArrayList<>();
+
+        for (Tuyen t : allTuyenList) {
+            boolean matchSearch = keyword.isEmpty() ||
+                    t.getMaTuyen().toLowerCase().contains(keyword) ||
+                    t.getTenTuyen().toLowerCase().contains(keyword);
+
+            String tinhDi = t.getGaDi() != null ? t.getGaDi().getTinhThanh() : "";
+            String tinhDen = t.getGaDen() != null ? t.getGaDen().getTinhThanh() : "";
+
+            boolean matchNoidi = filterDi.contains("Tất cả") || tinhDi.equalsIgnoreCase(filterDi);
+            boolean matchNoiDen = filterDen.contains("Tất cả") || tinhDen.equalsIgnoreCase(filterDen);
+
+            if (matchSearch && matchNoidi && matchNoiDen) {
+                filteredList.add(t);
+            }
+        }
+
+        updateTableData(filteredList);
+    }
+
+    private void updateTableData(List<Tuyen> listData) {
         dataModel.setRowCount(0);
-        for (Tuyen tuyen : list) {
+        for (Tuyen tuyen : listData) {
             int tongPhut = tuyen.getThoiGianChay();
             String thoiGianHienThi = (tongPhut / 60) + "h " + (tongPhut % 60) + "m";
 
-            // Hiển thị tên Ga thay vì mã Ga cho dễ nhìn
+            String strNoidi = "";
+            if(tuyen.getGaDi() != null) {
+                strNoidi = tuyen.getGaDi().getTenGa() + " (" + tuyen.getGaDi().getTinhThanh() + ")";
+            }
+
+            String strNoiDen = "";
+            if(tuyen.getGaDen() != null) {
+                strNoiDen = tuyen.getGaDen().getTenGa() + " (" + tuyen.getGaDen().getTinhThanh() + ")";
+            }
+
             dataModel.addRow(new Object[]{
-                    tuyen.getMaTuyen(), tuyen.getTenTuyen(), thoiGianHienThi,
-                    tuyen.getGaDi() != null ? tuyen.getGaDi().getTenGa() : "",
-                    tuyen.getGaDen() != null ? tuyen.getGaDen().getTenGa() : ""
+                    tuyen.getMaTuyen(),
+                    tuyen.getTenTuyen(),
+                    thoiGianHienThi,
+                    strNoidi,
+                    strNoiDen
             });
         }
-
-        // Cập nhật thẻ Dashboard
-        lblTotal.setText(String.valueOf(list.size()));
-        lblActive.setText(String.valueOf(list.size()));
-        lblInactive.setText("0");
     }
 
     private void xoaTuyen() {
@@ -203,16 +256,13 @@ public class TAB_Tuyen extends JPanel {
         if (confirm == JOptionPane.YES_OPTION) {
             if (dsTuyen.deleteTuyen(maTuyen)) {
                 JOptionPane.showMessageDialog(this, "Đã xóa Tuyến thành công!");
-                updateTableData();
+                loadDataFromDB();
             } else {
                 warn("Xóa Tuyến thất bại! Vui lòng thử lại.");
             }
         }
     }
 
-    // =========================================================================
-    // DIALOG THÊM / SỬA (VỚI TÍNH NĂNG TÌM GA THÔNG MINH)
-    // =========================================================================
     private void hienThiDialogThemTuyen() {
         JDialog dialog = makeDialog("Thêm Mới Tuyến Đường");
         JPanel form = new JPanel(new GridBagLayout());
@@ -222,14 +272,12 @@ public class TAB_Tuyen extends JPanel {
         JTextField txtMa = roField(dsTuyen.phatSinhMaTuyen());
         JTextField txtTen = roField("");
 
-        // Khởi tạo dữ liệu Ga kèm Tỉnh Thành
         List<Ga> listGa = dsGa.getAllGa();
         String[] arrGaStr = new String[listGa.size()];
-        Map<String, Ga> mapGa = new HashMap<>(); // Map để truy xuất lại Ga gốc từ chuỗi hiển thị
+        Map<String, Ga> mapGa = new HashMap<>();
 
         for (int i = 0; i < listGa.size(); i++) {
             Ga g = listGa.get(i);
-            // Chuỗi hiển thị: "Tên Ga (Tỉnh Thành)"
             String displayStr = g.getTenGa() + " (" + g.getTinhThanh() + ")";
             arrGaStr[i] = displayStr;
             mapGa.put(displayStr, g);
@@ -238,7 +286,8 @@ public class TAB_Tuyen extends JPanel {
         JComboBox<String> cbNoiDi = makeCombo(arrGaStr); cbNoiDi.setEditable(true);
         JComboBox<String> cbNoiDen = makeCombo(arrGaStr); cbNoiDen.setEditable(true);
 
-        setupAutoSelectAll(cbNoiDi); setupAutoSelectAll(cbNoiDen);
+        setupAutoSelectAll(cbNoiDi);
+        setupAutoSelectAll(cbNoiDen);
         applySmartFilterGa(cbNoiDi, arrGaStr);
         applySmartFilterGa(cbNoiDen, arrGaStr);
 
@@ -253,7 +302,6 @@ public class TAB_Tuyen extends JPanel {
         cbNoiDi.addActionListener(e -> updateTenTuyen.run());
         cbNoiDen.addActionListener(e -> updateTenTuyen.run());
 
-        // Thời gian
         String[] allHours = new String[100]; for (int i = 0; i <= 99; i++) allHours[i] = String.format("%02d", i);
         String[] allMinutes = new String[60]; for (int i = 0; i <= 59; i++) allMinutes[i] = String.format("%02d", i);
 
@@ -263,8 +311,10 @@ public class TAB_Tuyen extends JPanel {
         JComboBox<String> cbPhut = makeCombo(allMinutes); cbPhut.setEditable(true);
         cbPhut.setPreferredSize(new Dimension(75, 36));
 
-        setupAutoSelectAll(cbGio); setupAutoSelectAll(cbPhut);
-        applySmartFilterTime(cbGio, allHours); applySmartFilterTime(cbPhut, allMinutes);
+        setupAutoSelectAll(cbGio);
+        setupAutoSelectAll(cbPhut);
+        applySmartFilterTime(cbGio, allHours);
+        applySmartFilterTime(cbPhut, allMinutes);
         cbGio.setSelectedItem("00"); cbPhut.setSelectedItem("00");
 
         JPanel timePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -275,8 +325,8 @@ public class TAB_Tuyen extends JPanel {
 
         int r = 0;
         addRow(form, gc, r++, "Mã Tuyến:", txtMa);
-        addRow(form, gc, r++, "Nơi Đi:", cbNoiDi); // Thay đổi nhãn
-        addRow(form, gc, r++, "Nơi Đến:", cbNoiDen); // Thay đổi nhãn
+        addRow(form, gc, r++, "Nơi Đi:", cbNoiDi);
+        addRow(form, gc, r++, "Nơi Đến:", cbNoiDen);
         addRow(form, gc, r++, "Tên tuyến:", txtTen);
         addRow(form, gc, r++, "Thời gian:", timePanel);
 
@@ -314,7 +364,7 @@ public class TAB_Tuyen extends JPanel {
             Tuyen tuyenMoi = new Tuyen(txtMa.getText(), txtTen.getText(), thoiGian, gaDi, gaDen);
             if (dsTuyen.addTuyen(tuyenMoi)) {
                 JOptionPane.showMessageDialog(dialog, "Thêm tuyến mới thành công!");
-                updateTableData();
+                loadDataFromDB();
                 dialog.dispose();
             } else {
                 warn("Thêm thất bại!");
@@ -355,11 +405,11 @@ public class TAB_Tuyen extends JPanel {
         JComboBox<String> cbNoiDiSua = makeCombo(arrGaStr); cbNoiDiSua.setEditable(true);
         JComboBox<String> cbNoiDenSua = makeCombo(arrGaStr); cbNoiDenSua.setEditable(true);
 
-        setupAutoSelectAll(cbNoiDiSua); setupAutoSelectAll(cbNoiDenSua);
+        setupAutoSelectAll(cbNoiDiSua);
+        setupAutoSelectAll(cbNoiDenSua);
         applySmartFilterGa(cbNoiDiSua, arrGaStr);
         applySmartFilterGa(cbNoiDenSua, arrGaStr);
 
-        // Set dữ liệu ban đầu
         String displayGaDiOld = tuyenHienTai.getGaDi().getTenGa() + " (" + tuyenHienTai.getGaDi().getTinhThanh() + ")";
         String displayGaDenOld = tuyenHienTai.getGaDen().getTenGa() + " (" + tuyenHienTai.getGaDen().getTinhThanh() + ")";
         cbNoiDiSua.setSelectedItem(displayGaDiOld);
@@ -383,6 +433,11 @@ public class TAB_Tuyen extends JPanel {
 
         JComboBox<String> cbPhutSua = makeCombo(allMinutes); cbPhutSua.setEditable(true);
         cbPhutSua.setPreferredSize(new Dimension(75, 36));
+
+        setupAutoSelectAll(cbGioSua);
+        setupAutoSelectAll(cbPhutSua);
+        applySmartFilterTime(cbGioSua, allHours);
+        applySmartFilterTime(cbPhutSua, allMinutes);
 
         int tongPhut = tuyenHienTai.getThoiGianChay();
         cbGioSua.setSelectedItem(String.format("%02d", tongPhut / 60));
@@ -423,8 +478,9 @@ public class TAB_Tuyen extends JPanel {
             Ga gaDeNMoi = mapGa.get(selDen);
 
             for (int i = 0; i < dsTuyen.getAllTuyen().size(); i++) {
+                if (dsTuyen.getAllTuyen().get(i).getMaTuyen().equals(tuyenHienTai.getMaTuyen())) continue;
                 Tuyen existT = dsTuyen.getAllTuyen().get(i);
-                if (!existT.getMaTuyen().equals(txtMaSua.getText()) && existT.getGaDi().getMaGa().equals(gaDiMoi.getMaGa()) && existT.getGaDen().getMaGa().equals(gaDeNMoi.getMaGa())) {
+                if (existT.getGaDi().getMaGa().equals(gaDiMoi.getMaGa()) && existT.getGaDen().getMaGa().equals(gaDeNMoi.getMaGa())) {
                     warn("Tuyến đường từ " + gaDiMoi.getTenGa() + " đến " + gaDeNMoi.getTenGa() + " đã tồn tại!"); return;
                 }
             }
@@ -433,7 +489,7 @@ public class TAB_Tuyen extends JPanel {
 
             if (dsTuyen.updateTuyen(tuyenCapNhat)) {
                 dialog.dispose();
-                updateTableData();
+                loadDataFromDB();
                 JOptionPane.showMessageDialog(this, "Cập nhật tuyến thành công!");
             } else {
                 warn("Cập nhật thất bại!");
@@ -520,7 +576,12 @@ public class TAB_Tuyen extends JPanel {
     }
 
     private JTextField roField(String v) {
-        JTextField tf = makeField(""); tf.setText(v); tf.setEditable(false); tf.setBackground(new Color(0xEEF2F8)); return tf;
+        JTextField tf = makeField("");
+        tf.setText(v);
+        tf.setEditable(false);
+        tf.setFocusable(false);
+        tf.setBackground(new Color(0xEEF2F8));
+        return tf;
     }
 
     private JComboBox<String> makeCombo(String[] items) {
@@ -577,107 +638,6 @@ public class TAB_Tuyen extends JPanel {
 
     private void warn(String msg) { JOptionPane.showMessageDialog(this, msg, "Thông báo", JOptionPane.WARNING_MESSAGE); }
 
-    // Dùng Contains tìm kiếm theo cả Tên Ga và Tên Tỉnh
-    private void applySmartFilterGa(JComboBox<String> cb, String[] fullList) {
-        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
-
-        // ===== FILTER KHI GÕ =====
-        editor.addKeyListener(new java.awt.event.KeyAdapter() {
-            @Override
-            public void keyReleased(java.awt.event.KeyEvent e) {
-                int code = e.getKeyCode();
-
-                // ===== ENTER: CHỌN ITEM =====
-                if (code == KeyEvent.VK_ENTER) {
-                    String textTyped = editor.getText().trim();
-
-                    // Ưu tiên chọn item khớp hoàn toàn
-                    for (int i = 0; i < cb.getItemCount(); i++) {
-                        String item = cb.getItemAt(i);
-                        if (item.equalsIgnoreCase(textTyped)) {
-                            cb.setSelectedItem(item);
-                            cb.hidePopup();
-                            return;
-                        }
-                    }
-
-                    // Nếu không khớp → chọn item đầu tiên
-                    if (cb.getItemCount() > 0) {
-                        cb.setSelectedIndex(0);
-                        cb.hidePopup();
-                    }
-                    return;
-                }
-
-                // Bỏ qua phím điều hướng
-                if (code == KeyEvent.VK_UP || code == KeyEvent.VK_DOWN ||
-                        code == KeyEvent.VK_ESCAPE || code == KeyEvent.VK_LEFT || code == KeyEvent.VK_RIGHT) {
-                    return;
-                }
-
-                String textTyped = editor.getText();
-                DefaultComboBoxModel<String> filteredModel = new DefaultComboBoxModel<>();
-                String lowerTyped = textTyped.toLowerCase();
-
-                for (String item : fullList) {
-                    if (item.toLowerCase().contains(lowerTyped)) {
-                        filteredModel.addElement(item);
-                    }
-                }
-
-                cb.setModel(filteredModel);
-                editor.setText(textTyped);
-
-                if (filteredModel.getSize() > 0) {
-                    cb.showPopup();
-                } else {
-                    cb.hidePopup();
-                }
-            }
-        });
-
-        // ===== FIX CHUẨN SWING: ENTER TRONG ACTION =====
-        cb.addActionListener(e -> {
-            if ("comboBoxEdited".equals(e.getActionCommand())) {
-                String text = editor.getText().trim();
-
-                for (int i = 0; i < cb.getItemCount(); i++) {
-                    String item = cb.getItemAt(i);
-                    if (item.equalsIgnoreCase(text)) {
-                        cb.setSelectedItem(item);
-                        return;
-                    }
-                }
-
-                // fallback nếu không match
-                if (cb.getItemCount() > 0) {
-                    cb.setSelectedIndex(0);
-                }
-            }
-        });
-    }
-
-    private void applySmartFilterTime(JComboBox<String> cb, String[] fullList) {
-        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
-        editor.addKeyListener(new java.awt.event.KeyAdapter() {
-            @Override public void keyReleased(java.awt.event.KeyEvent e) {
-                int code = e.getKeyCode();
-                if (code == 38 || code == 40 || code == 10 || code == 27 || code == 37 || code == 39) return;
-                String textTyped = editor.getText();
-                DefaultComboBoxModel<String> filteredModel = new DefaultComboBoxModel<>();
-                for (String item : fullList) if (item.startsWith(textTyped)) filteredModel.addElement(item);
-                cb.setModel(filteredModel); editor.setText(textTyped);
-                if (filteredModel.getSize() > 0) cb.showPopup(); else cb.hidePopup();
-            }
-        });
-    }
-
-    private void setupAutoSelectAll(JComboBox<String> cb) {
-        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
-        editor.addFocusListener(new java.awt.event.FocusAdapter() { public void focusGained(java.awt.event.FocusEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
-        editor.addMouseListener(new java.awt.event.MouseAdapter() { public void mousePressed(java.awt.event.MouseEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
-    }
-
     private static class ShadowBorder extends AbstractBorder {
         private static final int S = 4;
         @Override public void paintBorder(Component c,Graphics g,int x,int y,int w,int h){
@@ -688,5 +648,87 @@ public class TAB_Tuyen extends JPanel {
         }
         @Override public Insets getBorderInsets(Component c){return new Insets(S,S,S,S);}
         @Override public Insets getBorderInsets(Component c,Insets ins){ins.set(S,S,S,S);return ins;}
+    }
+
+    // =========================================================================
+    // CÁC HÀM FILTER THÔNG MINH (ĐƯỢC GỘP TRỰC TIẾP VÀO ĐÂY)
+    // =========================================================================
+    private void applySmartFilterGa(JComboBox<String> cb, String[] fullList) {
+        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
+        editor.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override public void keyReleased(java.awt.event.KeyEvent e) {
+                int code = e.getKeyCode();
+                if (code == KeyEvent.VK_ENTER) {
+                    if (cb.getItemCount() > 0) {
+                        editor.setText(cb.getSelectedItem().toString());
+                    }
+                    cb.hidePopup();
+                    editor.transferFocus();
+                    return;
+                }
+                if (code == 38 || code == 40 || code == 27 || code == 37 || code == 39) return;
+                SwingUtilities.invokeLater(() -> {
+                    String textTyped = editor.getText();
+                    int caretPosition = editor.getCaretPosition();
+                    DefaultComboBoxModel<String> filteredModel = new DefaultComboBoxModel<>();
+                    String lowerTyped = textTyped.toLowerCase();
+                    for (String item : fullList) {
+                        if (item.toLowerCase().contains(lowerTyped)) {
+                            filteredModel.addElement(item);
+                        }
+                    }
+                    cb.setModel(filteredModel);
+                    editor.setText(textTyped);
+                    editor.setCaretPosition(caretPosition);
+                    if (filteredModel.getSize() > 0) {
+                        cb.showPopup();
+                    } else {
+                        cb.hidePopup();
+                    }
+                });
+            }
+        });
+    }
+
+    private void applySmartFilterTime(JComboBox<String> cb, String[] fullList) {
+        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
+        editor.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override public void keyReleased(java.awt.event.KeyEvent e) {
+                int code = e.getKeyCode();
+                if (code == KeyEvent.VK_ENTER) {
+                    if (cb.getItemCount() > 0) {
+                        editor.setText(cb.getSelectedItem().toString());
+                    }
+                    cb.hidePopup();
+                    editor.transferFocus();
+                    return;
+                }
+                if (code == 38 || code == 40 || code == 27 || code == 37 || code == 39) return;
+                SwingUtilities.invokeLater(() -> {
+                    String textTyped = editor.getText();
+                    int caretPosition = editor.getCaretPosition();
+                    DefaultComboBoxModel<String> filteredModel = new DefaultComboBoxModel<>();
+                    for (String item : fullList) {
+                        if (item.startsWith(textTyped)) {
+                            filteredModel.addElement(item);
+                        }
+                    }
+                    cb.setModel(filteredModel);
+                    editor.setText(textTyped);
+                    editor.setCaretPosition(caretPosition);
+                    if (filteredModel.getSize() > 0) {
+                        cb.showPopup();
+                    } else {
+                        cb.hidePopup();
+                    }
+                });
+            }
+        });
+    }
+
+    private void setupAutoSelectAll(JComboBox<String> cb) {
+        JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
+        editor.addFocusListener(new java.awt.event.FocusAdapter() { public void focusGained(java.awt.event.FocusEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
+        editor.addMouseListener(new java.awt.event.MouseAdapter() { public void mousePressed(java.awt.event.MouseEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
     }
 }
