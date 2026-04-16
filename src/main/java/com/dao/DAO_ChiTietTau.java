@@ -29,34 +29,70 @@ public class DAO_ChiTietTau {
 	}
 
 	public boolean hoanDoiThuTu(String maTau, String maA, int thuTuA, String maB, int thuTuB) {
-		try (Connection c = ConnectDB.getConnection();
-				PreparedStatement ps = c.prepareStatement("UPDATE ChiTietTau SET thuTu=? WHERE maTau=? AND maToa=?")) {
+		Connection c = null;
+		try {
+			c = ConnectDB.getConnection();
+			c.setAutoCommit(false); // Bắt đầu Transaction
+
+			PreparedStatement ps = c.prepareStatement("UPDATE ChiTietTau SET thuTu=? WHERE maTau=? AND maToa=?");
+			// Update toa B
 			ps.setInt(1, thuTuB);
 			ps.setString(2, maTau);
 			ps.setString(3, maA);
 			ps.executeUpdate();
+			// Update toa A
 			ps.setInt(1, thuTuA);
 			ps.setString(2, maTau);
 			ps.setString(3, maB);
 			ps.executeUpdate();
+
+			c.commit(); // Thành công thì lưu
 			return true;
 		} catch (Exception ex) {
+			if (c != null)
+				try {
+					c.rollback();
+				} catch (SQLException e) {
+				} // Lỗi thì quay lui dữ liệu
 			return false;
+		} finally {
+			if (c != null)
+				try {
+					c.setAutoCommit(true);
+				} catch (SQLException e) {
+				}
 		}
 	}
 
 	public boolean capNhatThuTuSauKhiGo(String maTau, List<String> dsMaToaConLai) {
-		try (Connection c = ConnectDB.getConnection();
-				PreparedStatement p2 = c.prepareStatement("UPDATE ChiTietTau SET thuTu=? WHERE maTau=? AND maToa=?")) {
+		Connection c = null;
+		try {
+			c = ConnectDB.getConnection();
+			c.setAutoCommit(false); // Bắt đầu Transaction
+
+			PreparedStatement p2 = c.prepareStatement("UPDATE ChiTietTau SET thuTu=? WHERE maTau=? AND maToa=?");
 			for (int i = 0; i < dsMaToaConLai.size(); i++) {
 				p2.setInt(1, i + 1);
 				p2.setString(2, maTau);
 				p2.setString(3, dsMaToaConLai.get(i));
 				p2.executeUpdate();
 			}
+
+			c.commit();
 			return true;
 		} catch (Exception ex) {
+			if (c != null)
+				try {
+					c.rollback();
+				} catch (SQLException e) {
+				}
 			return false;
+		} finally {
+			if (c != null)
+				try {
+					c.setAutoCommit(true);
+				} catch (SQLException e) {
+				}
 		}
 	}
 
@@ -129,4 +165,19 @@ public class DAO_ChiTietTau {
 			return false;
 		}
 	}
+	// Hàm check xem Toa này có vé nào đã bán trong CÁC CHUYẾN ĐI TƯƠNG LAI không
+		public boolean checkKhongCoVeDaBan(String maTau, String maToa) {
+			String sql = "SELECT COUNT(*) FROM GheLichTrinh gl "
+					+ "JOIN LichTrinh lt ON gl.maLT = lt.maLT "
+					+ "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
+					+ "WHERE ct.maTau = ? AND gl.maToa = ? AND gl.trangThai IN ('DADAT', 'GIUCHO') "
+					+ "AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
+			try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+				ps.setString(1, maTau);
+				ps.setString(2, maToa);
+				ResultSet rs = ps.executeQuery();
+				if (rs.next() && rs.getInt(1) > 0) return false; // Có vé đã bán -> Không cho gỡ
+			} catch (Exception e) {}
+			return true; // An toàn, cho phép gỡ
+		}
 }

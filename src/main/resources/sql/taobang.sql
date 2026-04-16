@@ -108,6 +108,17 @@ CREATE TABLE GheLichTrinh (
     FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT) ON DELETE CASCADE,
     FOREIGN KEY (maToa) REFERENCES Toa(maToa)
 );
+-- 1. Chặn việc 1 Toa bị gắn vào 2 Tàu cùng lúc (Lỗi Phân Thân)
+ALTER TABLE ChiTietTau ADD CONSTRAINT UQ_ChiTietTau_maToa UNIQUE (maToa);
+
+-- 2. Tạo bảng lưu trữ Ghế Vật Lý bị hỏng cần Bảo Trì (Thay thế cho ChoNgoi)
+CREATE TABLE GheBaoTri (
+    maToa VARCHAR(25),
+    viTri VARCHAR(10),
+    ngayBaoTri DATETIME DEFAULT GETDATE(),
+    PRIMARY KEY (maToa, viTri),
+    FOREIGN KEY (maToa) REFERENCES Toa(maToa) ON DELETE CASCADE
+);
 
 -- =============================================
 -- 4. BẢNG GIÁ

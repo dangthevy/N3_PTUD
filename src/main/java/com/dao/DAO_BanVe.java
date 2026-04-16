@@ -87,42 +87,76 @@ public class DAO_BanVe {
 		return list;
 	}
 
-	// 4. Sinh sơ đồ ghế và quét trạng thái (Đã bán/Trống) từ Lịch Trình
+	// 4. Sinh sơ đồ ghế, quét trạng thái và LẤY GIÁ VÉ TỪ BẢNG GiaDetail
+	// 4. Sinh sơ đồ ghế, quét trạng thái (Đã bán + Bảo trì) và lấy Giá vé
 	public List<Map<String, Object>> getDanhSachGhe(String maLT, String maToa) {
 		List<Map<String, Object>> list = new ArrayList<>();
 		int soGhe = 0;
-		try (Connection c = ConnectDB.getConnection();
-				PreparedStatement ps = c.prepareStatement("SELECT soGhe FROM Toa WHERE maToa = ?")) {
-			ps.setString(1, maToa);
-			ResultSet rs = ps.executeQuery();
-			if (rs.next())
-				soGhe = rs.getInt("soGhe");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		double giaVe = 0;
 
-		Set<String> bookedSeats = new HashSet<>();
-		try (Connection c = ConnectDB.getConnection();
-				PreparedStatement ps = c.prepareStatement(
-						"SELECT viTri FROM GheLichTrinh WHERE maLT = ? AND maToa = ? AND trangThai != 'TRONG'")) {
+		// BƯỚC 1: Lấy tổng số ghế và giá vé từ bảng Toa và GiaDetail
+		String sqlToaVaGia = "SELECT t.soGhe, gd.gia " + "FROM Toa t " + "JOIN LichTrinh lt ON lt.maLT = ? "
+				+ "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
+				+ "JOIN GiaDetail gd ON gd.maTuyen = ct.maTuyen AND gd.maLoaiToa = t.maLoaiToa " + "WHERE t.maToa = ?";
+		try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sqlToaVaGia)) {
 			ps.setString(1, maLT);
 			ps.setString(2, maToa);
 			ResultSet rs = ps.executeQuery();
-			while (rs.next()) {
-				bookedSeats.add(rs.getString("viTri").trim());
+			if (rs.next()) {
+				soGhe = rs.getInt("soGhe");
+				giaVe = rs.getDouble("gia");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
+		// BƯỚC 2: TẠO BỘ NHỚ LƯU TRẠNG THÁI GHẾ BỊ KHÓA (Map lưu vị trí -> Trạng thái)
+		Map<String, String> lockedSeats = new HashMap<>();
+
+		// 2.1 - Quét bảng GheLichTrinh (Tìm ghế ĐÃ BÁN / GIỮ CHỖ)
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement(
+						"SELECT viTri, trangThai FROM GheLichTrinh WHERE maLT = ? AND maToa = ? AND trangThai != 'TRONG'")) {
+			ps.setString(1, maLT);
+			ps.setString(2, maToa);
+			ResultSet rs = ps.executeQuery();
+			while (rs.next()) {
+				// Đánh dấu ghế này là DADAT
+				lockedSeats.put(rs.getString("viTri").trim(), rs.getString("trangThai").trim());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// 2.2 - Quét bảng GheBaoTri (Tìm ghế BỊ HỎNG/BẢO TRÌ)
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement("SELECT viTri FROM GheBaoTri WHERE maToa = ?")) {
+			ps.setString(1, maToa);
+			ResultSet rs = ps.executeQuery();
+			while (rs.next()) {
+				// Nếu ghế này bị hỏng, ghi đè trạng thái thành BAOTRI
+				lockedSeats.put(rs.getString("viTri").trim(), "BAOTRI");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// BƯỚC 3: Phát sinh danh sách 1..N ghế để đổ lên Giao diện Step 2
 		for (int i = 1; i <= soGhe; i++) {
 			String viTri = String.valueOf(i);
 			Map<String, Object> map = new HashMap<>();
 			map.put("maCho", maToa + "_" + viTri);
 			map.put("tenCho", viTri);
-			map.put("trangThai", bookedSeats.contains(viTri) ? "DADAT" : "TRONG");
+
+			// Nếu vị trí này nằm trong danh sách khóa, lấy trạng thái tương ứng (DADAT hoặc
+			// BAOTRI), ngược lại là TRONG
+			String trangThai = lockedSeats.getOrDefault(viTri, "TRONG");
+			map.put("trangThai", trangThai);
+			map.put("giaVe", giaVe);
+
 			list.add(map);
 		}
+
 		return list;
 	}
 }

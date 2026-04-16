@@ -1,25 +1,40 @@
 package com.gui;
 
+import com.entities.LoaiToa;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
 
 public class Form_LoaiToa extends JDialog {
 	private JTextField txtMa, txtTen, txtHang, txtCot, txtSucChua;
 	private JComboBox<String> cbKieu;
+	private JLabel lblErrMa, lblErrTen, lblErrHang, lblErrCot;
+	private JButton btnSave; // Đưa ra biến toàn cục để khóa/mở
+
 	private boolean confirmed = false;
+	private boolean isLocked = false;
+
+	// Dirty Check
+	private boolean isEditMode = false;
+	private String origMa = "", origTen = "", origKieu = "";
+	private int origHang = -1, origCot = -1;
 
 	public Form_LoaiToa(Frame parent, String title) {
 		super(parent, title, true);
-		setSize(450, 420);
+		setSize(500, 550);
 		setLocationRelativeTo(parent);
 		getContentPane().setBackground(Color.WHITE);
-		JPanel pnlMain = new JPanel(new BorderLayout(10, 20));
+
+		JPanel pnlMain = new JPanel(new BorderLayout(10, 15));
 		pnlMain.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 		pnlMain.setBackground(Color.WHITE);
+
 		JLabel lblTitle = new JLabel(title.toUpperCase(), SwingConstants.CENTER);
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
 		lblTitle.setForeground(new Color(0x1A5EAB));
 		pnlMain.add(lblTitle, BorderLayout.NORTH);
 
@@ -27,128 +42,242 @@ public class Form_LoaiToa extends JDialog {
 		pnlForm.setOpaque(false);
 		GridBagConstraints gc = new GridBagConstraints();
 		gc.fill = GridBagConstraints.HORIZONTAL;
-		gc.insets = new Insets(10, 5, 10, 5);
-		txtMa = new JTextField();
-		txtTen = new JTextField();
-		txtHang = new JTextField();
-		txtCot = new JTextField();
-		txtSucChua = new JTextField();
+		gc.insets = new Insets(5, 5, 0, 5);
+
+		txtMa = createTextField();
+		txtTen = createTextField();
+		txtHang = createTextField();
+		txtCot = createTextField();
+		txtSucChua = createTextField();
 		txtSucChua.setEditable(false);
 		txtSucChua.setBackground(new Color(0xEEF2F8));
-		txtSucChua.setFont(new Font("Segoe UI", Font.BOLD, 13));
-		txtSucChua.setForeground(new Color(0x1A5EAB));
 		cbKieu = new JComboBox<>(new String[] { "GHE", "GIUONG" });
+		cbKieu.setPreferredSize(new Dimension(0, 35));
 
-		addRow(pnlForm, "Mã loại toa (*):", txtMa, 0, gc);
-		addRow(pnlForm, "Tên loại toa (*):", txtTen, 1, gc);
-		JPanel pSize = new JPanel(new GridLayout(1, 4, 10, 0));
-		pSize.setOpaque(false);
-		pSize.add(new JLabel("Số hàng:"));
-		pSize.add(txtHang);
-		pSize.add(new JLabel("Số cột:"));
-		pSize.add(txtCot);
-		addRow(pnlForm, "Kích thước (*):", pSize, 2, gc);
-		addRow(pnlForm, "Sức chứa:", txtSucChua, 3, gc);
-		addRow(pnlForm, "Kiểu vẽ UI:", cbKieu, 4, gc);
+		lblErrMa = createErrorLabel();
+		lblErrTen = createErrorLabel();
+		lblErrHang = createErrorLabel();
+		lblErrCot = createErrorLabel();
 
-		KeyAdapter calc = new KeyAdapter() {
+		KeyAdapter capacityCalc = new KeyAdapter() {
 			@Override
 			public void keyReleased(KeyEvent e) {
-				try {
-					int h = Integer.parseInt(txtHang.getText().trim());
-					int c = Integer.parseInt(txtCot.getText().trim());
-					txtSucChua.setText((h * c) + " chỗ");
-				} catch (Exception ex) {
-					txtSucChua.setText("0 chỗ");
-				}
+				calculateCapacity();
 			}
 		};
-		txtHang.addKeyListener(calc);
-		txtCot.addKeyListener(calc);
+		txtHang.addKeyListener(capacityCalc);
+		txtCot.addKeyListener(capacityCalc);
+
+		int y = 0;
+		addRow(pnlForm, "Mã loại (*):", txtMa, lblErrMa, y++, gc);
+		addRow(pnlForm, "Tên loại toa (*):", txtTen, lblErrTen, y++, gc);
+		addRow(pnlForm, "Số hàng ghế (*):", txtHang, lblErrHang, y++, gc);
+		addRow(pnlForm, "Số cột ghế (*):", txtCot, lblErrCot, y++, gc);
+		addRow(pnlForm, "Kiểu hiển thị:", cbKieu, null, y++, gc);
+		addRow(pnlForm, "Tổng sức chứa:", txtSucChua, null, y++, gc);
 
 		pnlMain.add(pnlForm, BorderLayout.CENTER);
-		JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+		JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
 		pnlBottom.setOpaque(false);
-		JButton btnCancel = new JButton("Hủy");
-		btnCancel.setPreferredSize(new Dimension(90, 35));
-		JButton btnSave = new JButton("Lưu");
-		btnSave.setPreferredSize(new Dimension(90, 35));
-		btnSave.setBackground(new Color(0x1A5EAB));
-		btnSave.setForeground(Color.WHITE);
+		JButton btnCancel = createButton("Hủy bỏ", new Color(149, 165, 166));
+		btnSave = createButton("Lưu", new Color(0x1A5EAB));
+		btnSave.setEnabled(false); // Khóa nút lưu ban đầu
+
 		btnCancel.addActionListener(e -> dispose());
 		btnSave.addActionListener(e -> validateAndSave());
+
 		pnlBottom.add(btnCancel);
 		pnlBottom.add(btnSave);
 		pnlMain.add(pnlBottom, BorderLayout.SOUTH);
 		add(pnlMain);
+
+		// Thay đổi thành Live Validation Listener
+		addLiveValidationListener(txtMa, lblErrMa);
+		addLiveValidationListener(txtTen, lblErrTen);
+		addLiveValidationListener(txtHang, lblErrHang);
+		addLiveValidationListener(txtCot, lblErrCot);
+		cbKieu.addActionListener(e -> checkSaveButtonState());
 	}
 
-	private void addRow(JPanel p, String l, JComponent c, int y, GridBagConstraints gc) {
-		gc.gridy = y;
+	private void addRow(JPanel p, String l, JComponent c, JLabel err, int y, GridBagConstraints gc) {
+		gc.gridy = y * 2;
 		gc.gridx = 0;
-		gc.weightx = 0.3;
+		gc.weightx = 0.35;
 		JLabel lbl = new JLabel(l);
-		lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+		lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
 		p.add(lbl, gc);
 		gc.gridx = 1;
-		gc.weightx = 0.7;
-		c.setPreferredSize(new Dimension(0, 32));
+		gc.weightx = 0.65;
 		p.add(c, gc);
+
+		if (err != null) {
+			gc.gridy = y * 2 + 1;
+			gc.gridx = 1;
+			gc.insets = new Insets(0, 5, 8, 5);
+			p.add(err, gc);
+			gc.insets = new Insets(5, 5, 0, 5);
+		} else {
+			gc.gridy = y * 2 + 1;
+			p.add(Box.createVerticalStrut(10), gc);
+		}
 	}
 
-	private void validateAndSave() {
-		if (txtMa.getText().trim().isEmpty() || txtTen.getText().trim().isEmpty() || txtHang.getText().trim().isEmpty()
-				|| txtCot.getText().trim().isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo",
-					JOptionPane.WARNING_MESSAGE);
-			return;
-		}
+	private void calculateCapacity() {
 		try {
 			int h = Integer.parseInt(txtHang.getText().trim());
 			int c = Integer.parseInt(txtCot.getText().trim());
-			if (h <= 0 || c <= 0)
-				throw new Exception();
+			txtSucChua.setText((h * c) + " chỗ");
 		} catch (Exception e) {
-			JOptionPane.showMessageDialog(this, "Số hàng và số cột phải là số nguyên dương!", "Lỗi nhập liệu",
-					JOptionPane.ERROR_MESSAGE);
-			return;
+			txtSucChua.setText("0 chỗ");
+		}
+		checkSaveButtonState();
+	}
+
+	// ================== REAL-TIME VALIDATION ==================
+	private void checkSaveButtonState() {
+		boolean isValid = true;
+
+		String ma = txtMa.getText().trim();
+		String ten = txtTen.getText().trim();
+		if (ma.isEmpty() || ten.isEmpty())
+			isValid = false;
+
+		int currentHang = -1, currentCot = -1;
+		try {
+			currentHang = Integer.parseInt(txtHang.getText().trim());
+			if (currentHang <= 0)
+				isValid = false;
+		} catch (Exception e) {
+			isValid = false;
+		}
+
+		try {
+			currentCot = Integer.parseInt(txtCot.getText().trim());
+			if (currentCot <= 0)
+				isValid = false;
+		} catch (Exception e) {
+			isValid = false;
+		}
+
+		boolean isChanged = true;
+		if (isEditMode) {
+			String curKieu = cbKieu.getSelectedItem().toString();
+			if (ma.equals(origMa) && ten.equals(origTen) && currentHang == origHang && currentCot == origCot
+					&& curKieu.equals(origKieu)) {
+				isChanged = false;
+			}
+		}
+		btnSave.setEnabled(isValid && isChanged);
+	}
+
+	public void lockDimensions() {
+		this.isLocked = true;
+		txtHang.setEditable(false);
+		txtCot.setEditable(false);
+		cbKieu.setEnabled(false);
+		txtHang.setBackground(new Color(0xEEF2F8));
+		txtCot.setBackground(new Color(0xEEF2F8));
+		txtTen.setToolTipText("Không thể sửa kích thước vì đã có Toa sử dụng loại này.");
+	}
+
+	public void setEditData(String ma, String ten, int h, int c, String kieu) {
+		isEditMode = true;
+		origMa = ma;
+		origTen = ten;
+		origHang = h;
+		origCot = c;
+		origKieu = kieu;
+
+		txtMa.setText(ma);
+		txtMa.setEditable(false);
+		txtMa.setBackground(new Color(0xEEF2F8));
+		txtTen.setText(ten);
+		txtHang.setText(String.valueOf(h));
+		txtCot.setText(String.valueOf(c));
+		cbKieu.setSelectedItem(kieu);
+		calculateCapacity();
+		checkSaveButtonState();
+	}
+
+	private void validateAndSave() {
+		if (isLocked) {
+			if (JOptionPane.showConfirmDialog(this,
+					"Loại toa này đang được sử dụng. Việc đổi tên sẽ áp dụng cho tất cả các toa liên quan. Xác nhận?",
+					"Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION)
+				return;
 		}
 		confirmed = true;
 		dispose();
 	}
 
-	public void setEditData(String ma, String ten, int h, int c, String kieu) {
-		txtMa.setText(ma);
-		txtMa.setEditable(false);
-		txtMa.setBackground(new Color(0xEEF2F8));
-		txtTen.setText(ten);
-		txtHang.setText(h + "");
-		txtCot.setText(c + "");
-		txtSucChua.setText((h * c) + " chỗ");
-		cbKieu.setSelectedItem(kieu);
+	// --- Helpers ---
+	private JTextField createTextField() {
+		JTextField tf = new JTextField();
+		tf.setPreferredSize(new Dimension(0, 35));
+		tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(200, 200, 200)),
+				new EmptyBorder(0, 8, 0, 8)));
+		return tf;
+	}
+
+	private JLabel createErrorLabel() {
+		JLabel lbl = new JLabel(" ");
+		lbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+		lbl.setForeground(new Color(0xE74C3C));
+		return lbl;
+	}
+
+	private JButton createButton(String text, Color bg) {
+		JButton b = new JButton(text) {
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				if (!isEnabled()) {
+					g2.setColor(new Color(200, 200, 200));
+				} else {
+					g2.setColor(getModel().isRollover() ? bg.darker() : bg);
+				}
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+				g2.dispose();
+				super.paintComponent(g);
+			}
+		};
+		b.setPreferredSize(new Dimension(100, 38));
+		b.setForeground(Color.WHITE);
+		b.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		b.setFocusPainted(false);
+		b.setBorderPainted(false);
+		b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		return b;
+	}
+
+	private void addLiveValidationListener(JTextField tf, JLabel lbl) {
+		tf.getDocument().addDocumentListener(new DocumentListener() {
+			public void insertUpdate(DocumentEvent e) {
+				lbl.setText(" ");
+				checkSaveButtonState();
+			}
+
+			public void removeUpdate(DocumentEvent e) {
+				lbl.setText(" ");
+				checkSaveButtonState();
+			}
+
+			public void changedUpdate(DocumentEvent e) {
+				lbl.setText(" ");
+				checkSaveButtonState();
+			}
+		});
+	}
+
+	public LoaiToa getEntity() {
+		return new LoaiToa(txtMa.getText().trim(), txtTen.getText().trim(), Integer.parseInt(txtHang.getText().trim()),
+				Integer.parseInt(txtCot.getText().trim()), cbKieu.getSelectedItem().toString());
 	}
 
 	public boolean isConfirmed() {
 		return confirmed;
-	}
-
-	public String getMa() {
-		return txtMa.getText().trim();
-	}
-
-	public String getTen() {
-		return txtTen.getText().trim();
-	}
-
-	public int getHang() {
-		return Integer.parseInt(txtHang.getText().trim());
-	}
-
-	public int getCot() {
-		return Integer.parseInt(txtCot.getText().trim());
-	}
-
-	public String getKieu() {
-		return cbKieu.getSelectedItem().toString();
 	}
 }

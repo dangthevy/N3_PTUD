@@ -121,4 +121,39 @@ public class DAO_Toa {
 		}
 		return null;
 	}
+
+	public Set<String> getGheBaoTri(String maToa) {
+		Set<String> set = new HashSet<>();
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement("SELECT viTri FROM GheBaoTri WHERE maToa=?")) {
+			ps.setString(1, maToa);
+			ResultSet rs = ps.executeQuery();
+			while (rs.next())
+				set.add(rs.getString(1).trim());
+		} catch (Exception e) {
+		}
+		return set;
+	}
+
+	public boolean addGheBaoTri(String maToa, String viTri) {
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement("INSERT INTO GheBaoTri(maToa, viTri) VALUES(?,?)")) {
+			ps.setString(1, maToa);
+			ps.setString(2, viTri);
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	public boolean removeGheBaoTri(String maToa, String viTri) {
+		try (Connection c = ConnectDB.getConnection();
+				PreparedStatement ps = c.prepareStatement("DELETE FROM GheBaoTri WHERE maToa=? AND viTri=?")) {
+			ps.setString(1, maToa);
+			ps.setString(2, viTri);
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+			return false;
+		}
+	}
 }

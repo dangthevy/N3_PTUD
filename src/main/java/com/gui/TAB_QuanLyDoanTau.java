@@ -20,8 +20,13 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import com.connectDB.ConnectDB;
 
 public class TAB_QuanLyDoanTau extends JPanel {
 	private static final Color BG_PAGE = new Color(0xF4F7FB);
@@ -33,10 +38,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private static final Color C_DANGER = new Color(0xC0392B);
 	private static final Color C_GRAY = new Color(0x7F8C8D);
 	private static final Color C_BORDER = new Color(0xDDE6F5);
-
-	private static final Color GHE_TRONG = new Color(0x2ECC71);
-	private static final Color GHE_DAT = new Color(0xE74C3C);
-	private static final Color GHE_CHON = new Color(0xF39C12);
 
 	private static final Font F_HEADER = new Font("Segoe UI", Font.BOLD, 14);
 	private static final Font F_BODY = new Font("Segoe UI", Font.PLAIN, 13);
@@ -50,11 +51,13 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private DefaultTableModel modTau, modToa;
 	private JComboBox<String> cbKho;
 	private JPanel pnlMap;
-	private JPanel pnlTrainBar; // THANH CHỌN TOA TÀU ĐÃ ĐƯỢC PHỤC HỒI
+	private JPanel pnlTrainBar;
 	private JLabel lblMapTitle, lblSeatStats;
 
 	private String currentTau = null;
-	private String currentMaToa = null; // Biến lưu Toa đang được chọn để đổi màu Tàu
+	private String currentMaToa = null;
+	private String currentTenToa = null;
+	private int currentThuTu = 0;
 	private int quyDinhSoToa = 0;
 
 	private DAO_Tau daoTau = new DAO_Tau();
@@ -133,6 +136,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		splitMain.setBorder(null);
 		splitMain.setDividerLocation(350);
 		splitMain.setDividerSize(8);
+
 		JSplitPane splitTop = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		splitTop.setOpaque(false);
 		splitTop.setBorder(null);
@@ -148,7 +152,8 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JLabel lblTau = new JLabel("1. DANH SÁCH TÀU");
 		lblTau.setFont(F_HEADER);
 		lblTau.setForeground(ACCENT);
-		JButton btnAddTau = makeBtn("+ Thêm Tàu", ACCENT);
+
+		JButton btnAddTau = makeBtn("Thêm Tàu", ACCENT);
 		btnAddTau.setPreferredSize(new Dimension(100, 30));
 		btnAddTau.addActionListener(e -> {
 			Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(this), "Thêm Tàu Mới");
@@ -172,15 +177,55 @@ public class TAB_QuanLyDoanTau extends JPanel {
 					quyDinhSoToa = Integer.parseInt(modTau.getValueAt(r, 2).toString().split(" ")[0]);
 					loadToaOfTau();
 					clearSeatMap();
+					
+					// NẾU DOUBLE-CLICK ĐỂ SỬA THÔNG TIN
 					if (e.getClickCount() == 2) {
-						Tau t = daoTau.getTauByMa(currentTau);
-						Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(TAB_QuanLyDoanTau.this),
-								"Sửa Thông Tin Tàu");
-						f.setEntity(t);
+						Tau tDao = daoTau.getTauByMa(currentTau); // Tàu hiện tại trong DB
+						Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(TAB_QuanLyDoanTau.this), "Sửa Thông Tin Tàu");
+						f.setEntity(tDao);
 						f.setVisible(true);
+						
 						if (f.isConfirmed()) {
-							daoTau.updateTau(f.getEntity());
-							loadDsTau();
+							Tau tUpdate = f.getEntity(); // Tàu với thông tin mới nhập
+							
+							// BƯỚC KIỂM TRA NGHIỆP VỤ: 
+							// Nếu đổi từ HOATDONG sang BAOTRI hoặc NGUNGHOATDONG
+							if (tDao.getTrangThaiTau().toString().equals("HOATDONG") 
+							    && !tUpdate.getTrangThaiTau().toString().equals("HOATDONG")) {
+								
+								// Quét xem tàu có đang cõng chuyến đi tương lai nào không
+								if (isTauCoLichTrinhTuongLai(tUpdate.getMaTau())) {
+									JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, 
+											"⚠️ KHÔNG THỂ CHUYỂN TRẠNG THÁI TÀU!\n\n"
+											+ "Tàu " + tUpdate.getTenTau() + " đang có lịch trình chạy trong tương lai.\n"
+											+ "Vui lòng phân bổ tàu khác cho các chuyến đi trước khi cho tàu này đi bảo trì.", 
+											"Lỗi ràng buộc hệ thống", JOptionPane.ERROR_MESSAGE);
+									return; // Chặn lập tức, hủy bỏ thao tác cập nhật
+								}
+								
+								// (Mở rộng): Bạn có thể hỏi thêm xem họ có muốn tự động Gỡ tất cả các Toa về kho không
+								int ans = JOptionPane.showConfirmDialog(TAB_QuanLyDoanTau.this, 
+										"Chuyển tàu sang trạng thái Nghỉ sẽ cần gỡ tất cả Toa đang gắn.\nBạn có muốn tự động gỡ toàn bộ Toa về kho Sẵn sàng không?", 
+										"Xác nhận", JOptionPane.YES_NO_OPTION);
+								if(ans == JOptionPane.YES_OPTION) {
+									// Gọi hàm gỡ tất cả toa ở đây nếu bạn muốn làm thêm
+								}
+							}
+							// CHỐT CHẶN: Kiểm tra số toa thực tế đang lắp
+						    if (tUpdate.getSoToa() < modToa.getRowCount()) {
+						        JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, 
+						            "⚠️ LỖI: Không thể giảm số toa quy định xuống " + tUpdate.getSoToa() + 
+						            " vì tàu này đang được gắn " + modToa.getRowCount() + " toa thực tế.\n" +
+						            "Vui lòng gỡ bớt toa ra khỏi tàu trước khi cập nhật!", 
+						            "Lỗi ràng buộc", JOptionPane.ERROR_MESSAGE);
+						        return; // Hủy cập nhật
+						    }
+							
+							// Nếu an toàn, thực hiện update
+							if(daoTau.updateTau(tUpdate)) {
+								loadDsTau();
+								JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, "Cập nhật thông tin Tàu thành công!");
+							}
 						}
 					}
 				}
@@ -232,15 +277,14 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		pnlToaHeader.add(btnAuto);
 
 		modToa = new DefaultTableModel(
-				new String[] { "Vị trí (#)", "Mã Toa", "Tên Toa (Loại)", "Loại Toa", "Sức chứa" }, 0);
+				new String[] { "Vị trí", "Mã Toa", "Tên Toa", "Loại Toa", "Sức chứa" }, 0);
 		tblToa = buildTable(modToa);
 		tblToa.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && tblToa.getSelectedRow() >= 0) {
-				int thuTu = (int) modToa.getValueAt(tblToa.getSelectedRow(), 0);
-				String maToa = modToa.getValueAt(tblToa.getSelectedRow(), 1).toString();
-				String tenToa = modToa.getValueAt(tblToa.getSelectedRow(), 2).toString();
-				currentMaToa = maToa;
-				generateSeatMap(maToa, tenToa, thuTu);
+				currentThuTu = (int) modToa.getValueAt(tblToa.getSelectedRow(), 0);
+				currentMaToa = modToa.getValueAt(tblToa.getSelectedRow(), 1).toString();
+				currentTenToa = modToa.getValueAt(tblToa.getSelectedRow(), 2).toString();
+				generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
 			}
 		});
 
@@ -249,17 +293,16 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		splitTop.setLeftComponent(pnlLeft);
 		splitTop.setRightComponent(pnlRight);
 
-		// ================= SƠ ĐỒ TRỰC QUAN VÀ HÌNH TÀU =================
+		// ================= SƠ ĐỒ TRỰC QUAN =================
 		JPanel pnlBottom = new JPanel(new BorderLayout(0, 0));
 		pnlBottom.setBackground(Color.WHITE);
 		pnlBottom.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(10, 16, 12, 16)));
 
-		// 3.1 Tiêu đề Sơ đồ
 		JPanel hdrMap = new JPanel(new BorderLayout());
 		hdrMap.setOpaque(false);
 		JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
 		titleRow.setOpaque(false);
-		lblMapTitle = new JLabel("3. SƠ ĐỒ GHẾ - Chọn Toa ở bảng Lắp ráp để xem");
+		lblMapTitle = new JLabel("3. SƠ ĐỒ GHẾ VẬT LÝ - Chọn Toa ở bảng Lắp ráp để xem");
 		lblMapTitle.setFont(F_HEADER);
 		lblMapTitle.setForeground(ACCENT);
 		lblSeatStats = new JLabel("");
@@ -270,25 +313,23 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 		JPanel legend = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
 		legend.setOpaque(false);
-		legend.add(legendItem(GHE_TRONG, "Còn trống"));
-		legend.add(legendItem(GHE_DAT, "Đã đặt/Bán"));
+		legend.add(legendItem(new Color(0x2ECC71), "Đang hoạt động")); // Xanh lá
+		legend.add(legendItem(Color.GRAY, "Bảo trì")); // Xám
 		hdrMap.add(titleRow, BorderLayout.WEST);
 		hdrMap.add(legend, BorderLayout.EAST);
 
-		// 3.2 Thanh Đoàn Tàu Đồ Họa (Graphics2D)
 		pnlTrainBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 8));
 		pnlTrainBar.setBackground(Color.WHITE);
 		JScrollPane scrollTrain = new JScrollPane(pnlTrainBar);
 		scrollTrain.setBorder(
 				BorderFactory.createCompoundBorder(new MatteBorder(1, 0, 1, 0, C_BORDER), new EmptyBorder(0, 0, 0, 0)));
-		scrollTrain.setPreferredSize(new Dimension(0, 80));
+		// ĐÃ SỬA: Ép nhỏ chiều cao thanh Tàu (từ 80 -> 55)
+		scrollTrain.setPreferredSize(new Dimension(0, 55));
 		scrollTrain.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
-		// 3.3 Sơ đồ ghế GridBagLayout
 		pnlMap = new JPanel(new BorderLayout());
 		pnlMap.setBackground(Color.WHITE);
 
-		// Bọc ScrollTrain và Map lại chung
 		JPanel mapWrapper = new JPanel(new BorderLayout(0, 8));
 		mapWrapper.setOpaque(false);
 		mapWrapper.add(scrollTrain, BorderLayout.NORTH);
@@ -312,6 +353,205 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		loadDsTau();
 		loadKho();
 		return pnlMainView;
+	}
+	// ====================================================================
+		// KIỂM TRA XEM TÀU CÓ ĐANG DÍNH LỊCH TRÌNH TRONG TƯƠNG LAI KHÔNG
+		// ====================================================================
+		private boolean isTauCoLichTrinhTuongLai(String maTau) {
+			String sql = "SELECT COUNT(*) FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
+					   + "WHERE ct.maTau = ? AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) "
+					   + "OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
+			try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+				ps.setString(1, maTau);
+				ResultSet rs = ps.executeQuery();
+				if (rs.next() && rs.getInt(1) > 0) return true; // Có lịch trình -> Không an toàn
+			} catch (Exception e) { e.printStackTrace(); }
+			return false;
+		}
+
+	// ====================================================================
+	// HÀM KIỂM TRA LỊCH TRÌNH TƯƠNG LAI (CHECK NGẦM)
+	// ====================================================================
+	private boolean isSeatBookedInFuture(String maToa, String viTri) {
+		String sql = "SELECT COUNT(*) FROM GheLichTrinh gl JOIN LichTrinh lt ON gl.maLT = lt.maLT "
+				+ "WHERE gl.maToa = ? AND gl.viTri = ? AND gl.trangThai IN ('DADAT', 'GIUCHO') "
+				+ "AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
+		try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+			ps.setString(1, maToa);
+			ps.setString(2, viTri);
+			ResultSet rs = ps.executeQuery();
+			if (rs.next() && rs.getInt(1) > 0)
+				return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	// ====================================================================
+	// VẼ SƠ ĐỒ VẬT LÝ VÀ SỰ KIỆN CLICK GHẾ BẢO TRÌ
+	// ====================================================================
+	private void generateSeatMap(String maToa, String tenToa, int thuTu) {
+		pnlMap.removeAll();
+		lblMapTitle.setText("3. SƠ ĐỒ GHẾ VẬT LÝ: Toa Số " + thuTu + " - " + tenToa + " (" + maToa + ")");
+
+		Set<String> maintenanceSeats = daoToa.getGheBaoTri(maToa);
+		Object[] thongTin = daoToa.getThongTinToaForMap(maToa);
+
+		if (thongTin != null) {
+			int soHang = (int) thongTin[0];
+			int soCot = (int) thongTin[1];
+			String kieu = (String) thongTin[2];
+			int tongGhe = (int) thongTin[3];
+
+			lblSeatStats
+					.setText("   Tổng sức chứa: " + tongGhe + " ghế   |   Đang bảo trì: " + maintenanceSeats.size());
+
+			JPanel seatPanel = "GIUONG".equalsIgnoreCase(kieu)
+					? drawSleeperHorizontal(soHang, soCot, maintenanceSeats, maToa)
+					: drawSeaterHorizontal(soHang, soCot, maintenanceSeats, maToa);
+			pnlMap.add(seatPanel, BorderLayout.CENTER);
+		}
+		pnlMap.revalidate();
+		pnlMap.repaint();
+		refreshTrainBar();
+	}
+
+	private JButton seatBtn(int num, Set<String> maintenanceSeats, String maToa) {
+		String viTri = String.valueOf(num);
+		boolean isBaoTri = maintenanceSeats.contains(viTri);
+
+		JButton b = new JButton(viTri);
+		// ĐÃ SỬA: Thu nhỏ kích thước nút Ghế (từ 36x32 -> 32x28)
+		b.setPreferredSize(new Dimension(32, 28));
+		b.setFont(new Font("Segoe UI", Font.BOLD, 10)); // Giảm nhẹ font
+		b.setMargin(new Insets(0, 0, 0, 0));
+		b.setFocusPainted(false);
+		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+		Color C_TRONG = new Color(0x2ECC71); // Xanh lá
+		Color C_BAOTRI = Color.GRAY; // Xám
+
+		b.setBackground(isBaoTri ? C_BAOTRI : C_TRONG);
+		b.setForeground(Color.WHITE);
+		b.setOpaque(true);
+		b.setBorder(BorderFactory.createLineBorder((isBaoTri ? C_BAOTRI : C_TRONG).darker(), 1));
+		b.setToolTipText("Ghế số " + num + (isBaoTri ? " - ĐANG BẢO TRÌ" : " - HOẠT ĐỘNG"));
+
+		// LOGIC HIDDEN VALIDATION KHI CLICK
+		b.addActionListener(e -> {
+			if (isBaoTri) {
+				int ans = JOptionPane.showConfirmDialog(this, "Mở khóa bảo trì cho ghế số " + num + "?", "Mở khóa ghế",
+						JOptionPane.YES_NO_OPTION);
+				if (ans == JOptionPane.YES_OPTION) {
+					daoToa.removeGheBaoTri(maToa, viTri);
+					generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
+				}
+			} else {
+				if (isSeatBookedInFuture(maToa, viTri)) {
+					JOptionPane.showMessageDialog(this,
+							"⚠️ Không thể bảo trì!\n\nGhế này đã có hành khách mua vé trong các chuyến đi tương lai.\n"
+									+ "Vui lòng báo bộ phận CSKH dời chỗ cho khách trước khi khóa ghế.",
+							"Cảnh báo hệ thống", JOptionPane.WARNING_MESSAGE);
+				} else {
+					int ans = JOptionPane.showConfirmDialog(this, "Khóa ghế số " + num + " chuyển sang BẢO TRÌ?",
+							"Khóa ghế", JOptionPane.YES_NO_OPTION);
+					if (ans == JOptionPane.YES_OPTION) {
+						daoToa.addGheBaoTri(maToa, viTri);
+						generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
+					}
+				}
+			}
+		});
+		return b;
+	}
+
+	private JPanel drawSeaterHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
+		JPanel outer = new JPanel(new BorderLayout(8, 0)); // Giảm padding
+		outer.setBackground(new Color(0xFAFCFF));
+		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
+				new EmptyBorder(4, 4, 4, 4))); // Ép nhỏ viền
+		JLabel capA = new JLabel(" ĐẦU TÀU ");
+		capA.setFont(new Font("Segoe UI", Font.BOLD, 11)); // Nhỏ font chữ đầu đuôi
+		capA.setForeground(new Color(0x7F8C8D));
+		JLabel capB = new JLabel(" CUỐI TÀU");
+		capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
+		capB.setForeground(new Color(0x7F8C8D));
+
+		int uiRows = soCot;
+		int uiCols = soHang;
+		int halfRows = Math.max(1, uiRows / 2);
+		// ĐÃ SỬA: Thu hẹp khoảng cách các ghế còn 2px (từ 4px)
+		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 2, 2));
+		gridBody.setOpaque(false);
+
+		for (int r = 0; r < uiRows + 1; r++) {
+			if (r == halfRows) {
+				for (int c = 0; c < uiCols; c++) {
+					JPanel aisle = new JPanel();
+					aisle.setBackground(new Color(0xDDE6F5));
+					gridBody.add(aisle);
+				}
+			} else {
+				int actualRow = r > halfRows ? r - 1 : r;
+				for (int c = 0; c < uiCols; c++) {
+					int seatNum = (c * uiRows) + actualRow + 1;
+					gridBody.add(seatBtn(seatNum, maintenanceSeats, maToa));
+				}
+			}
+		}
+		JPanel wrapper = new JPanel(new GridBagLayout());
+		wrapper.setOpaque(false);
+		wrapper.add(gridBody);
+		outer.add(capA, BorderLayout.WEST);
+		outer.add(wrapper, BorderLayout.CENTER);
+		outer.add(capB, BorderLayout.EAST);
+		return outer;
+	}
+
+	private JPanel drawSleeperHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
+		int khoang = Math.max(1, (soHang * soCot) / 4);
+		JPanel outer = new JPanel(new BorderLayout(8, 0)); // Giảm padding
+		outer.setBackground(new Color(0xFAFCFF));
+		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
+				new EmptyBorder(4, 4, 4, 4))); // Ép nhỏ viền
+		JLabel capA = new JLabel(" ĐẦU TÀU ");
+		capA.setFont(new Font("Segoe UI", Font.BOLD, 11));
+		capA.setForeground(new Color(0x7F8C8D));
+		JLabel capB = new JLabel(" CUỐI TÀU");
+		capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
+		capB.setForeground(new Color(0x7F8C8D));
+
+		JPanel gridBody = new JPanel(new GridLayout(1, khoang, 4, 0)); // Thu hẹp khoảng cách khoang
+		gridBody.setOpaque(false);
+		int idx = 1;
+		for (int k = 1; k <= khoang; k++) {
+			JPanel kp = new JPanel(new BorderLayout(0, 2));
+			kp.setBackground(new Color(0xF0F4FA));
+			kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
+					new EmptyBorder(2, 2, 2, 2))); // Ép nhỏ viền khoang
+			JLabel lbl = new JLabel("Khoang " + k, SwingConstants.CENTER);
+			lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10)); // Font khoang nhỏ gọn
+			lbl.setForeground(new Color(0x7F8C8D));
+			kp.add(lbl, BorderLayout.NORTH);
+
+			JPanel grid = new JPanel(new GridLayout(2, 2, 2, 2)); // Thu hẹp khoảng cách giường
+			grid.setOpaque(false);
+			grid.add(seatBtn(idx + 2, maintenanceSeats, maToa));
+			grid.add(seatBtn(idx + 3, maintenanceSeats, maToa));
+			grid.add(seatBtn(idx, maintenanceSeats, maToa));
+			grid.add(seatBtn(idx + 1, maintenanceSeats, maToa));
+			idx += 4;
+			kp.add(grid, BorderLayout.CENTER);
+			gridBody.add(kp);
+		}
+		JPanel wrapper = new JPanel(new GridBagLayout());
+		wrapper.setOpaque(false);
+		wrapper.add(gridBody);
+		outer.add(capA, BorderLayout.WEST);
+		outer.add(wrapper, BorderLayout.CENTER);
+		outer.add(capB, BorderLayout.EAST);
+		return outer;
 	}
 
 	private void ganToa() {
@@ -342,6 +582,13 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		String maToa = modToa.getValueAt(row, 1).toString();
 		String tenToa = modToa.getValueAt(row, 2).toString();
 
+		if (!daoCT.checkKhongCoVeDaBan(currentTau, maToa)) {
+			JOptionPane.showMessageDialog(this,
+					"Không thể gỡ toa này!\nĐang có hành khách mua vé toa này trong các chuyến đi sắp tới.",
+					"Thông báo", JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+
 		String[] options = { "Về kho (Sẵn sàng)", "Đem đi Bảo trì", "Hủy thao tác" };
 		int choice = JOptionPane.showOptionDialog(this,
 				"Gỡ toa \"" + tenToa + "\" khỏi tàu " + currentTau
@@ -351,14 +598,12 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			return;
 
 		if (!daoCT.goToaKhoiTau(currentTau, maToa)) {
-			JOptionPane.showMessageDialog(this, "Không thể gỡ toa này!\nCó thể toa đang trong lịch trình bán vé.",
-					"Thông báo", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Đã xảy ra lỗi khi gỡ toa.", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 
 		String status = (choice == 1) ? "BAO_TRI" : "SAN_SANG";
 		daoToa.updateTrangThai(maToa, status);
-
 		List<String> remaining = new ArrayList<>();
 		for (int i = 0; i < modToa.getRowCount(); i++)
 			if (i != row)
@@ -381,7 +626,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			return;
 		String maA = modToa.getValueAt(row, 1).toString();
 		String maB = modToa.getValueAt(newRow, 1).toString();
-
 		daoCT.hoanDoiThuTu(currentTau, maA, newRow + 1, maB, row + 1);
 		loadToaOfTau();
 		tblToa.setRowSelectionInterval(newRow, newRow);
@@ -396,7 +640,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			JOptionPane.showMessageDialog(this, "Chỉ được sinh tự động khi Tàu chưa có toa nào!");
 			return;
 		}
-
 		List<LoaiToa> dsLoai = new DAO_LoaiToa().getAllLoaiToa();
 		if (dsLoai.isEmpty()) {
 			JOptionPane.showMessageDialog(this, "Chưa có Khuôn mẫu Loại Toa nào trong hệ thống!");
@@ -431,7 +674,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JLabel lblTop = new JLabel("Hãy chọn loại khuôn mẫu cho từng toa:", SwingConstants.CENTER);
 		lblTop.setFont(new Font("Segoe UI", Font.BOLD, 16));
 		pnlMain.add(lblTop, BorderLayout.NORTH);
-
 		JPanel pnlList = new JPanel(new GridLayout(quyDinhSoToa, 2, 10, 10));
 		JComboBox<LoaiToaWrapper>[] combos = new JComboBox[quyDinhSoToa];
 		int p1 = quyDinhSoToa / 3;
@@ -453,7 +695,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			pnlList.add(lblToa);
 			pnlList.add(cb);
 		}
-
 		JScrollPane scroll = new JScrollPane(pnlList);
 		scroll.getVerticalScrollBar().setUnitIncrement(16);
 		pnlMain.add(scroll, BorderLayout.CENTER);
@@ -471,7 +712,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 					tenToaChuyenDung = "Toa giường nằm điều hòa";
 				else if (tenLoai.contains("mềm"))
 					tenToaChuyenDung = "Toa ghế ngồi mềm chất lượng cao";
-
 				toaList.add(new Object[] { chon.ghe, chon.lt.getMaLoaiToa(), toaNum, tenToaChuyenDung });
 			}
 			if (daoCT.autoSinhToaTransaction(currentTau, toaList)) {
@@ -485,7 +725,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 						JOptionPane.ERROR_MESSAGE);
 			}
 		});
-
 		JPanel pnlBot = new JPanel();
 		pnlBot.add(btnXacNhan);
 		pnlMain.add(pnlBot, BorderLayout.SOUTH);
@@ -493,32 +732,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		d.setVisible(true);
 	}
 
-	private void generateSeatMap(String maToa, String tenToa, int thuTu) {
-		pnlMap.removeAll();
-		lblMapTitle.setText("3. SƠ ĐỒ GHẾ CHIỀU NGANG: Toa Số " + thuTu + " - " + tenToa + " (" + maToa + ")");
-		Set<String> bookedSeats = daoCT.getGheDaDat(maToa);
-		Object[] thongTin = daoToa.getThongTinToaForMap(maToa);
-
-		if (thongTin != null) {
-			int soHang = (int) thongTin[0];
-			int soCot = (int) thongTin[1];
-			String kieu = (String) thongTin[2];
-			int tongGhe = (int) thongTin[3];
-			int soTrong = tongGhe - bookedSeats.size();
-			lblSeatStats.setText(
-					"   Còn trống: " + soTrong + "   Đã đặt: " + bookedSeats.size() + "   Tổng: " + tongGhe + " ghế");
-			JPanel seatPanel = "GIUONG".equalsIgnoreCase(kieu) ? drawSleeperHorizontal(soHang, soCot, bookedSeats)
-					: drawSeaterHorizontal(soHang, soCot, bookedSeats);
-			pnlMap.add(seatPanel, BorderLayout.CENTER);
-		}
-		pnlMap.revalidate();
-		pnlMap.repaint();
-		refreshTrainBar();
-	}
-
 	private void clearSeatMap() {
 		pnlMap.removeAll();
-		lblMapTitle.setText("3. SƠ ĐỒ GHẾ CHIỀU NGANG - Chọn Toa ở bảng Lắp ráp để xem");
+		lblMapTitle.setText("3. SƠ ĐỒ GHẾ VẬT LÝ - Chọn Toa ở bảng Lắp ráp để xem");
 		lblSeatStats.setText("");
 		currentMaToa = null;
 		pnlMap.revalidate();
@@ -526,7 +742,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		refreshTrainBar();
 	}
 
-	// ================== THANH HIỂN THỊ ĐOÀN TÀU (GRAPHICS 2D) ==================
 	private void refreshTrainBar() {
 		pnlTrainBar.removeAll();
 		if (currentTau == null || modToa.getRowCount() == 0) {
@@ -535,21 +750,17 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			lbl.setForeground(C_GRAY);
 			pnlTrainBar.add(lbl);
 		} else {
-			// 1. Vẽ Đầu kéo tàu bên phải
 			pnlTrainBar.add(new TrainCarPanel(true, false, currentTau, new Color(41, 128, 185)));
-
-			// 2. Vẽ các toa xếp nối tiếp nhau (từ 1 đến N)
 			for (int i = 0; i < modToa.getRowCount(); i++) {
 				int thuTu = (int) modToa.getValueAt(i, 0);
 				String ma = modToa.getValueAt(i, 1).toString();
 				String loai = modToa.getValueAt(i, 3).toString();
-
 				boolean isSelected = ma.equals(currentMaToa);
-				Color carColor = new Color(93, 173, 226); // Màu Toa Cứng (Xanh dương)
+				Color carColor = new Color(93, 173, 226);
 				if (loai.toLowerCase().contains("mềm"))
-					carColor = new Color(231, 76, 60); // Đỏ cam
+					carColor = new Color(231, 76, 60);
 				if (loai.toLowerCase().contains("nằm"))
-					carColor = new Color(162, 217, 40); // Xanh lá
+					carColor = new Color(162, 217, 40);
 
 				TrainCarPanel carPanel = new TrainCarPanel(false, isSelected, String.valueOf(thuTu), carColor);
 				carPanel.addMouseListener(new MouseAdapter() {
@@ -569,188 +780,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		}
 		pnlTrainBar.revalidate();
 		pnlTrainBar.repaint();
-	}
-
-	// LỚP VẼ HÌNH TOA TÀU SIÊU ĐẸP (Không cần thư viện ảnh)
-	class TrainCarPanel extends JPanel {
-		private boolean isLocomotive, isSelected;
-		private String labelText;
-		private Color carColor;
-
-		public TrainCarPanel(boolean isLocomotive, boolean isSelected, String labelText, Color carColor) {
-			this.isLocomotive = isLocomotive;
-			this.isSelected = isSelected;
-			this.labelText = labelText;
-			this.carColor = carColor;
-			setPreferredSize(new Dimension(80, 60));
-			setOpaque(false);
-			setCursor(new Cursor(Cursor.HAND_CURSOR));
-		}
-
-		@Override
-		protected void paintComponent(Graphics g) {
-			super.paintComponent(g);
-			Graphics2D g2 = (Graphics2D) g.create();
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			int w = getWidth() - 8;
-			int h = 32;
-			int y = 2; // Khung thân tàu
-
-			// Vẽ bánh xe và trục liên kết
-			g2.setColor(new Color(105, 110, 115));
-			g2.fillOval(10, y + h - 4, 12, 12);
-			g2.fillOval(w - 22, y + h - 4, 12, 12); // 2 bánh xe
-			g2.setStroke(new BasicStroke(4f));
-			g2.drawLine(15, y + h + 2, w - 15, y + h + 2); // Trục nối
-			if (!isLocomotive) {
-				g2.fillRect(w, y + h - 10, 8, 4);
-			} // Khớp nối toa
-
-			// Vẽ Thân tàu
-			g2.setColor(isSelected ? new Color(241, 196, 15) : carColor);
-			if (isLocomotive) {
-				int[] px = { 0, w - 15, w, w, 0 };
-				int[] py = { y, y, y + 15, y + h, y + h };
-				g2.fillPolygon(px, py, 5); // Hình dáng đầu tàu Bullet Train
-				g2.setColor(Color.WHITE);
-				g2.fillRect(w - 28, y + 5, 10, 12);
-				g2.fillRect(w - 14, y + 8, 8, 9); // Cửa kính buồng lái
-			} else {
-				g2.fillRoundRect(0, y, w, h, 10, 10); // Bo góc toa
-				g2.setColor(Color.WHITE);
-				int winW = (w - 25) / 3;
-				g2.fillRect(6, y + 8, winW, 10);
-				g2.fillRect(12 + winW, y + 8, winW, 10);
-				g2.fillRect(18 + winW * 2, y + 8, winW, 10); // 3 Cửa sổ
-				g2.setColor(new Color(0, 0, 0, 40));
-				g2.fillRect(0, y + h - 8, w, 4); // Vạch kẻ thân toa
-			}
-
-			// Vẽ Chữ (Toa 1, Toa 2...)
-			g2.setColor(isSelected ? new Color(211, 84, 0) : ACCENT);
-			g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
-			FontMetrics fm = g2.getFontMetrics();
-			int tx = (getWidth() - fm.stringWidth(labelText)) / 2;
-			g2.drawString(labelText, tx, y + h + 22);
-			g2.dispose();
-		}
-	}
-
-	// ================= CÁC HÀM VẼ SƠ ĐỒ MÀU SẮC AUTO-SCALING =================
-	private JPanel drawSeaterHorizontal(int soHang, int soCot, Set<String> booked) {
-		JPanel outer = new JPanel(new BorderLayout(16, 0));
-		outer.setBackground(new Color(0xFAFCFF));
-		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(52, 73, 94), 2, true),
-				new EmptyBorder(12, 12, 12, 12)));
-		JLabel capA = new JLabel(" ĐẦU TÀU ");
-		capA.setFont(F_HEADER);
-		capA.setForeground(C_GRAY);
-		JLabel capB = new JLabel(" CUỐI TÀU");
-		capB.setFont(F_HEADER);
-		capB.setForeground(C_GRAY);
-		int uiRows = soCot;
-		int uiCols = soHang;
-		int halfRows = Math.max(1, uiRows / 2);
-		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 4, 4));
-		gridBody.setOpaque(false);
-
-		for (int r = 0; r < uiRows + 1; r++) {
-			if (r == halfRows) {
-				for (int c = 0; c < uiCols; c++) {
-					JPanel aisle = new JPanel();
-					aisle.setBackground(new Color(0xDDE6F5));
-					gridBody.add(aisle);
-				}
-			} else {
-				int actualRow = r > halfRows ? r - 1 : r;
-				for (int c = 0; c < uiCols; c++) {
-					int seatNum = (c * uiRows) + actualRow + 1;
-					gridBody.add(seatBtn(seatNum, booked));
-				}
-			}
-		}
-		JPanel wrapper = new JPanel(new GridBagLayout());
-		wrapper.setOpaque(false);
-		wrapper.add(gridBody);
-		outer.add(capA, BorderLayout.WEST);
-		outer.add(wrapper, BorderLayout.CENTER);
-		outer.add(capB, BorderLayout.EAST);
-		return outer;
-	}
-
-	private JPanel drawSleeperHorizontal(int soHang, int soCot, Set<String> booked) {
-		int khoang = Math.max(1, (soHang * soCot) / 4);
-		JPanel outer = new JPanel(new BorderLayout(16, 0));
-		outer.setBackground(new Color(0xFAFCFF));
-		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(52, 73, 94), 2, true),
-				new EmptyBorder(12, 12, 12, 12)));
-		JLabel capA = new JLabel(" ĐẦU TÀU ");
-		capA.setFont(F_HEADER);
-		capA.setForeground(C_GRAY);
-		JLabel capB = new JLabel(" CUỐI TÀU");
-		capB.setFont(F_HEADER);
-		capB.setForeground(C_GRAY);
-		JPanel gridBody = new JPanel(new GridLayout(1, khoang, 8, 0));
-		gridBody.setOpaque(false);
-		int idx = 1;
-		for (int k = 1; k <= khoang; k++) {
-			JPanel kp = new JPanel(new BorderLayout(0, 4));
-			kp.setBackground(new Color(0xF0F4FA));
-			kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
-					new EmptyBorder(6, 6, 6, 6)));
-			JLabel lbl = new JLabel("Khoang " + k, SwingConstants.CENTER);
-			lbl.setFont(F_SMALL);
-			lbl.setForeground(C_GRAY);
-			kp.add(lbl, BorderLayout.NORTH);
-			JPanel grid = new JPanel(new GridLayout(2, 2, 4, 4));
-			grid.setOpaque(false);
-			grid.add(seatBtn(idx + 2, booked));
-			grid.add(seatBtn(idx + 3, booked));
-			grid.add(seatBtn(idx, booked));
-			grid.add(seatBtn(idx + 1, booked));
-			idx += 4;
-			kp.add(grid, BorderLayout.CENTER);
-			gridBody.add(kp);
-		}
-		JPanel wrapper = new JPanel(new GridBagLayout());
-		wrapper.setOpaque(false);
-		wrapper.add(gridBody);
-		outer.add(capA, BorderLayout.WEST);
-		outer.add(wrapper, BorderLayout.CENTER);
-		outer.add(capB, BorderLayout.EAST);
-		return outer;
-	}
-
-	private JButton seatBtn(int num, Set<String> booked) {
-		boolean isDat = booked.contains(String.valueOf(num));
-		JButton b = new JButton(String.valueOf(num));
-		b.setPreferredSize(new Dimension(36, 32));
-		b.setFont(F_SEAT);
-		b.setMargin(new Insets(0, 0, 0, 0));
-		b.setFocusPainted(false);
-		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		b.setBackground(isDat ? GHE_DAT : GHE_TRONG);
-		b.setForeground(Color.WHITE);
-		b.setOpaque(true);
-		b.setBorder(BorderFactory.createLineBorder(isDat ? GHE_DAT.darker() : GHE_TRONG.darker(), 1));
-		b.setToolTipText("Ghế số " + num + (isDat ? " - ĐÃ BÁN" : " - CÒN TRỐNG"));
-		b.addActionListener(e -> JOptionPane.showMessageDialog(this,
-				isDat ? "Ghế số " + num + " ĐÃ CÓ NGƯỜI ĐẶT MUA!" : "Ghế số " + num + " đang TRỐNG.", "Thông tin ghế",
-				isDat ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE));
-		b.addMouseListener(new MouseAdapter() {
-			Color orig = isDat ? GHE_DAT : GHE_TRONG;
-
-			@Override
-			public void mouseEntered(MouseEvent e) {
-				b.setBackground(GHE_CHON);
-			}
-
-			@Override
-			public void mouseExited(MouseEvent e) {
-				b.setBackground(orig);
-			}
-		});
-		return b;
 	}
 
 	private void loadDsTau() {
@@ -781,9 +810,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JLabel ic = new JLabel("  ");
 		ic.setBackground(color);
 		ic.setOpaque(true);
-		ic.setPreferredSize(new Dimension(14, 14));
+		ic.setPreferredSize(new Dimension(10, 10)); // Thu nhỏ icon legend
 		JLabel tx = new JLabel(label);
-		tx.setFont(F_SMALL);
+		tx.setFont(new Font("Segoe UI", Font.PLAIN, 11)); // Thu nhỏ text legend
 		tx.setForeground(C_GRAY);
 		p.add(ic);
 		p.add(tx);
@@ -863,6 +892,78 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		@Override
 		public Insets getBorderInsets(Component c) {
 			return new Insets(1, 1, 1, 1);
+		}
+	}
+
+	// =========================================================================
+	// LỚP VẼ HÌNH TOA TÀU NHỎ BÊN DƯỚI (ĐÃ THU NHỎ SIZE)
+	// =========================================================================
+	class TrainCarPanel extends JPanel {
+		private boolean isLocomotive, isSelected;
+		private String labelText;
+		private Color carColor;
+
+		public TrainCarPanel(boolean isLocomotive, boolean isSelected, String labelText, Color carColor) {
+			this.isLocomotive = isLocomotive;
+			this.isSelected = isSelected;
+			this.labelText = labelText;
+			this.carColor = carColor;
+			// ĐÃ SỬA: Ép nhỏ hình Toa (55x40)
+			setPreferredSize(new Dimension(65, 45));
+			setOpaque(false);
+			setCursor(new Cursor(Cursor.HAND_CURSOR));
+		}
+
+		public void setSelected(boolean sel) {
+			this.isSelected = sel;
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			Graphics2D g2 = (Graphics2D) g.create();
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			int w = getWidth() - 4;
+			int h = 20;
+			int y = 2;
+
+			// Vẽ Bánh xe & Khớp nối
+			g2.setColor(new Color(105, 110, 115));
+			g2.fillOval(6, y + h - 3, 8, 8);
+			g2.fillOval(w - 14, y + h - 3, 8, 8);
+			g2.setStroke(new BasicStroke(2f));
+			g2.drawLine(10, y + h + 1, w - 10, y + h + 1);
+			if (!isLocomotive) {
+				g2.fillRect(w, y + h - 6, 4, 2);
+			}
+
+			// Vẽ Thân
+			g2.setColor(isSelected ? new Color(241, 196, 15) : carColor);
+			if (isLocomotive) {
+				int[] px = { 0, w - 10, w, w, 0 };
+				int[] py = { y, y, y + 10, y + h, y + h };
+				g2.fillPolygon(px, py, 5);
+				g2.setColor(Color.WHITE);
+				g2.fillRect(w - 18, y + 3, 6, 8);
+				g2.fillRect(w - 10, y + 5, 4, 6);
+			} else {
+				g2.fillRoundRect(0, y, w, h, 6, 6);
+				g2.setColor(Color.WHITE);
+				int winW = (w - 16) / 3;
+				g2.fillRect(4, y + 4, winW, 6);
+				g2.fillRect(8 + winW, y + 4, winW, 6);
+				g2.fillRect(12 + winW * 2, y + 4, winW, 6);
+				g2.setColor(new Color(0, 0, 0, 40));
+				g2.fillRect(0, y + h - 4, w, 2);
+			}
+
+			// Vẽ Số Toa
+			g2.setColor(isSelected ? new Color(211, 84, 0) : ACCENT);
+			g2.setFont(new Font("Segoe UI", Font.BOLD, 10)); // Font nhỏ hơn
+			FontMetrics fm = g2.getFontMetrics();
+			int tx = (getWidth() - fm.stringWidth(labelText)) / 2;
+			g2.drawString(labelText, tx, y + h + 12);
+			g2.dispose();
 		}
 	}
 }
