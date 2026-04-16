@@ -154,6 +154,7 @@ public class DAO_KhachHang {
 		}
 		return null;
 	}
+
 	// Lấy thông tin chi tiết của một Khách Hàng dựa vào Mã Khách Hàng
 	public KhachHang getKhachHangByMa(String maKH) {
 		// Dùng cho Step 4 để lấy thông tin khách hàng lên hóa đơn
@@ -163,25 +164,44 @@ public class DAO_KhachHang {
 
 		String sql = "SELECT maKH, tenKH, sdt, cccd, email FROM KhachHang WHERE maKH = ?";
 
-		try (Connection con = ConnectDB.getConnection();
-			 PreparedStatement stmt = con.prepareStatement(sql)) {
+		try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 
 			stmt.setString(1, maKH.trim());
 
 			try (ResultSet rs = stmt.executeQuery()) {
 				if (rs.next()) {
-					return new KhachHang(
-							rs.getString("maKH"),
-							rs.getString("tenKH"),
-							rs.getString("sdt"),
-							rs.getString("cccd"),
-							rs.getString("email")
-					);
+					return new KhachHang(rs.getString("maKH"), rs.getString("tenKH"), rs.getString("sdt"),
+							rs.getString("cccd"), rs.getString("email"));
 				}
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 		return null;
+	}
+
+	public boolean isDuplicate(String sdt, String cccd, String email, String excludeMaKH) {
+		// Nếu excludeMaKH != null, ta bỏ qua mã đó (dùng cho chức năng Sửa)
+		String sql = "SELECT COUNT(*) FROM KhachHang WHERE (sdt = ? OR cccd = ? OR email = ?) AND trangThai = 1";
+		if (excludeMaKH != null) {
+			sql += " AND maKH <> ?";
+		}
+
+		try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
+			stmt.setString(1, sdt);
+			stmt.setString(2, cccd);
+			stmt.setString(3, email);
+			if (excludeMaKH != null) {
+				stmt.setString(4, excludeMaKH);
+			}
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next())
+					return rs.getInt(1) > 0;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
 	}
 }
