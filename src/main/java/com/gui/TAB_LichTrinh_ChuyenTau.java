@@ -352,6 +352,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         top.setOpaque(false);
         top.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
         top.add(title, BorderLayout.NORTH);
+        top.add(buildFilterBar(), BorderLayout.SOUTH);
 
         JPanel card = makeCard(new BorderLayout());
         JScrollPane sc = new JScrollPane(tableCT);
@@ -558,6 +559,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     }
 
     private void loadTuyenFilter() {
+        if (cbFilterTuyen == null) return;
         cbFilterTuyen.removeAllItems();
         cbFilterTuyen.addItem("Tất cả");
         java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
@@ -569,6 +571,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     }
 
     private void applyFilter() {
+        if (cbFilterTuyen == null || cbFilterTrangThai == null) return;
         String fTuyen = (String) cbFilterTuyen.getSelectedItem();
         String fTT    = (String) cbFilterTrangThai.getSelectedItem();
 
@@ -587,6 +590,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     }
 
     private void resetFilter() {
+        if (cbFilterTuyen == null || cbFilterTrangThai == null) return;
         cbFilterTuyen.setSelectedIndex(0);
         cbFilterTrangThai.setSelectedIndex(0);
         tableCT.setRowSorter(null);

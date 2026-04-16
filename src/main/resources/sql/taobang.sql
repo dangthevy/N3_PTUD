@@ -309,10 +309,6 @@ INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, n
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES 
 ('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com');
 
-INSERT INTO Tuyen (maTuyen, tenTuyen, thoiGianChay, gaDi, gaDen, trangThai) VALUES 
-('T01', N'Sài Gòn - Hà Nội', 1800, 'GA23', 'GA01', 1),
-('T02', N'Hà Nội - Sài Gòn', 1800, 'GA01', 'GA23', 1);
-
 -- Tạo 2 Tàu
 INSERT INTO Tau VALUES 
 ('TAU0001', N'Tàu SE1', 11, 'HOATDONG'), 
@@ -356,7 +352,7 @@ INSERT INTO Tuyen (maTuyen, tenTuyen, thoiGianChay, gaDi, gaDen, trangThai) VALU
 
 INSERT INTO ChuyenTau VALUES
                           ('CT01', N'SE1: Sài Gòn - Hà Nội', 'TAU0001', 'T01'),
-                          ('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T01');
+                          ('CT02', N'SE2: Hà Nội - Sài Gòn', 'TAU0002', 'T02');
 
 INSERT INTO LichTrinh VALUES
                           ('LT01', '2026-04-01', '08:00:00', '20:00:00', 'CT01'),
