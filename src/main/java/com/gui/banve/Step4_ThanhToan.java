@@ -2,6 +2,7 @@ package com.gui.banve;
 
 import com.connectDB.ConnectDB;
 import com.dao.DAO_ChuyenTau;
+import com.dao.DAO_Toa;
 import com.dao.DAO_Tuyen;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
@@ -15,14 +16,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 public class Step4_ThanhToan extends JPanel {
 
@@ -49,24 +44,91 @@ public class Step4_ThanhToan extends JPanel {
     private final Map<String, Tuyen> tuyenByMaChuyenCache = new HashMap<>();
 
     /**
-     * VeEntry = 1 vé + KMDetail đang được chọn cho vé đó.
-     * Dùng thay cho CTietHoaDon trong quá trình soạn hóa đơn.
+     * VeEntry = 1 vé + danh sách khuyến mãi đã chọn cho chính vé đó.
+     * Mỗi khuyến mãi được biểu diễn bằng entity ChiTiet_KhuyenMai để UI và lưu DB đồng nhất.
+     * Quy tắc áp dụng: giảm TIỀN trước -> giảm % sau.
      */
     private static class VeEntry {
         Ve ve;
-        KhuyenMaiDetail kmChon; // null = không áp dụng KM
+        final List<ChiTiet_KhuyenMai> dsChiTietKM = new ArrayList<>();
 
-        // Tính toán từ ve.giaVe + kmChon
-        long tienGoc()    { return (long) ve.getGiaVe(); }
-        long tienGiam() {
-            if (kmChon == null) return 0;
-            if (kmChon.getLoaiKM() == LoaiKhuyenMai.GIAM_PHAN_TRAM)
-                return Math.round(tienGoc() * kmChon.getGiaTri() / 100.0);
-            if (kmChon.getLoaiKM() == LoaiKhuyenMai.GIAM_TIEN)
-                return Math.min(tienGoc(), (long) kmChon.getGiaTri());
-            return 0;
+        long tienGoc() { return ve != null ? (long) ve.getGiaVe() : 0L; }
+
+        private List<ChiTiet_KhuyenMai> sortedChiTietKM() {
+            List<ChiTiet_KhuyenMai> sorted = new ArrayList<>(dsChiTietKM);
+            sorted.sort((a, b) -> {
+                KhuyenMaiDetail k1 = a.getKhuyenMaiDetail();
+                KhuyenMaiDetail k2 = b.getKhuyenMaiDetail();
+                boolean aLaTien = k1 != null && k1.getLoaiKM() == LoaiKhuyenMai.GIAM_TIEN;
+                boolean bLaTien = k2 != null && k2.getLoaiKM() == LoaiKhuyenMai.GIAM_TIEN;
+                return Boolean.compare(bLaTien, aLaTien);
+            });
+            return sorted;
         }
-        long thanhTien()  { return tienGoc() - tienGiam(); }
+
+        long[] tinhGiamTungBuoc() {
+            List<ChiTiet_KhuyenMai> sorted = sortedChiTietKM();
+            long[] giamMoi = new long[sorted.size()];
+            long conLai = tienGoc();
+
+            for (int i = 0; i < sorted.size(); i++) {
+                KhuyenMaiDetail km = sorted.get(i).getKhuyenMaiDetail();
+                if (km == null) continue;
+
+                long giam;
+                if (km.getLoaiKM() == LoaiKhuyenMai.GIAM_TIEN) {
+                    giam = Math.min(conLai, Math.round(km.getGiaTri()));
+                } else {
+                    giam = Math.round(conLai * km.getGiaTri() / 100.0);
+                }
+                giam = Math.min(giam, conLai);
+                giamMoi[i] = giam;
+                sorted.get(i).setTienGiamCuaKM(giam);
+                conLai -= giam;
+            }
+            return giamMoi;
+        }
+
+        List<ChiTiet_KhuyenMai> getChiTietKMSortedAndCalculated() {
+            tinhGiamTungBuoc();
+            return sortedChiTietKM();
+        }
+
+        boolean containsKhuyenMai(String maKMDetail) {
+            return dsChiTietKM.stream().anyMatch(ct -> {
+                KhuyenMaiDetail km = ct.getKhuyenMaiDetail();
+                return km != null && km.getMaKMDetail().equals(maKMDetail);
+            });
+        }
+
+        void addKhuyenMai(KhuyenMaiDetail km) {
+            if (km == null || containsKhuyenMai(km.getMaKMDetail())) return;
+            ChiTiet_KhuyenMai ct = new ChiTiet_KhuyenMai();
+            ct.setVe(ve);
+            ct.setKhuyenMaiDetail(km);
+            ct.setTienGiamCuaKM(0);
+            dsChiTietKM.add(ct);
+            tinhGiamTungBuoc();
+        }
+
+        void removeKhuyenMai(String maKMDetail) {
+            dsChiTietKM.removeIf(ct -> {
+                KhuyenMaiDetail km = ct.getKhuyenMaiDetail();
+                return km != null && km.getMaKMDetail().equals(maKMDetail);
+            });
+            tinhGiamTungBuoc();
+        }
+
+        long tienGiam() {
+            tinhGiamTungBuoc();
+            long sum = 0;
+            for (ChiTiet_KhuyenMai ct : dsChiTietKM) {
+                sum += Math.round(ct.getTienGiamCuaKM());
+            }
+            return sum;
+        }
+
+        long thanhTien() { return Math.max(0L, tienGoc() - tienGiam()); }
     }
 
     private final List<VeEntry> dsVe = new ArrayList<>(); // danh sách vé trong phiên này
@@ -98,14 +160,12 @@ public class Step4_ThanhToan extends JPanel {
     }
 
     // =========================================================================
-    // MOCK DATA – 2 vé Sài Gòn – Hà Nội 01/04/2026
-    // =========================================================================
-    // =========================================================================
     // LẤY DỮ LIỆU THỰC TẾ TỪ CÁC BƯỚC TRƯỚC
     // =========================================================================
     public void loadDataFromSession() {
         dsVe.clear(); // Xóa dữ liệu cũ
         tuyenByMaChuyenCache.clear();
+        List<LoaiVe> allLoaiVe = getAllLoaiVe();
 
         // Khởi tạo Nhân viên (Lấy từ tài khoản đang đăng nhập, ở đây tôi fix cứng làm ví dụ)
         this.nv = new NhanVien();
@@ -118,40 +178,41 @@ public class Step4_ThanhToan extends JPanel {
 
         // Dùng DAO để lấy đối tượng thật từ Database
         com.dao.DAO_KhachHang daoKH = new com.dao.DAO_KhachHang();
-        com.dao.DAO_ChoNgoi daoCho = new com.dao.DAO_ChoNgoi();
         com.dao.DAO_LichTrinh daoLT = new com.dao.DAO_LichTrinh();
+        DAO_Toa daoToa = new DAO_Toa();
 
         for (Map<String, String> map : sessionData) {
             String maLT = map.get("maLT");
-            String maCho = map.get("maCho");
             String maKH = map.get("maKH");
             String maLoaiVe = map.get("maLoaiVe");
+            String maToa = map.get("maToa");
+            String viTriGhe = map.get("viTriGhe");
 
             // Tạo các đối tượng
             KhachHang khach = daoKH.getKhachHangByMa(maKH);
-            ChoNgoi cho = daoCho.getChoNgoiByMa(maCho);
             LichTrinh lichTrinh = daoLT.getLichTrinhByMa(maLT);
-
-            LoaiVe lv = new LoaiVe();
-            lv.setMaLoai(maLoaiVe);
-            lv.setTenLoai(maLoaiVe.equals("LV01") ? "Người lớn" : "Trẻ em/SV"); // Tạm gán tên
+            Toa toa = daoToa.getToaById(maToa);
+            LoaiVe loaiVe = allLoaiVe.stream()
+                    .filter(lv -> Objects.equals(lv.getMaLoai(), maLoaiVe))
+                    .findFirst()
+                    .orElse(null);
 
             // Lấy giá vé thực tế từ Database dựa vào LichTrinh, Toa và LoaiVe
-            long giaGoc = getGiaVeTuDatabase(maLT, cho.getToa().getLoaiToa().getMaLoaiToa(), maLoaiVe);
-
+            long giaGoc = getGiaVeTuDatabase(maLT, toa.getLoaiToa().getMaLoaiToa());
             // Gán vào đối tượng Vé
             Ve ve = new Ve();
             ve.setMaVe("V" + System.currentTimeMillis() + (int)(Math.random()*100)); // Mã vé tạm thời
             ve.setKhachHang(khach);
-            ve.setChoNgoi(cho);
             ve.setLichTrinh(lichTrinh);
-            ve.setLoaiVe(lv);
+            ve.setToa(toa);
+            ve.setViTriGhe(viTriGhe);
+            ve.setLoaiVe(loaiVe);
             ve.setGiaVe(giaGoc);
             ve.setTrangThaiVe(TrangThaiVe.CHUA_SU_DUNG);
 
             VeEntry entry = new VeEntry();
             entry.ve = ve;
-            entry.kmChon = null; // Mặc định chưa chọn KM
+            entry.dsChiTietKM.clear(); // Mặc định chưa chọn KM
 
             dsVe.add(entry);
 
@@ -199,16 +260,31 @@ public class Step4_ThanhToan extends JPanel {
     }
 
     // Hàm gọi DB lấy giá (Bạn có thể viết hàm này bên DAO_Gia)
-    private long getGiaVeTuDatabase(String maLT, String maLoaiToa, String maLoaiVe) {
+    private long getGiaVeTuDatabase(String maLT, String maLoaiToa) {
         long gia = 0;
         String sql = "SELECT gd.gia FROM GiaDetail gd JOIN GiaHeader gh ON gd.maGia = gh.maGia " +
-                "WHERE gh.maLT = ? AND gd.maLoaiToa = ? AND gd.maLoaiVe = ?";
+                "WHERE gh.maLT = ? AND gd.maLoaiToa = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maLT); ps.setString(2, maLoaiToa); ps.setString(3, maLoaiVe);
+            ps.setString(1, maLT); ps.setString(2, maLoaiToa);
             var rs = ps.executeQuery();
             if (rs.next()) gia = rs.getLong("gia");
         } catch (Exception e) { e.printStackTrace(); }
         return gia == 0 ? 500000 : gia; // Nếu không có giá, trả về mặc định 500k
+    }
+
+    private List<LoaiVe> getAllLoaiVe() {
+        List<LoaiVe> list = new ArrayList<>();
+        String sql = "SELECT * FROM LoaiVe";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            var rs = ps.executeQuery();
+            while (rs.next()) {
+                LoaiVe lv = new LoaiVe();
+                lv.setMaLoai(rs.getString("MaLoai"));
+                lv.setTenLoai(rs.getString("TenLoai"));
+                list.add(lv);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
     }
 
     // =========================================================================
@@ -253,7 +329,7 @@ public class Step4_ThanhToan extends JPanel {
         pnlMeta.add(makeInfoLbl("Nhân viên:",    true));
         pnlMeta.add(makeInfoLbl(nv != null ? nv.getTenNV() + " (" + nv.getMaNV() + ")" : "—", false));
         pnlMeta.add(makeInfoLbl("Khách hàng:",   true));
-        pnlMeta.add(makeInfoLbl(kh != null ? kh.getHoTen() + " (" + kh.getMaKH() + ")" : "—", false));
+        pnlMeta.add(makeInfoLbl(kh != null ? kh.getHoTen()  : "—", false));
 
         JPanel north = new JPanel(new BorderLayout(0, 8)); north.setOpaque(false);
         north.add(title, BorderLayout.NORTH);
@@ -373,7 +449,7 @@ public class Step4_ThanhToan extends JPanel {
 
         JPanel card = new JPanel(new BorderLayout(0, 8)); card.setOpaque(true);
         card.setBackground(new Color(0xF7FAFF));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 240));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 300));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(UIHelper.BORDER, 1, true),
@@ -403,8 +479,8 @@ public class Step4_ThanhToan extends JPanel {
         header.add(lblMaVe, BorderLayout.WEST); header.add(btnXoa, BorderLayout.EAST);
         card.add(header, BorderLayout.NORTH);
 
-        // ── THÔNG TIN VÉ (5 hàng: KH, Ngày+Giờ, Tuyến, Toa+Ghế, Loại) ──
-        JPanel info = new JPanel(new GridLayout(5, 2, 8, 3)); info.setOpaque(false);
+        // ── THÔNG TIN VÉ (6 hàng: KH, Ngày+Giờ, Tuyến, Toa+Ghế, Loại) ──
+        JPanel info = new JPanel(new GridLayout(6, 2, 8, 3)); info.setOpaque(false);
 
         String tenKH = (ve.getKhachHang() != null) ? ve.getKhachHang().getHoTen() : "—";
 
@@ -419,63 +495,87 @@ public class Step4_ThanhToan extends JPanel {
         }
 
         String tenTuyen = getTenTuyenForVe(ve);
-        String cho  = ve.getChoNgoi() != null
-                ? ve.getChoNgoi().getToa().getTenToa() + " – Ghế " + ve.getChoNgoi().getTenCho() : "—";
+        String viTriGhe  = ve.getViTriGhe() != null
+                ? ve.getToa().getLoaiToa().getTenLoaiToa() + " – Ghế " + ve.getViTriGhe() : "—";
         String loaiVeStr  = ve.getLoaiVe()  != null ? ve.getLoaiVe().getTenLoai()  : "—";
-        String loaiToaStr = (ve.getChoNgoi() != null && ve.getChoNgoi().getToa().getLoaiToa() != null)
-                ? ve.getChoNgoi().getToa().getLoaiToa().getTenLoaiToa() : "—";
-
+        JLabel lblGia = new JLabel(buildGiaHtml(entry));
         info.add(makeVeInfoLbl("Hành khách:", true));  info.add(makeVeInfoLbl(tenKH,     false));
         info.add(makeVeInfoLbl("Khởi hành:",  true));  info.add(makeVeInfoLbl(ngayGio,   false));
         info.add(makeVeInfoLbl("Tuyến:",      true));  info.add(makeVeInfoLbl(tenTuyen,  false));
-        info.add(makeVeInfoLbl("Chỗ:",        true));  info.add(makeVeInfoLbl(cho,       false));
-        info.add(makeVeInfoLbl("Loại:",       true));  info.add(makeVeInfoLbl(loaiVeStr + " – " + loaiToaStr, false));
+        info.add(makeVeInfoLbl("Chỗ:",        true));  info.add(makeVeInfoLbl(viTriGhe,       false));
+        info.add(makeVeInfoLbl("Loại:",       true));  info.add(makeVeInfoLbl(loaiVeStr, false));
+        info.add(makeVeInfoLbl("Giá:",        true));  info.add(lblGia);
         card.add(info, BorderLayout.CENTER);
 
-        // ── COMBOBOX KM + GIÁ ──
-        JPanel bottom = new JPanel(new BorderLayout(8, 0)); bottom.setOpaque(false);
+        // ── MULTI-SELECT KM + CHIPS ──
+        JPanel bottom = new JPanel(new BorderLayout(0, 6)); bottom.setOpaque(false);
 
-        // Load KMD khả dụng cho vé này (theo ngày hôm nay; có thể filter thêm theo tuyến/loại toa)
         Tuyen tuyenVe = (ve.getLichTrinh() != null) ? getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen()) : null;
-        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(new Date(), ve.getLoaiVe(), ve.getChoNgoi().getToa().getLoaiToa(), tuyenVe);
-        KhuyenMaiDetail[] kmArr = dsKMD.toArray(new KhuyenMaiDetail[0]);
-        JComboBox<KhuyenMaiDetail> cbKM = makeKMComboBox(kmArr);
+        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(new Date(), ve.getLoaiVe(),
+                ve.getToa() != null ? ve.getToa().getLoaiToa() : null, tuyenVe);
 
-        // Nếu entry đang có KM đã chọn trước → set lại
-        if (entry.kmChon != null) {
-            for (int j = 1; j < cbKM.getItemCount(); j++) {
-                KhuyenMaiDetail item = cbKM.getItemAt(j);
-                if (item != null && item.getMaKMDetail().equals(entry.kmChon.getMaKMDetail())) {
-                    cbKM.setSelectedIndex(j); break;
-                }
-            }
-        }
+        // Panel chips hiển thị KM đã chọn
+        JPanel pnlChips = new JPanel(new WrapLayout(FlowLayout.LEFT, 4, 4)); pnlChips.setOpaque(false);
 
-        // Label giá (cập nhật khi đổi KM)
-        JLabel lblGia = new JLabel(buildGiaHtml(entry));
+        // Label giá realtime
         lblGia.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblGia.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        cbKM.addActionListener(e -> {
-            entry.kmChon = (KhuyenMaiDetail) cbKM.getSelectedItem();
-            lblGia.setText(buildGiaHtml(entry));
-            refreshReceipt(); // cập nhật bên trái
+        Runnable refreshTicketPromoUI = new Runnable() {
+            @Override
+            public void run() {
+                pnlChips.removeAll();
+                List<ChiTiet_KhuyenMai> selected = entry.getChiTietKMSortedAndCalculated();
+                for (ChiTiet_KhuyenMai ct : selected) {
+                    pnlChips.add(makeKMChip(ct, () -> {
+                        KhuyenMaiDetail km = ct.getKhuyenMaiDetail();
+                        if (km != null) {
+                            entry.removeKhuyenMai(km.getMaKMDetail());
+                            this.run();
+                            refreshReceipt();
+                            card.revalidate();
+                            card.repaint();
+                        }
+                    }));
+                }
+                if (selected.isEmpty()) {
+                    JLabel none = new JLabel("Chưa chọn KM");
+                    none.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+                    none.setForeground(UIHelper.TEXT_LIGHT);
+                    pnlChips.add(none);
+                }
+                lblGia.setText(buildGiaHtml(entry));
+                pnlChips.revalidate();
+                pnlChips.repaint();
+            }
+        };
+        refreshTicketPromoUI.run();
+
+        // Dropdown chọn KM
+        JPanel dropdownRow = new JPanel(new BorderLayout(6, 0)); dropdownRow.setOpaque(false);
+        JButton btnDropdown = makeKMDropdownBtn(dsKMD, entry, () -> {
+            refreshTicketPromoUI.run();
+            refreshReceipt();
+            card.revalidate();
+            card.repaint();
         });
 
-        bottom.add(cbKM,    BorderLayout.CENTER);
-        bottom.add(lblGia,  BorderLayout.EAST);
+        dropdownRow.add(btnDropdown, BorderLayout.CENTER);
+
+        bottom.add(dropdownRow, BorderLayout.NORTH);
+        bottom.add(pnlChips,    BorderLayout.CENTER);
         card.add(bottom, BorderLayout.SOUTH);
 
         return card;
     }
 
-    /** HTML giá hiển thị trong card vé */
+    /** HTML giá hiển thị trong card vé (compact) */
     private String buildGiaHtml(VeEntry e) {
         if (e.tienGiam() > 0) {
-            return "<html><s style='color:gray;font-size:11px'>" + formatTien(e.tienGoc()) + "</s>"
-                    + " <b style='color:#16A34A'>" + formatTien(e.thanhTien()) + "</b></html>";
+            return "<html><s style='color:#A0AEC0;font-size:10px'>" + formatTien(e.tienGoc()) + "</s>"
+                    + "&nbsp;<b style='color:#16A34A'>" + formatTien(e.thanhTien()) + "</b></html>";
         }
-        return "<html><b>" + formatTien(e.thanhTien()) + "</b></html>";
+        return "<html><b style='color:#1E2B3C'>" + formatTien(e.thanhTien()) + "</b></html>";
     }
 
     /** Panel trái: cập nhật receipt và tổng tiền */
@@ -508,78 +608,130 @@ public class Step4_ThanhToan extends JPanel {
         pnlReceiptList.revalidate(); pnlReceiptList.repaint();
     }
 
-    /** 1 dòng trong receipt bên trái */
+    /** 1 card receipt bên trái — hiển thị giảm từng bước theo từng KM */
     private JPanel buildReceiptRow(VeEntry entry) {
         Ve ve = entry.ve;
-        JPanel row = new JPanel(new BorderLayout(10, 4)); row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+
+        // Tính giảm từng bước
+        List<ChiTiet_KhuyenMai> sortedKMs = entry.getChiTietKMSortedAndCalculated();
+        long[] giamMoi = entry.tinhGiamTungBuoc();
+
+        JPanel row = new JPanel(); row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
+        row.setOpaque(false);
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(UIHelper.BORDER, 1, true),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        // Không set maxHeight cứng vì số KM thay đổi
 
-        // ── Trái: mã vé / KH / chi tiết / KM ──
-        JPanel left = new JPanel(new GridLayout(5, 1, 0, 2)); left.setOpaque(false);
-
-        // Dòng 1: mã vé
+        // ── Dòng header: mã vé + tên KH ──
+        JPanel hdr = new JPanel(new BorderLayout(8, 0)); hdr.setOpaque(false);
+        hdr.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
         JLabel lVe = new JLabel(ve.getMaVe());
-        lVe.setFont(new Font("Segoe UI", Font.BOLD, 14)); lVe.setForeground(UIHelper.ACCENT);
-
-        // Dòng 2: tên khách hàng
-        String tenKH = ve.getKhachHang() != null ? ve.getKhachHang().getHoTen() + (ve.getKhachHang().getSdt() != null? " - " + ve.getKhachHang().getSdt() : "") : "—";
+        lVe.setFont(new Font("Segoe UI", Font.BOLD, 13)); lVe.setForeground(UIHelper.ACCENT);
+        String tenKH = ve.getKhachHang() != null ? ve.getKhachHang().getHoTen() : "";
         JLabel lKH = new JLabel(tenKH);
-        lKH.setFont(new Font("Segoe UI", Font.PLAIN, 14)); lKH.setForeground(UIHelper.TEXT_DARK);
+        lKH.setFont(new Font("Segoe UI", Font.PLAIN, 12)); lKH.setForeground(UIHelper.TEXT_MID);
+        hdr.add(lVe, BorderLayout.WEST); hdr.add(lKH, BorderLayout.EAST);
+        row.add(hdr);
+        row.add(Box.createVerticalStrut(2));
 
-        // Dòng 3: toa + loại + ngày/giờ
-        String tenTuyen = getTenTuyenForVe(ve);
-        JLabel lblTuyen = new JLabel(tenTuyen);
-        lblTuyen.setFont(new Font("Segoe UI", Font.PLAIN, 14)); lKH.setForeground(UIHelper.TEXT_DARK);
-
-        String cho = ve.getChoNgoi() != null
-                ? ve.getChoNgoi().getToa().getTenToa() + " – Ghế " + ve.getChoNgoi().getTenCho() : "—";
-        String loaiToa = (ve.getChoNgoi() != null && ve.getChoNgoi().getToa().getLoaiToa() != null)
-                ? ve.getChoNgoi().getToa().getLoaiToa().getTenLoaiToa() : "—";
+        // ── Dòng chi tiết: toa + ngày/giờ ──
+        String tuyen = getTenTuyenForVe(ve);
+        String viTriGhe = ve.getViTriGhe() != null
+                ? ve.getToa().getLoaiToa().getTenLoaiToa() + " – Ghế " + ve.getViTriGhe() : "—";
         String ngayGio = "—";
+        String loaiVeStr = ve.getLoaiVe() != null ? ve.getLoaiVe().getTenLoai() : "—";
+
         if (ve.getLichTrinh() != null) {
-            String ngay = ve.getLichTrinh().getNgayKhoiHanh() != null
-                    ? ve.getLichTrinh().getNgayKhoiHanh().toString() : "?";
-            String gio  = ve.getLichTrinh().getGioKhoiHanh() != null
-                    ? String.format("%02d:%02d", ve.getLichTrinh().getGioKhoiHanh().getHour(),
-                    ve.getLichTrinh().getGioKhoiHanh().getMinute()) : "?";
+            String ngay = ve.getLichTrinh().getNgayKhoiHanh() != null ? ve.getLichTrinh().getNgayKhoiHanh().toString() : "?";
+            String gio  = ve.getLichTrinh().getGioKhoiHanh()  != null
+                    ? String.format("%02d:%02d", ve.getLichTrinh().getGioKhoiHanh().getHour(), ve.getLichTrinh().getGioKhoiHanh().getMinute()) : "?";
             ngayGio = ngay + " " + gio;
         }
-        JLabel lDetail = new JLabel(cho + "  |  " + loaiToa + "  |  " + ngayGio);
-        lDetail.setFont(new Font("Segoe UI", Font.PLAIN, 13)); lDetail.setForeground(UIHelper.TEXT_MID);
+        JLabel lDetail = new JLabel(tuyen + " | " + ngayGio  + " | " +viTriGhe + " | " + loaiVeStr);
+        lDetail.setFont(new Font("Segoe UI", Font.PLAIN, 11)); lDetail.setForeground(UIHelper.TEXT_MID);
+        lDetail.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.add(lDetail);
+        row.add(Box.createVerticalStrut(6));
 
-        // Dòng 4: KM
-        String kmText = entry.kmChon != null
-                ? "KM: " + entry.kmChon.getKhuyenMai().getTenKM() + "  " + formatGiaTri(entry.kmChon)
-                : "Không áp dụng KM";
-        JLabel lKM = new JLabel(kmText);
-        lKM.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        lKM.setForeground(entry.kmChon != null ? UIHelper.SUCCESS : UIHelper.TEXT_LIGHT);
+        // ── Separator mảnh ──
+        JSeparator sep = new JSeparator(); sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep.setForeground(UIHelper.BORDER); row.add(sep); row.add(Box.createVerticalStrut(6));
 
-        left.add(lVe); left.add(lKH); left.add(lblTuyen); left.add(lDetail); left.add(lKM);
+        // ── Giá gốc (gạch ngang nếu có KM) ──
+        JPanel rowGoc = makeReceiptPriceLine(
+                "Giá gốc",
+                formatTien(entry.tienGoc()),
+                false,//!sortedKMs.isEmpty(),   // gạch ngang nếu có ít nhất 1 KM
+                UIHelper.TEXT_DARK, true);
+        row.add(rowGoc);
 
-        // ── Phải: giá gốc + thành tiền ──
-        JPanel right = new JPanel(new GridLayout(2, 1, 0, 4)); right.setOpaque(false);
+        // ── Từng KM giảm ──
+        long conLai = entry.tienGoc();
+        for (int i = 0; i < sortedKMs.size(); i++) {
+            ChiTiet_KhuyenMai ctKM = sortedKMs.get(i);
+            KhuyenMaiDetail k = ctKM.getKhuyenMaiDetail();
+            long giam = giamMoi[i];
+            conLai -= giam;
 
-        JLabel lGoc = new JLabel(entry.tienGiam() > 0
-                ? "<html><s>" + formatTien(entry.tienGoc()) + "</s></html>"
-                : formatTien(entry.tienGoc()));
-        lGoc.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        lGoc.setForeground(UIHelper.TEXT_LIGHT); lGoc.setHorizontalAlignment(SwingConstants.RIGHT);
+            row.add(Box.createVerticalStrut(3));
 
-        JLabel lTT = new JLabel(formatTien(entry.thanhTien()));
-        lTT.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        lTT.setForeground(entry.tienGiam() > 0 ? UIHelper.SUCCESS : UIHelper.TEXT_DARK);
-        lTT.setHorizontalAlignment(SwingConstants.RIGHT);
+            // Dòng KM: tên + loại + giaTri → số tiền giảm
+            String kmLabel = formatKhuyenMaiLine(k);
+//            boolean isLast = (i == sortedKMs.size() - 1);
 
-        right.add(lGoc); right.add(lTT);
+            JPanel rowKM = makeReceiptPriceLine(
+                    "  ↳ " + kmLabel,
+                    "- " + formatTien(giam),
+                    false,   // gạch ngang giá còn lại nếu còn KM tiếp
+                    UIHelper.DANGER, false);
+            row.add(rowKM);
+        }
 
-        row.add(left,  BorderLayout.CENTER);
-        row.add(right, BorderLayout.EAST);
+        // ── Dòng cuối: thành tiền ──
+        row.add(Box.createVerticalStrut(5));
+        JSeparator sep2 = new JSeparator(); sep2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep2.setForeground(UIHelper.BORDER); row.add(sep2); row.add(Box.createVerticalStrut(5));
+
+        JPanel rowTT = makeReceiptPriceLine(
+                "Thành tiền",
+                formatTien(entry.thanhTien()),
+                false,
+                entry.tienGiam() > 0 ? UIHelper.SUCCESS : UIHelper.TEXT_DARK,
+                entry.tienGiam() > 0);
+        row.add(rowTT);
+
         return row;
+    }
+
+    /** 1 dòng price trong receipt: [label bên trái] [giá bên phải, optional gạch ngang] */
+    private JPanel makeReceiptPriceLine(String label, String price, boolean strikePrice,
+                                        Color priceColor, boolean boldPrice) {
+        JPanel line = new JPanel(new BorderLayout(4, 0)); line.setOpaque(false);
+        line.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+        line.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lLbl = new JLabel(label);
+        lLbl.setFont(new Font("Segoe UI", boldPrice ? Font.BOLD : Font.PLAIN, 12));
+        lLbl.setForeground(UIHelper.TEXT_MID);
+
+        String priceHtml;
+        if (strikePrice)
+            priceHtml = "<html><s style='color:#A0AEC0'>" + price + "</s></html>";
+        else if (boldPrice)
+            priceHtml = "<html><b>" + price + "</b></html>";
+        else
+            priceHtml = price;
+
+        JLabel lPrice = new JLabel(priceHtml);
+        lPrice.setFont(new Font("Segoe UI", boldPrice ? Font.BOLD : Font.PLAIN, 12));
+        lPrice.setForeground(priceColor);
+        lPrice.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        line.add(lLbl,   BorderLayout.WEST);
+        line.add(lPrice, BorderLayout.EAST);
+        return line;
     }
 
     // =========================================================================
@@ -616,7 +768,8 @@ public class Step4_ThanhToan extends JPanel {
 
             // LOOP TỪNG VÉ
             String sqlVe = "INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe) VALUES (?, ?, ?, ?, ?, ?, ?, 'CHUASUDUNG')";
-            String sqlCTHD = "INSERT INTO ChiTietHoaDon (maHD, maVe, MaKMDetail, tienGoc, tienGiam, thanhTien) VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlCTHD = "INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien) VALUES (?, ?, ?, ?, ?)";
+            String sqlCTKM = "INSERT INTO ChiTiet_KhuyenMai (maHD, maVe, maKMDetail, tienGiamCuaKM) VALUES (?, ?, ?, ?)";
             String sqlChoNgoi = "UPDATE GheLichTrinh SET trangThai = 'DADAT' WHERE maLT = ? AND maToa = ? AND viTri = ?";
             String sqlEnsureGhe = "IF NOT EXISTS (SELECT 1 FROM GheLichTrinh WHERE maLT = ? AND maToa = ? AND viTri = ?) " +
                     "INSERT INTO GheLichTrinh(maLT, maToa, viTri, trangThai) VALUES (?, ?, ?, 'TRONG')";
@@ -624,6 +777,7 @@ public class Step4_ThanhToan extends JPanel {
 
             try (PreparedStatement psVe = conn.prepareStatement(sqlVe);
                  PreparedStatement psCTHD = conn.prepareStatement(sqlCTHD);
+                 PreparedStatement psCTKM = conn.prepareStatement(sqlCTKM);
                  PreparedStatement psCho = conn.prepareStatement(sqlChoNgoi);
                  PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe)) {
 
@@ -632,8 +786,8 @@ public class Step4_ThanhToan extends JPanel {
                     String maVeReal = maHD + "_V" + (i + 1); // Sinh mã vé: HDxxxx_V1, HDxxxx_V2
 
                     String maLT = entry.ve.getLichTrinh().getMaLT();
-                    String maToa = entry.ve.getChoNgoi().getToa().getMaToa();
-                    String viTri = entry.ve.getChoNgoi().getTenCho();
+                    String maToa = entry.ve.getToa().getMaToa();
+                    String viTri = entry.ve.getViTriGhe();
 
                     // 2.0 Đảm bảo ghế tồn tại trong GheLichTrinh trước khi insert Vé (tránh lỗi FK)
                     psEnsureGhe.setString(1, maLT);
@@ -654,17 +808,26 @@ public class Step4_ThanhToan extends JPanel {
                     psVe.setLong(7, entry.tienGoc());
                     psVe.executeUpdate();
 
-                    // 3. INSERT VÀO CHI TIẾT HÓA ĐƠN
+                    // 3. INSERT 1 DÒNG CTHD / VÉ
                     psCTHD.setString(1, maHD);
                     psCTHD.setString(2, maVeReal);
-                    if (entry.kmChon != null) psCTHD.setString(3, entry.kmChon.getMaKMDetail());
-                    else psCTHD.setNull(3, java.sql.Types.VARCHAR);
-                    psCTHD.setLong(4, entry.tienGoc());
-                    psCTHD.setLong(5, entry.tienGiam());
-                    psCTHD.setLong(6, entry.thanhTien());
+                    psCTHD.setLong(3, entry.tienGoc());
+                    psCTHD.setLong(4, entry.tienGiam());
+                    psCTHD.setLong(5, entry.thanhTien());
                     psCTHD.executeUpdate();
 
-                    // 4. UPDATE TRẠNG THÁI GHẾ (DADAT)
+                    // 4. INSERT CHI TIẾT KHUYẾN MÃI (nếu có)
+                    for (ChiTiet_KhuyenMai ctKM : entry.getChiTietKMSortedAndCalculated()) {
+                        KhuyenMaiDetail km = ctKM.getKhuyenMaiDetail();
+                        if (km == null) continue;
+                        psCTKM.setString(1, maHD);
+                        psCTKM.setString(2, maVeReal);
+                        psCTKM.setString(3, km.getMaKMDetail());
+                        psCTKM.setLong(4, Math.round(ctKM.getTienGiamCuaKM()));
+                        psCTKM.executeUpdate();
+                    }
+
+                    // 5. UPDATE TRẠNG THÁI GHẾ (DADAT)
                     psCho.setString(1, maLT);
                     psCho.setString(2, maToa);
                     psCho.setString(3, viTri);
@@ -823,6 +986,144 @@ public class Step4_ThanhToan extends JPanel {
         l.setFont(new Font("Segoe UI", isBold ? Font.BOLD : Font.PLAIN, 14));
         l.setForeground(UIHelper.TEXT_DARK); l.setHorizontalAlignment(SwingConstants.RIGHT);
         return l;
+    }
+
+    // ── WrapLayout: FlowLayout tự xuống dòng khi overflow ────────────────────
+    private static class WrapLayout extends FlowLayout {
+        WrapLayout(int align, int hgap, int vgap) { super(align, hgap, vgap); }
+        @Override public Dimension preferredLayoutSize(Container target) {
+            return layoutSize(target, true);
+        }
+        @Override public Dimension minimumLayoutSize(Container target) {
+            return layoutSize(target, false);
+        }
+        private Dimension layoutSize(Container target, boolean preferred) {
+            synchronized (target.getTreeLock()) {
+                int targetWidth = target.getSize().width;
+                if (targetWidth == 0) targetWidth = Integer.MAX_VALUE;
+                int hgap = getHgap(), vgap = getVgap();
+                Insets insets = target.getInsets();
+                int maxWidth = targetWidth - (insets.left + insets.right + hgap * 2);
+                int x = 0, y = insets.top + vgap, rowH = 0;
+                for (Component c : target.getComponents()) {
+                    if (!c.isVisible()) continue;
+                    Dimension d = preferred ? c.getPreferredSize() : c.getMinimumSize();
+                    if (x + d.width > maxWidth) { y += rowH + vgap; x = 0; rowH = 0; }
+                    x += d.width + hgap; rowH = Math.max(rowH, d.height);
+                }
+                return new Dimension(targetWidth, y + rowH + insets.bottom + vgap);
+            }
+        }
+    }
+
+    /** Chip hiển thị 1 KM đã chọn, có nút ✕ để bỏ */
+    private JPanel makeKMChip(ChiTiet_KhuyenMai ctKM, Runnable onRemove) {
+        KhuyenMaiDetail k = ctKM.getKhuyenMaiDetail();
+        JPanel chip = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        chip.setOpaque(true);
+        chip.setBackground(new Color(0xDCFCE7));
+        chip.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(0x86EFAC), 1, true),
+                BorderFactory.createEmptyBorder(2, 6, 2, 4)));
+
+        String label = formatKhuyenMaiLine(k);
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lbl.setForeground(new Color(0x166534));
+
+        JButton btnX = new JButton("✕");
+        btnX.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        btnX.setForeground(new Color(0x166534));
+        btnX.setPreferredSize(new Dimension(16, 16));
+        btnX.setContentAreaFilled(false); btnX.setBorderPainted(false); btnX.setFocusPainted(false);
+        btnX.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnX.addActionListener(e -> onRemove.run());
+
+        chip.add(lbl); chip.add(btnX);
+        return chip;
+    }
+
+    /** Nút dropdown mở popup checklist chọn nhiều KM */
+    private JButton makeKMDropdownBtn(List<KhuyenMaiDetail> dsKMD, VeEntry entry, Runnable onClose) {
+        JButton btn = new JButton() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0xF8FAFD));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(UIHelper.BORDER);
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btn.setForeground(UIHelper.TEXT_MID);
+        btn.setText("+ Chọn khuyến mãi ▾");
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setPreferredSize(new Dimension(0, 32));
+
+        btn.addActionListener(e -> {
+            if (dsKMD.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Không có KM khả dụng cho vé này!"); return;
+            }
+
+            JPopupMenu popup = new JPopupMenu();
+            popup.setLayout(new BorderLayout());
+            popup.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(UIHelper.BORDER, 1, true),
+                    BorderFactory.createEmptyBorder(6, 6, 6, 6)));
+
+            JPanel listPanel = new JPanel();
+            listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+            listPanel.setOpaque(false);
+
+            for (KhuyenMaiDetail k : dsKMD) {
+                boolean alreadyChosen = entry.containsKhuyenMai(k.getMaKMDetail());
+                JCheckBox cb = new JCheckBox(formatKhuyenMaiLine(k), alreadyChosen);
+                cb.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                cb.setOpaque(false);
+                cb.setFocusPainted(false);
+                cb.addActionListener(ae -> {
+                    if (cb.isSelected()) entry.addKhuyenMai(k);
+                    else entry.removeKhuyenMai(k.getMaKMDetail());
+                    onClose.run();
+                });
+                listPanel.add(cb);
+            }
+
+            JScrollPane scrollPane = new JScrollPane(listPanel);
+            scrollPane.setPreferredSize(new Dimension(360, Math.min(220, Math.max(90, dsKMD.size() * 34))));
+            scrollPane.setBorder(BorderFactory.createEmptyBorder());
+            popup.add(scrollPane, BorderLayout.CENTER);
+
+            JButton btnDone = new JButton("Xong");
+            btnDone.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            btnDone.addActionListener(ae -> popup.setVisible(false));
+
+            JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 6));
+            footer.setOpaque(false);
+            footer.add(btnDone);
+            popup.add(footer, BorderLayout.SOUTH);
+
+            popup.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+                @Override public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent ev) { onClose.run(); }
+                @Override public void popupMenuCanceled(javax.swing.event.PopupMenuEvent ev) { onClose.run(); }
+                @Override public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent ev) {}
+            });
+
+            popup.show(btn, 0, btn.getHeight());
+        });
+
+        return btn;
+    }
+
+    private String formatKhuyenMaiLine(KhuyenMaiDetail k) {
+        if (k == null) return "";
+        String tenKM = k.getKhuyenMai() != null ? k.getKhuyenMai().getTenKM() : k.getMaKMDetail();
+        String loai = k.getLoaiKM() != null ? k.getLoaiKM().getLabel() : "KM";
+        return tenKM + " | " + loai + " | " + formatGiaTri(k);
     }
 
     private String formatGiaTri(KhuyenMaiDetail k) {

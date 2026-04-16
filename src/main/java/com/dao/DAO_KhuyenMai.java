@@ -136,7 +136,14 @@ public class DAO_KhuyenMai {
 
     // Đếm số KM đã có lượt sử dụng
     public int countKhuyenMaiDaDung(){
-        return 0; // Cần JOIN với bảng Hóa Đơn để đếm số KM đã được áp dụng
+        String sql = "SELECT COUNT(*) FROM ChiTiet_KhuyenMai ";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return 0;
     }
 
     // ---- CREATE ----

@@ -181,9 +181,9 @@ CREATE TABLE KhuyenMaiDetail (
     LoaiKM VARCHAR(20) NOT NULL CHECK (LoaiKM IN ('GIAM_PHAN_TRAM', 'GIAM_TIEN')),
     GiaTri DECIMAL(12,0) NOT NULL,
     TrangThai BIT DEFAULT 1,
-    MaTuyen VARCHAR(10) NOT NULL,
-    maLoaiToa VARCHAR(10) NOT NULL,
-    MaLoai VARCHAR(10) NOT NULL,
+    MaTuyen VARCHAR(10) NULL, -- NULL = Tất cả Tuyến
+    maLoaiToa VARCHAR(10) NULL, -- NULL = Tất cả Loại Toa
+    MaLoai VARCHAR(10) NULL, -- NULL = Tất cả Loại vé
     An BIT DEFAULT 0,
     CONSTRAINT UQ_KMDetail UNIQUE (MaKM, MaTuyen, maLoaiToa, MaLoai),
     FOREIGN KEY (MaKM) REFERENCES KhuyenMai(MaKM) ON DELETE CASCADE,
@@ -225,14 +225,23 @@ CREATE TABLE Ve (
 CREATE TABLE ChiTietHoaDon (
     maHD VARCHAR(20),
     maVe VARCHAR(20),
-    MaKMDetail VARCHAR(7) NULL,
     tienGoc DECIMAL(12,0) DEFAULT 0,
-    tienGiam DECIMAL(12,0) DEFAULT 0,
+    tienGiam DECIMAL(12,0) DEFAULT 0, -- Tiền giảm của tất cả KM áp dụng vào vé này
     thanhTien DECIMAL(12,0) DEFAULT 0,
     PRIMARY KEY (maHD, maVe),
     FOREIGN KEY (maHD) REFERENCES HoaDon(maHD) ON DELETE CASCADE,
-    FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE,
-    FOREIGN KEY (MaKMDetail) REFERENCES KhuyenMaiDetail(MaKMDetail)
+    FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE
+);
+
+CREATE TABLE ChiTiet_KhuyenMai (
+   maHD VARCHAR(20),
+   maVe VARCHAR(20),
+   MaKMDetail VARCHAR(7),
+   tienGiamCuaKM DECIMAL(12,0) DEFAULT 0, -- Tiền giảm 1 KM
+
+   PRIMARY KEY (maHD, maVe, MaKMDetail),
+   FOREIGN KEY (maHD, maVe) REFERENCES ChiTietHoaDon(maHD, maVe) ON DELETE CASCADE,
+   FOREIGN KEY (MaKMDetail) REFERENCES KhuyenMaiDetail(MaKMDetail)
 );
 
 GO
@@ -377,8 +386,8 @@ BEGIN
     INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe)
     VALUES (@ve, 'KH01', 'LT01', @maToa_HD, @viTri, 'LV01', @giaThucTe, 'CHUASUDUNG');
 
-    INSERT INTO ChiTietHoaDon (maHD, maVe, MaKMDetail, tienGoc, tienGiam, thanhTien) 
-    VALUES (@hd, @ve, NULL, @giaThucTe, 0, @giaThucTe);
+    INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien)
+    VALUES (@hd, @ve, @giaThucTe, 0, @giaThucTe);
 
     SET @i = @i + 1;
 END
@@ -390,21 +399,22 @@ INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa)
 VALUES 
 (N'Khuyến mãi hè 2026', '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
 (N'Ưu đãi Sinh viên', '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
+(N'Ưu đãi vé trẻ em', '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
 (N'Flash Sale Cuối Tuần', '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn');
 
 DECLARE @KM_HE VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026');
 DECLARE @KM_SV VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Sinh viên');
+DECLARE @KM_TE VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em');
 DECLARE @KM_FS VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale Cuối Tuần');
 
-INSERT INTO KhuyenMaiDetail 
-(MaKM, LoaiKM, GiaTri, TrangThai, MaTuyen, MaLoai, MaLoaiToa)
-VALUES 
-(@KM_HE, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'LV01', 'G_CUNG'),
-(@KM_HE, 'GIAM_PHAN_TRAM', 15, 1, 'T02', 'LV02', 'G_MEM'),
-(@KM_SV, 'GIAM_TIEN', 50000, 1, 'T01', 'LV01', 'G_MEM'),
-(@KM_SV, 'GIAM_TIEN', 30000, 1, 'T01', 'LV03', 'G_NAM'),
-(@KM_FS, 'GIAM_PHAN_TRAM', 25, 1, 'T01', 'LV02', 'G_CUNG'),
-(@KM_FS, 'GIAM_TIEN', 100000, 1, 'T02', 'LV03', 'G_NAM');
+INSERT INTO KhuyenMaiDetail
+(MaKM, LoaiKM, GiaTri, TrangThai, MaTuyen, maLoaiToa, MaLoai)
+VALUES
+    (@KM_SV, 'GIAM_TIEN', 200000, 1, NULL, NULL, 'LV03'),
+    (@KM_TE, 'GIAM_TIEN', 300000, 1, NULL, NULL, 'LV02'),
+    (@KM_He, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'G_NAM', NULL),
+    (@KM_He, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'G_MEM', NULL),
+    (@KM_FS, 'GIAM_PHAN_TRAM', 20, 1, NULL, 'G_CUNG', NULL);
 GO
 
 -- Lấy mã Khuyến mãi detail (Giảm 10% ghế cứng tuyến T01 của KM Mùa Hè)
@@ -415,19 +425,19 @@ DECLARE @KMD_He_Cung VARCHAR(7) = (
       AND maLoaiToa = 'G_CUNG'
 );
 
--- 1. Áp dụng mã KMDetail vào Chi tiết Hóa Đơn và Trừ Tiền (Chỉ áp dụng cho 10 hóa đơn đầu)
-UPDATE ChiTietHoaDon 
-SET MaKMDetail = @KMD_He_Cung,
-    tienGiam = tienGoc * 0.1,
-    thanhTien = tienGoc - (tienGoc * 0.1)
-WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
-GO
-
--- 2. Đẩy TỔNG TIỀN ngược lên bảng Cha
-UPDATE HoaDon 
-SET tongTien = (SELECT SUM(thanhTien) FROM ChiTietHoaDon WHERE ChiTietHoaDon.maHD = HoaDon.maHD)
-WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
-GO
+-- -- 1. Áp dụng mã KMDetail vào Chi tiết Hóa Đơn và Trừ Tiền (Chỉ áp dụng cho 10 hóa đơn đầu)
+-- UPDATE ChiTietHoaDon
+-- SET MaKMDetail = @KMD_He_Cung,
+--     tienGiam = tienGoc * 0.1,
+--     thanhTien = tienGoc - (tienGoc * 0.1)
+-- WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
+-- GO
+--
+-- -- 2. Đẩy TỔNG TIỀN ngược lên bảng Cha
+-- UPDATE HoaDon
+-- SET tongTien = (SELECT SUM(thanhTien) FROM ChiTietHoaDon WHERE ChiTietHoaDon.maHD = HoaDon.maHD)
+-- WHERE maHD IN (SELECT TOP 10 maHD FROM HoaDon ORDER BY maHD ASC);
+-- GO
 
 PRINT N'✅ Database đã được đồng bộ 100% với Code Java. Hãy chạy Java để thấy các ghế 1,2,3... tự động Bôi Đỏ!';
 GO
