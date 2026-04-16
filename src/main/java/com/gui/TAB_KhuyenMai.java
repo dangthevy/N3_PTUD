@@ -19,6 +19,7 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.sql.Connection;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -537,13 +538,11 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     private void addKMDetailToTable(KhuyenMaiDetail d) {
-        // [SỬA] loaiVe nay là entity LoaiVe, lấy tenLoai để hiển thị
-        String tenLoaiVe = (d.getLoaiVe() != null) ? d.getLoaiVe().getTenLoai() : "";
         modelKMD.addRow(new Object[]{
                 d.getMaKMDetail()
-                , d.getTuyen().getMaTuyen() + " : " + d.getTuyen().getTenTuyen()
-                , d.getLoaiToa().getTenLoaiToa()
-                , tenLoaiVe
+                , d.getTuyen() != null ? d.getTuyen().getMaTuyen() + " : " + d.getTuyen().getTenTuyen() : "Tất cả"
+                , d.getLoaiToa() != null ? d.getLoaiToa().getTenLoaiToa() : "Tất cả"
+                , d.getLoaiVe() != null ? d.getLoaiVe().getTenLoai() : "Tất cả"
                 , d.getLoaiKM().getLabel()
                 , formatGiaTri(d.getLoaiKM().getLabel(), d.getGiaTri())
                 , d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng"
@@ -883,36 +882,65 @@ public class TAB_KhuyenMai extends JPanel {
         JLabel lblKM = new JLabel(selectedKM.getTenKM());
         lblKM.setFont(F_LABEL); lblKM.setForeground(ACCENT);
 
-        // [SỬA] JComboBox<LoaiVe> thay vì JComboBox<String>
-        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
+        List<LoaiVe> dsLVCombo = new java.util.ArrayList<>();
+        dsLVCombo.add(TAT_CA_LOAI_VE);
+        dsLVCombo.addAll(dsLoaiVe);
+
+        JComboBox<LoaiVe> cbLoaiVe = makeStyledComboBox(dsLVCombo.toArray(new LoaiVe[0]));
         cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
+            if (value == TAT_CA_LOAI_VE) {
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                lbl.setForeground(ACCENT);
+            } else {
+                lbl.setFont(F_CELL); lbl.setForeground(TEXT_DARK);
+            }
             return lbl;
         });
 
-        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
+        List<LoaiToa> dsLTCombo = new java.util.ArrayList<>();
+        dsLTCombo.add(TAT_CA_LOAI_TOA);
+        dsLTCombo.addAll(dsLoaiToa);
+
+        JComboBox<LoaiToa> cbLoaiToa = makeStyledComboBox(dsLTCombo.toArray(new LoaiToa[0]));
         cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
             if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
+            if (value == TAT_CA_LOAI_TOA) {
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                lbl.setForeground(ACCENT);
+            } else {
+                lbl.setFont(F_CELL); lbl.setForeground(TEXT_DARK);
+            }
             return lbl;
         });
 
-//        JComboBox<String> cbDoiTuong = new JComboBox<>(DOI_TUONG);
-        JComboBox<LoaiKhuyenMai> cbLoaiKM = new JComboBox<>(LoaiKhuyenMai.values());
+        JComboBox<LoaiKhuyenMai> cbLoaiKM = makeStyledComboBox(Arrays.stream(LoaiKhuyenMai.values())
+                .filter(v -> v != LoaiKhuyenMai.MIEN_PHI)
+                .toArray(LoaiKhuyenMai[]::new)
+        );
         cbLoaiKM.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
-            JLabel lbl = new JLabel(value.getLabel()); lbl.setOpaque(true);
-            if (isSelected) { lbl.setBackground(ROW_SEL); } return lbl;
+            JLabel lbl = new JLabel(value.getLabel());
+            lbl.setOpaque(true);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            if (isSelected) lbl.setBackground(ROW_SEL);
+            else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
+            return lbl;
         });
+
         JTextField txtGiaTri = makeField("0");
-        JCheckBox chkActiveKMD   = new JCheckBox("Đang áp dụng");
+        JCheckBox chkActiveKMD = new JCheckBox("Đang áp dụng");
         chkActiveKMD.setSelected(true);
         chkActiveKMD.setBackground(BG_CARD);
-        txtGiaTri.setBackground(Color.WHITE);
+        chkActiveKMD.setFont(F_CELL);
+        chkActiveKMD.setForeground(TEXT_DARK);
 
         Runnable updateGiaTri = () -> {
             boolean free = LoaiKhuyenMai.MIEN_PHI.equals(cbLoaiKM.getSelectedItem());
@@ -986,20 +1014,44 @@ public class TAB_KhuyenMai extends JPanel {
             final double giaTriFinal = giaTri;
 
             int ok = 0, fail = 0;
-            for (Tuyen tuyen : selected) {
+
+            LoaiVe lv = (LoaiVe) cbLoaiVe.getSelectedItem();
+            if (lv != null && "ALL".equals(lv.getMaLoai())) {
+                lv = null;
+            }
+
+            LoaiToa lt = (LoaiToa) cbLoaiToa.getSelectedItem();
+            if (lt != null && "ALL".equals(lt.getMaLoaiToa())) {
+                lt = null;
+            }
+
+            if(selected.size()==dsTuyen.size()){
                 KhuyenMaiDetail obj = new KhuyenMaiDetail();
                 obj.setKhuyenMai(selectedKM);
-                obj.setTuyen(tuyen);
+                obj.setTuyen(null);
                 // [SỬA] set LoaiVe object thay vì String
-                obj.setLoaiVe((LoaiVe) cbLoaiVe.getSelectedItem());
-                obj.setLoaiToa((LoaiToa) cbLoaiToa.getSelectedItem());
+                obj.setLoaiVe(lv);
+                obj.setLoaiToa(lt);
                 obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
                 obj.setGiaTri(giaTriFinal);
                 obj.setTrangThai(chkActiveKMD.isSelected());
                 if (daoKMD.insertKhuyenMaiDetail(obj)) ok++;
                 else fail++;
+            } else {
+                for (Tuyen tuyen : selected) {
+                    KhuyenMaiDetail obj = new KhuyenMaiDetail();
+                    obj.setKhuyenMai(selectedKM);
+                    obj.setTuyen(tuyen);
+                    // [SỬA] set LoaiVe object thay vì String
+                    obj.setLoaiVe(lv);
+                    obj.setLoaiToa(lt);
+                    obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
+                    obj.setGiaTri(giaTriFinal);
+                    obj.setTrangThai(chkActiveKMD.isSelected());
+                    if (daoKMD.insertKhuyenMaiDetail(obj)) ok++;
+                    else fail++;
+                }
             }
-
             // Reload bảng detail
             loadDataKMDetail(selectedKM.getMaKM());
             dlg.dispose();
@@ -1050,29 +1102,17 @@ public class TAB_KhuyenMai extends JPanel {
         lblKM.setFont(F_LABEL); lblKM.setForeground(ACCENT);
 
         // Tuyến hiển thị read-only (không cho đổi khi sửa)
-        JTextField txtTuyen = makeField(kmd.getTuyen().getMaTuyen());
-        txtTuyen.setText(kmd.getTuyen().getMaTuyen() + " : " + kmd.getTuyen().getTenTuyen());
+        String tuyen = kmd.getTuyen() != null ? kmd.getTuyen().getMaTuyen() + " : " + kmd.getTuyen().getTenTuyen() : "Tất cả";
+        JTextField txtTuyen = makeField(tuyen);
+        txtTuyen.setText(tuyen);
         txtTuyen.setEditable(false);
         txtTuyen.setBackground(new Color(0xF0F4FA));
 
-        // [SỬA] JComboBox<LoaiVe> thay vì JComboBox<String>
-//        JComboBox<LoaiVe> cbLoaiVe = new JComboBox<>(dsLoaiVe.toArray(new LoaiVe[0]));
-//        cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
-//            JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
-//            lbl.setOpaque(true);
-//            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
-//            if (isSelected) lbl.setBackground(ROW_SEL);
-//            return lbl;
-//        });
-//        JComboBox<LoaiToa> cbLoaiToa = new JComboBox<>(dsLoaiToa.toArray(new LoaiToa[0]));
-//        cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
-//            JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
-//            lbl.setOpaque(true);
-//            lbl.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
-//            if (isSelected) lbl.setBackground(ROW_SEL);
-//            return lbl;
-//        });
-        JComboBox<LoaiVe> cbLoaiVe = makeStyledComboBox(dsLoaiVe.toArray(new LoaiVe[0]));
+        List<LoaiVe> dsLVCombo = new java.util.ArrayList<>();
+        dsLVCombo.add(TAT_CA_LOAI_VE);
+        dsLVCombo.addAll(dsLoaiVe);
+
+        JComboBox<LoaiVe> cbLoaiVe = makeStyledComboBox(dsLVCombo.toArray(new LoaiVe[0]));
         cbLoaiVe.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoai() : "");
             lbl.setOpaque(true);
@@ -1081,7 +1121,12 @@ public class TAB_KhuyenMai extends JPanel {
             else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
-        JComboBox<LoaiToa> cbLoaiToa = makeStyledComboBox(dsLoaiToa.toArray(new LoaiToa[0]));
+
+        List<LoaiToa> dsLTCombo = new java.util.ArrayList<>();
+        dsLTCombo.add(TAT_CA_LOAI_TOA);
+        dsLTCombo.addAll(dsLoaiToa);
+
+        JComboBox<LoaiToa> cbLoaiToa = makeStyledComboBox(dsLTCombo.toArray(new LoaiToa[0]));
         cbLoaiToa.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value != null ? value.getTenLoaiToa() : "");
             lbl.setOpaque(true);
@@ -1090,7 +1135,10 @@ public class TAB_KhuyenMai extends JPanel {
             else lbl.setBackground(index % 2 == 0 ? Color.WHITE : ROW_ALT);
             return lbl;
         });
-        JComboBox<LoaiKhuyenMai> cbLoaiKM = makeStyledComboBox(LoaiKhuyenMai.values());
+        JComboBox<LoaiKhuyenMai> cbLoaiKM = makeStyledComboBox(Arrays.stream(LoaiKhuyenMai.values())
+                .filter(v -> v != LoaiKhuyenMai.MIEN_PHI)
+                .toArray(LoaiKhuyenMai[]::new)
+        );
         cbLoaiKM.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel());
             lbl.setOpaque(true);
@@ -1173,13 +1221,24 @@ public class TAB_KhuyenMai extends JPanel {
                     return;
                 }
             }
+
+            LoaiVe lv = (LoaiVe) cbLoaiVe.getSelectedItem();
+            if (lv != null && "ALL".equals(lv.getMaLoai())) {
+                lv = null;
+            }
+
+            LoaiToa lt = (LoaiToa) cbLoaiToa.getSelectedItem();
+            if (lt != null && "ALL".equals(lt.getMaLoaiToa())) {
+                lt = null;
+            }
+
             KhuyenMaiDetail obj = new KhuyenMaiDetail();
             obj.setMaKMDetail(kmd.getMaKMDetail());
             obj.setKhuyenMai(selectedKM);
             obj.setTuyen(kmd.getTuyen());
             // [SỬA] set LoaiVe object thay vì String
-            obj.setLoaiVe((LoaiVe) cbLoaiVe.getSelectedItem());
-            obj.setLoaiToa((LoaiToa) cbLoaiToa.getSelectedItem());
+            obj.setLoaiVe(lv);
+            obj.setLoaiToa(lt);
             obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
             obj.setGiaTri(giaTri);
             obj.setTrangThai(chkActiveKMD.isSelected());
@@ -1241,6 +1300,22 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // ========== UTILS ==========
+    // [THÊM] "Tất cả" → null (lưu vào DB), null → "Tất cả" (hiển thị lại UI)
+    private static String tatCaToNull(String val) {
+        return (val == null || "Tất cả".equals(val)) ? null : val;
+    }
+    private static String nullToTatCa(String val) {
+        return (val == null) ? "Tất cả" : val;
+    }
+
+    /** null-object sentinel dùng cho "Tất cả" trong combobox entity */
+    private static final LoaiVe  TAT_CA_LOAI_VE  = new LoaiVe()  {{ setMaLoai("ALL");     setTenLoai("Tất cả"); }};
+    private static final LoaiToa TAT_CA_LOAI_TOA = new LoaiToa() {{ setMaLoaiToa("ALL");   setTenLoaiToa("Tất cả"); }};
+
+    /** Sentinel "Tất cả" → null để lưu DB; giữ nguyên nếu là giá trị thật */
+    private static LoaiVe  dbLoaiVe (LoaiVe  v) { return (v == null || v == TAT_CA_LOAI_VE)  ? null : v; }
+    private static LoaiToa dbLoaiToa(LoaiToa v) { return (v == null || v == TAT_CA_LOAI_TOA) ? null : v; }
+
     // [SỬA] Enable lại btnDelDetail vì xóa mềm đã được bật
     private void setDetailBtnsEnabled(boolean on) {
         if (btnAddDetail != null) btnAddDetail.setEnabled(on);

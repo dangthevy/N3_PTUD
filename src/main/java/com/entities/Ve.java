@@ -5,19 +5,21 @@ import com.enums.TrangThaiVe;
 public class Ve {
 	private String maVe;
 	private KhachHang khachHang; // Thay cho maKH
-	private ChoNgoi choNgoi; // Thay cho maCho
+	private Toa toa; // Thay cho maCho
+    private String viTriGhe;
 	private LichTrinh lichTrinh; // Thay cho maLT
 	private LoaiVe loaiVe; // Thay cho maLoaiVe
 	private double giaVe;
 	private TrangThaiVe trangThaiVe; // CHUASUDUNG, DASUDUNG, HETHAN, DAHOAN
 
 	// Constructor đầy đủ tham số
-	public Ve(String maVe, KhachHang khachHang, ChoNgoi choNgoi, LichTrinh lichTrinh, LoaiVe loaiVe, double giaVe,
+	public Ve(String maVe, KhachHang khachHang, Toa toa, String viTriGhe, LichTrinh lichTrinh, LoaiVe loaiVe, double giaVe,
 			TrangThaiVe trangThaiVe) {
 		this.maVe = maVe;
 		this.khachHang = khachHang;
-		this.choNgoi = choNgoi;
 		this.lichTrinh = lichTrinh;
+        this.toa = toa;
+        this.viTriGhe = viTriGhe;
 		this.loaiVe = loaiVe;
 		this.giaVe = giaVe;
 		this.trangThaiVe = trangThaiVe;
@@ -49,15 +51,23 @@ public class Ve {
 		this.khachHang = khachHang;
 	}
 
-	public ChoNgoi getChoNgoi() {
-		return choNgoi;
-	}
+    public Toa getToa() {
+        return toa;
+    }
 
-	public void setChoNgoi(ChoNgoi choNgoi) {
-		this.choNgoi = choNgoi;
-	}
+    public void setToa(Toa toa) {
+        this.toa = toa;
+    }
 
-	public LichTrinh getLichTrinh() {
+    public String getViTriGhe() {
+        return viTriGhe;
+    }
+
+    public void setViTriGhe(String viTriGhe) {
+        this.viTriGhe = viTriGhe;
+    }
+
+    public LichTrinh getLichTrinh() {
 		return lichTrinh;
 	}
 

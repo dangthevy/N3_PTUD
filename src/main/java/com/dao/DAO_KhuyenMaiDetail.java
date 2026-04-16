@@ -57,27 +57,40 @@ public class DAO_KhuyenMaiDetail {
 
     public List<KhuyenMaiDetail> getKhuyenMaiDetailKhaDung(java.util.Date ngayApDung, LoaiVe loaiVe, LoaiToa loaiToa, Tuyen tuyen) {
         List<KhuyenMaiDetail> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhuyenMaiDetail kmd " +
-                "LEFT JOIN KhuyenMai km ON kmd.maKM = km.maKM " +
+
+        String sql = "SELECT * " +
+                "FROM KhuyenMaiDetail kmd " +
+                "LEFT JOIN KhuyenMai km ON kmd.MaKM = km.MaKM " +
                 "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
                 "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
                 "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
-                "WHERE km.ngayBatDau <= ? AND km.ngayKetThuc >= ? " +
-                "AND kmd.MaLoai = ? AND kmd.MaLoaiToa = ? AND kmd.MaTuyen = ?" +
-                "AND km.trangThai = 1 AND km.An = 0" +
-                "AND kmd.trangThai = 1 AND kmd.An = 0";
+                "WHERE km.NgayBatDau <= ? " +
+                "AND km.NgayKetThuc >= ? " +
+                "AND (kmd.MaLoai = ? OR kmd.MaLoai IS NULL) " +
+                "AND (kmd.MaLoaiToa = ? OR kmd.MaLoaiToa IS NULL) " +
+                "AND (kmd.MaTuyen = ? OR kmd.MaTuyen IS NULL) " +
+                "AND km.TrangThai = 1 " +
+                "AND km.An = 0 " +
+                "AND kmd.TrangThai = 1 " +
+                "AND kmd.An = 0";
+
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            // [SỬA] Convert java.util.Date → java.sql.Date
             java.sql.Date sqlDate = new java.sql.Date(ngayApDung.getTime());
             ps.setDate(1, sqlDate);
             ps.setDate(2, sqlDate);
             ps.setString(3, loaiVe.getMaLoai());
             ps.setString(4, loaiToa.getMaLoaiToa());
             ps.setString(5, tuyen.getMaTuyen());
+
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs, rs.getString("maKM")));
+                while (rs.next()) {
+                    list.add(mapRow(rs, rs.getString("MaKM")));
+                }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
         return list;
     }
 
@@ -101,11 +114,11 @@ public class DAO_KhuyenMaiDetail {
         String sql = "INSERT INTO KhuyenMaiDetail(maKM,maTuyen,loaiKM,giaTri,maLoai,maLoaiToa,trangThai) VALUES(?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, kmd.getKhuyenMai() != null ? kmd.getKhuyenMai().getMaKM() : null);
-            ps.setString(2, kmd.getTuyen().getMaTuyen());
+            ps.setString(2, kmd.getTuyen() != null ? kmd.getTuyen().getMaTuyen() : null);
             ps.setString(3, kmd.getLoaiKM().name());
             ps.setDouble(4, kmd.getGiaTri());
-            ps.setString(5, kmd.getLoaiVe().getMaLoai());
-            ps.setString(6, kmd.getLoaiToa().getMaLoaiToa());
+            ps.setString(5, kmd.getLoaiVe() != null ? kmd.getLoaiVe().getMaLoai() : null);
+            ps.setString(6, kmd.getLoaiToa() != null  ? kmd.getLoaiToa().getMaLoaiToa() : null);
             ps.setInt(7, kmd.isTrangThai() ? 1 : 0);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
@@ -115,11 +128,11 @@ public class DAO_KhuyenMaiDetail {
     public boolean updateKhuyenMaiDetail(KhuyenMaiDetail kmd) {
         String sql = "UPDATE KhuyenMaiDetail SET maTuyen=?,loaiKM=?,giaTri=?,maLoai=?,maLoaiToa=?, trangThai=? WHERE maKMDetail=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, kmd.getTuyen().getMaTuyen());
+            ps.setString(1, kmd.getTuyen() != null ? kmd.getTuyen().getMaTuyen() : null);
             ps.setString(2, kmd.getLoaiKM().name());
             ps.setDouble(3, kmd.getGiaTri());
-            ps.setString(4, kmd.getLoaiVe().getMaLoai());
-            ps.setString(5, kmd.getLoaiToa().getMaLoaiToa());
+            ps.setString(4, kmd.getLoaiVe() != null ? kmd.getLoaiVe().getMaLoai() : null);
+            ps.setString(5, kmd.getLoaiToa() != null ? kmd.getLoaiToa().getMaLoaiToa() : null);
             ps.setInt(6, kmd.isTrangThai() ? 1 : 0);
             System.out.println(kmd.isTrangThai() ? 1 : 0);
             ps.setString(7,    kmd.getMaKMDetail());
@@ -140,20 +153,34 @@ public class DAO_KhuyenMaiDetail {
     private KhuyenMaiDetail mapRow(ResultSet rs, String maKM) throws SQLException {
         KhuyenMaiDetail kmd = new KhuyenMaiDetail();
         kmd.setMaKMDetail(rs.getString("maKMDetail"));
-        kmd.setTuyen(new Tuyen(
-                rs.getString("maTuyen"),
-                rs.getString("tenTuyen")
-        ));
+
+        String maTuyen = rs.getString("maTuyen");
+        if(maTuyen != null) {
+            kmd.setTuyen(new Tuyen(
+                    maTuyen,
+                    rs.getString("tenTuyen")
+            ));
+        } else kmd.setTuyen(null);
+
         kmd.setLoaiKM(LoaiKhuyenMai.fromString(rs.getString("loaiKM")));
         kmd.setGiaTri(rs.getDouble("giaTri"));
-        LoaiVe loaiVe = new LoaiVe();
-        loaiVe.setMaLoai(rs.getString("maLoai"));
-        loaiVe.setTenLoai(rs.getString("tenLoai"));
-        kmd.setLoaiVe(loaiVe);
-        LoaiToa loaiToa = new LoaiToa();
-        loaiToa.setMaLoaiToa(rs.getString("maLoaiToa"));
-        loaiToa.setTenLoaiToa(rs.getString("tenLoaiToa"));
-        kmd.setLoaiToa(loaiToa);
+
+        String maLoaiVe = rs.getString("maLoai");
+        if(maLoaiVe != null){
+            LoaiVe loaiVe = new LoaiVe();
+            loaiVe.setMaLoai(rs.getString("maLoai"));
+            loaiVe.setTenLoai(rs.getString("tenLoai"));
+            kmd.setLoaiVe(loaiVe);
+        } else kmd.setLoaiVe(null);
+
+        String maLoaiToa = rs.getString("maLoaiToa");
+        if(maLoaiToa != null){
+            LoaiToa loaiToa = new LoaiToa();
+            loaiToa.setMaLoaiToa(rs.getString("maLoaiToa"));
+            loaiToa.setTenLoaiToa(rs.getString("tenLoaiToa"));
+            kmd.setLoaiToa(loaiToa);
+        } else  kmd.setLoaiToa(null);
+
         kmd.setTrangThai(rs.getBoolean("TrangThai"));
         // gán KhuyenMai stub chỉ chứa maKM (đủ để dùng trong UI)
         KhuyenMai km = new KhuyenMai();
