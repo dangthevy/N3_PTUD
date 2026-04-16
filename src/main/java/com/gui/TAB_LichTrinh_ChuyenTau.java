@@ -78,11 +78,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     // Lịch trình được load riêng từ DB theo maChuyen khi chọn dòng
     // =========================================================================
     private static final String[] COLS_CT = {
-            "Mã Chuyến", "Tên Chuyến", "Mã Tàu", "Mã Tuyến", "Tuyến"
-            // Trạng thái chuyến hiển thị ở panel phải, không cần trong bảng
+            "Mã Chuyến", "Tên Chuyến", "Trạng thái"
+            // Mã Tàu (index 3), Mã Tuyến (index 4), Tuyến (index 5) — ẩn, dùng nội bộ
     };
     private static final String[] COLS_LT = {
-            "Mã LT", "Ngày Khởi Hành", "Giờ Đi", "Ngày Đến", "Trạng thái"
+            "Mã LT", "Ngày Khởi Hành", "Giờ Đi", "Ngày Đến", "Giờ Đến", "Trạng thái"
     };
 
     // =========================================================================
@@ -93,6 +93,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     private static final String TT_HOAN = "Đã Hoàn Thành";
     private static final String TT_HUY  = "Đã Hủy";
     private static final String[] DS_TRANG_THAI = {TT_CHUA, TT_DANG, TT_HOAN, TT_HUY};
+
+    // Trạng thái hoạt động chuyến tàu (hiển thị bảng trái)
+    private static final String HOAT_DONG      = "Hoạt động";
+    private static final String NGUNG_HOAT_DONG = "Ngưng hoạt động";
 
     // =========================================================================
     // GIỜ
@@ -148,7 +152,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     // BỘ LỌC – fields
     // =========================================================================
     private JComboBox<String> cbFilterTuyen;
-    private DatePickerField    dcFilterNgay;
+    private JComboBox<String> cbFilterTrangThai;
 
     // =========================================================================
     // DAO – KẾT NỐI DATABASE
@@ -168,11 +172,16 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         setBackground(BG_PAGE);
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        // Model 10 cột (4 cột ẩn)
-        modelCT = new DefaultTableModel(COLS_CT, 0) {
+        // Model 6 cột: 3 hiển thị + 3 ẩn (Mã Tàu, Mã Tuyến, Tuyến)
+        modelCT = new DefaultTableModel(
+                new String[]{"Mã Chuyến", "Tên Chuyến", "Trạng thái", "Mã Tàu", "Mã Tuyến", "Tuyến"}, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         tableCT = buildTableCT();
+        // Ẩn 3 cột cuối khỏi view (vẫn có trong model)
+        tableCT.removeColumn(tableCT.getColumnModel().getColumn(5)); // Tuyến
+        tableCT.removeColumn(tableCT.getColumnModel().getColumn(4)); // Mã Tuyến
+        tableCT.removeColumn(tableCT.getColumnModel().getColumn(3)); // Mã Tàu
 
         modelLT = new DefaultTableModel(COLS_LT, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -184,10 +193,17 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             if (!e.getValueIsAdjusting()) refreshDetail();
         });
 
-        // Double-click → cập nhật
+        // Double-click → cập nhật (chặn nếu ngưng hoạt động)
         tableCT.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) openUpdateDialog();
+                if (e.getClickCount() == 2) {
+                    int row = tableCT.getSelectedRow();
+                    if (row >= 0 && NGUNG_HOAT_DONG.equals(modelCT.getValueAt(row, 2).toString())) {
+                        warn("Chuyến tàu đang ngưng hoạt động!\nKhông thể chỉnh sửa.");
+                        return;
+                    }
+                    openUpdateDialog();
+                }
             }
         });
 
@@ -199,12 +215,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JPanel rightPanel = buildRightPanel();
 
         GridBagConstraints gcLeft = new GridBagConstraints();
-        gcLeft.gridx=0; gcLeft.gridy=0; gcLeft.weightx=0.45; gcLeft.weighty=1.0;
+        gcLeft.gridx=0; gcLeft.gridy=0; gcLeft.weightx=0.30; gcLeft.weighty=1.0;
         gcLeft.fill=GridBagConstraints.BOTH; gcLeft.insets=new Insets(0,0,0,6);
         body.add(leftPanel, gcLeft);
 
         GridBagConstraints gcRight = new GridBagConstraints();
-        gcRight.gridx=1; gcRight.gridy=0; gcRight.weightx=0.55; gcRight.weighty=1.0;
+        gcRight.gridx=1; gcRight.gridy=0; gcRight.weightx=0.70; gcRight.weighty=1.0;
         gcRight.fill=GridBagConstraints.BOTH; gcRight.insets=new Insets(0,6,0,0);
         body.add(rightPanel, gcRight);
 
@@ -336,7 +352,6 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         top.setOpaque(false);
         top.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
         top.add(title, BorderLayout.NORTH);
-        top.add(buildFilterBar(), BorderLayout.CENTER);
 
         JPanel card = makeCard(new BorderLayout());
         JScrollPane sc = new JScrollPane(tableCT);
@@ -489,12 +504,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         // Sep
         bar.add(filterSep());
 
-        // --- Ngày KH — DatePickerField tự vẽ ---
-        bar.add(filterLbl("Ngày KH:"));
-        dcFilterNgay = new DatePickerField("");
-        dcFilterNgay.setPreferredSize(new Dimension(148, 32));
-        dcFilterNgay.setToolTipText("Chọn ngày khởi hành để lọc");
-        bar.add(dcFilterNgay);
+        // --- Trạng thái ---
+        bar.add(filterLbl("Trạng thái:"));
+        cbFilterTrangThai = new JComboBox<>(new String[]{"Tất cả", HOAT_DONG, NGUNG_HOAT_DONG});
+        cbFilterTrangThai.setFont(F_SMALL);
+        cbFilterTrangThai.setPreferredSize(new Dimension(140, 30));
+        bar.add(cbFilterTrangThai);
 
         // Sep
         bar.add(filterSep());
@@ -503,6 +518,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JButton btnLoc = makeSmBtn("Lọc", true);
         btnLoc.addActionListener(e -> applyFilter());
         bar.add(btnLoc);
+
+        // --- Nút Đặt lại ---
+        JButton btnReset = makeSmBtn("Đặt lại", false);
+        btnReset.addActionListener(e -> resetFilter());
+        bar.add(btnReset);
 
         // Load danh sách tuyến vào combo lọc
         SwingUtilities.invokeLater(this::loadTuyenFilter);
@@ -542,7 +562,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         cbFilterTuyen.addItem("Tất cả");
         java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
         for (int i = 0; i < modelCT.getRowCount(); i++) {
-            Object v = modelCT.getValueAt(i, 4);
+            Object v = modelCT.getValueAt(i, 5); // cột ẩn Tuyến = index 5
             if (v != null && !v.toString().isBlank()) set.add(v.toString().trim());
         }
         set.forEach(cbFilterTuyen::addItem);
@@ -550,35 +570,25 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
     private void applyFilter() {
         String fTuyen = (String) cbFilterTuyen.getSelectedItem();
-        String fNgayStr = dcFilterNgay.getDate().trim();
+        String fTT    = (String) cbFilterTrangThai.getSelectedItem();
 
         boolean allTuyen = fTuyen == null || "Tất cả".equals(fTuyen);
-        boolean allNgay  = fNgayStr.isEmpty();
+        boolean allTT    = fTT == null || "Tất cả".equals(fTT);
 
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(modelCT);
         tableCT.setRowSorter(sorter);
         sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
             @Override public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> e) {
-                boolean okTuyen = allTuyen || e.getStringValue(4).trim().equals(fTuyen);
-                // Lọc ngày: so sánh với lịch trình trong DB
-                boolean okNgay = allNgay;
-                if (!allNgay) {
-                    String maChuyen = e.getStringValue(0);
-                    List<LichTrinhRow> dsLT = daoLichTrinh.getByMaChuyen(maChuyen);
-                    for (LichTrinhRow lt : dsLT) {
-                        if (lt.ngayKhoiHanh.trim().equals(fNgayStr)) {
-                            okNgay = true; break;
-                        }
-                    }
-                }
-                return okTuyen && okNgay;
+                boolean okTuyen = allTuyen || e.getStringValue(5).trim().equals(fTuyen); // Tuyến = col 5
+                boolean okTT    = allTT    || e.getStringValue(2).trim().equals(fTT);    // Trạng thái = col 2
+                return okTuyen && okTT;
             }
         });
     }
 
     private void resetFilter() {
         cbFilterTuyen.setSelectedIndex(0);
-        dcFilterNgay.resetDate();
+        cbFilterTrangThai.setSelectedIndex(0);
         tableCT.setRowSorter(null);
     }
 
@@ -636,11 +646,65 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JPanel btnLTBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
         btnLTBar.setOpaque(false);
         JButton btnThemLT  = makeBtn("+ Thêm lịch trình", BtnStyle.PRIMARY);
-        JButton btnBatchLT = makeBtn("Tạo hàng loạt", BtnStyle.SUCCESS);
-        JButton btnXoaLT   = makeBtn("Xóa", BtnStyle.DANGER);
+
+        // Nút Tạo hàng loạt — vẽ icon grid bằng Graphics2D
+        JButton btnBatchLT = new JButton("  Tạo hàng loạt") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(0x16A34A) : new Color(0x22C55E));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 16, cy = getHeight() / 2;
+                g2.drawRoundRect(cx - 6, cy - 6, 12, 12, 2, 2);
+                g2.drawLine(cx - 6, cy - 2, cx + 6, cy - 2);
+                g2.drawLine(cx - 6, cy + 2, cx + 6, cy + 2);
+                g2.drawLine(cx - 2, cy - 6, cx - 2, cy + 6);
+                g2.drawLine(cx + 2, cy - 6, cx + 2, cy + 6);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btnBatchLT.setFont(F_LABEL);
+        btnBatchLT.setForeground(Color.WHITE);
+        btnBatchLT.setContentAreaFilled(false);
+        btnBatchLT.setBorderPainted(false);
+        btnBatchLT.setFocusPainted(false);
+        btnBatchLT.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Nút Xóa — vẽ icon thùng rác bằng Graphics2D
+        JButton btnXoaLT = new JButton("  Xóa") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BTN_RED_HVR : BTN_RED);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 14, cy = getHeight() / 2;
+                g2.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
+                g2.drawLine(cx - 2, cy - 5, cx - 2, cy - 7);
+                g2.drawLine(cx + 2, cy - 5, cx + 2, cy - 7);
+                g2.drawLine(cx - 2, cy - 7, cx + 2, cy - 7);
+                g2.drawLine(cx - 4, cy - 5, cx - 3, cy + 5);
+                g2.drawLine(cx + 4, cy - 5, cx + 3, cy + 5);
+                g2.drawLine(cx - 3, cy + 5, cx + 3, cy + 5);
+                g2.drawLine(cx, cy - 3, cx, cy + 3);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btnXoaLT.setFont(F_LABEL);
+        btnXoaLT.setForeground(Color.WHITE);
+        btnXoaLT.setContentAreaFilled(false);
+        btnXoaLT.setBorderPainted(false);
+        btnXoaLT.setFocusPainted(false);
+        btnXoaLT.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
         btnThemLT .setPreferredSize(new Dimension(155, 32));
-        btnBatchLT.setPreferredSize(new Dimension(140, 32));
-        btnXoaLT  .setPreferredSize(new Dimension(70,  32));
+        btnBatchLT.setPreferredSize(new Dimension(150, 32));
+        btnXoaLT  .setPreferredSize(new Dimension(80,  32));
         btnLTBar.add(btnThemLT);
         btnLTBar.add(btnBatchLT);
         btnLTBar.add(btnXoaLT);
@@ -650,9 +714,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         btnBatchLT.addActionListener(e -> {
             int row = tableCT.getSelectedRow();
             if (row < 0) { warn("Vui lòng chọn một chuyến tàu trước!"); return; }
+            String ttChuyen = modelCT.getValueAt(row, 2).toString();
+            if (NGUNG_HOAT_DONG.equals(ttChuyen)) {
+                warn("Chuyến tàu đang ngưng hoạt động!\nKhông thể tạo lịch trình."); return;
+            }
             String maChuyen = modelCT.getValueAt(row, 0).toString();
-            String maTau    = modelCT.getValueAt(row, 2).toString();
-            String maTuyen  = modelCT.getValueAt(row, 3).toString();
+            String maTau    = modelCT.getValueAt(row, 3).toString();
+            String maTuyen  = modelCT.getValueAt(row, 4).toString();
             openBatchLTDialog(maChuyen, maTau, maTuyen);
         });
 
@@ -660,9 +728,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         btnThemLT.addActionListener(e -> {
             int row = tableCT.getSelectedRow();
             if (row < 0) { warn("Vui lòng chọn một chuyến tàu trước!"); return; }
+            String ttChuyen = modelCT.getValueAt(row, 2).toString();
+            if (NGUNG_HOAT_DONG.equals(ttChuyen)) {
+                warn("Chuyến tàu đang ngưng hoạt động!\nKhông thể thêm lịch trình."); return;
+            }
             String maChuyen  = modelCT.getValueAt(row, 0).toString();
-            String maTau     = modelCT.getValueAt(row, 2).toString();
-            String maTuyen   = modelCT.getValueAt(row, 3).toString();
+            String maTau     = modelCT.getValueAt(row, 3).toString();
+            String maTuyen   = modelCT.getValueAt(row, 4).toString();
             openAddLTDialog(maChuyen, maTau, maTuyen);
         });
 
@@ -734,8 +806,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 if (e.getClickCount() == 2 && tableLT.getSelectedRow() >= 0) {
                     int ctRow = tableCT.getSelectedRow();
                     if (ctRow < 0) return;
-                    String maTau   = modelCT.getValueAt(ctRow, 2).toString();
-                    String maTuyen = modelCT.getValueAt(ctRow, 3).toString();
+                    String maTau   = modelCT.getValueAt(ctRow, 3).toString(); // cột ẩn
+                    String maTuyen = modelCT.getValueAt(ctRow, 4).toString(); // cột ẩn
                     int ltRow = tableLT.getSelectedRow();
                     String maLT    = modelLT.getValueAt(ltRow, 0).toString();
                     String ngayKH  = modelLT.getValueAt(ltRow, 1).toString();
@@ -831,11 +903,26 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         t.setFillsViewportHeight(true);
 
-        // 5 cột chia đều — bảng tự co giãn theo panel
-        for (int i = 0; i < 5; i++) {
-            t.getColumnModel().getColumn(i).setPreferredWidth(100);
-        }
-        applyPaddingRenderer(t, 5);
+        // 3 cột hiển thị: Mã Chuyến, Tên Chuyến, Trạng thái
+        // + 3 cột ẩn: Mã Tàu (3), Mã Tuyến (4), Tuyến (5)
+        applyPaddingRenderer(t, 2); // padding cho 2 cột đầu
+        // Cột Trạng thái (index 2) dùng renderer màu riêng
+        t.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override public Component getTableCellRendererComponent(JTable tbl, Object v,
+                                                                     boolean sel, boolean foc, int row, int col) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(tbl, v, sel, foc, row, col);
+                l.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 4));
+                l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                String val = v != null ? v.toString() : "";
+                if (HOAT_DONG.equals(val)) l.setForeground(new Color(0x22C55E));
+                else                       l.setForeground(new Color(0xEF4444));
+                if (!sel) l.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
+                return l;
+            }
+        });
+
+        // Ẩn 3 cột: Mã Tàu (3), Mã Tuyến (4), Tuyến (5) — vẫn có trong model
+        // Thêm 3 cột ẩn vào model header (không hiển thị)
         return t;
     }
 
@@ -849,12 +936,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         };
         styleTable(t);
-        int[] w = {70, 120, 70, 110, 120};
+        // 6 cột: Mã LT, Ngày KH, Giờ Đi, Ngày Đến, Giờ Đến, Trạng thái
+        int[] w = {60, 105, 60, 95, 60, 110};
         for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-        applyPaddingRenderer(t, 4);
-        // Cột Trạng thái (index 4) dùng renderer màu
-        t.getColumnModel().getColumn(4).setCellRenderer(new TrangThaiRenderer());
+        applyPaddingRenderer(t, 5);
+        // Cột Trạng thái (index 5) dùng renderer màu
+        t.getColumnModel().getColumn(5).setCellRenderer(new TrangThaiRenderer());
         return t;
     }
 
@@ -928,8 +1016,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String ngayDenFull = lt.ngayDen != null && !lt.ngayDen.isEmpty()
                     ? lt.ngayDen
                     : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, 1440);
-            // Chỉ hiển thị ngày (dd/MM/yyyy), bỏ giờ
+            // Ngày đến: chỉ dd/MM/yyyy
             String ngayDenHienThi = ngayDenFull.length() >= 10 ? ngayDenFull.substring(0, 10) : ngayDenFull;
+            // Giờ đến: lấy phần HH:mm từ ngayDenFull (format "dd/MM/yyyy HH:mm")
+            String gioDenHienThi = ngayDenFull.length() >= 16 ? ngayDenFull.substring(11, 16) : "--:--";
             // Giờ đi: định dạng HH:mm
             String gioDiHienThi = lt.gioKhoiHanh;
             if (gioDiHienThi != null && gioDiHienThi.length() > 5) {
@@ -938,7 +1028,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             // Tính trạng thái realtime
             String ttRealtime = tinhTrangThai(lt.ngayKhoiHanh, lt.gioKhoiHanh, ngayDenFull);
             modelLT.addRow(new Object[]{
-                    lt.maLT, lt.ngayKhoiHanh, gioDiHienThi, ngayDenHienThi, ttRealtime
+                    lt.maLT, lt.ngayKhoiHanh, gioDiHienThi, ngayDenHienThi, gioDenHienThi, ttRealtime
             });
         }
 
@@ -951,7 +1041,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         else                                 lblTrangThai.setForeground(new Color(0x6B7280));
 
         // Info Tàu — lấy thông tin thật từ DB
-        String maTauVal = modelCT.getValueAt(row, 2).toString();
+        String maTauVal = modelCT.getValueAt(row, 3).toString(); // cột ẩn index 3
         String tenTauVal = getTenTauFromDB(maTauVal);
         String soToaVal  = getSoToaFromDB(maTauVal);
         lblTauMa.setText(maTauVal);
@@ -959,7 +1049,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         lblTauSoToa.setText(soToaVal);
 
         // Info Tuyến — lấy Ga Đi / Ga Đến thật từ DB
-        String maTuyenVal = modelCT.getValueAt(row, 3).toString();
+        String maTuyenVal = modelCT.getValueAt(row, 4).toString(); // cột ẩn index 4
         lblTuyenMa.setText(maTuyenVal);
         String[] gaInfo = getGaFromDB(maTuyenVal);
         lblTuyenGaDi.setText(gaInfo[0]);
@@ -983,6 +1073,21 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         } catch (Exception e) { e.printStackTrace(); }
         return "-";
+    }
+
+    /**
+     * Kiểm tra tàu có đang hoạt động không (HOATDONG).
+     * @return true nếu tàu đang hoạt động, false nếu ngưng/bảo trì
+     */
+    private boolean getTrangThaiTauFromDB(String maTau) {
+        try {
+            List<Tau> ds = daoTau.getAllTau();
+            for (Tau t : ds) {
+                if (t.getMaTau().equalsIgnoreCase(maTau.trim()))
+                    return "HOATDONG".equals(t.getTrangThaiTau().name());
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return true; // mặc định hoạt động nếu không tìm thấy
     }
 
     // =========================================================================
@@ -1172,10 +1277,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
 
             if (okChuyen) {
-                // modelCT giờ chỉ có 6 cột (không còn hidden LT cols)
-                // 5 cột — Trạng Thái hiển thị ở panel phải
+                // 6 cột: Mã Chuyến, Tên Chuyến, Trạng thái, Mã Tàu(ẩn), Mã Tuyến(ẩn), Tuyến(ẩn)
+                String ttHD = getTrangThaiTauFromDB(maTau) ? HOAT_DONG : NGUNG_HOAT_DONG;
                 modelCT.addRow(new Object[]{
-                        maChuyen, tenChuyen, maTau, maTuyenThuc, tenTuyenChon
+                        maChuyen, tenChuyen, ttHD, maTau, maTuyenThuc, tenTuyenChon
                 });
                 updateStats();
                 loadTuyenFilter();
@@ -1197,10 +1302,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         if (row < 0) { warn("Vui lòng chọn một chuyến tàu."); return; }
 
         String maChuyen  = modelCT.getValueAt(row, 0).toString();
-        String maTau     = modelCT.getValueAt(row, 2).toString();
+        String maTau     = modelCT.getValueAt(row, 3).toString(); // cột ẩn
         String tenChuyen = modelCT.getValueAt(row, 1).toString();
-        String maTuyen   = modelCT.getValueAt(row, 3).toString();
-        String tuyen     = modelCT.getValueAt(row, 4).toString();
+        String maTuyen   = modelCT.getValueAt(row, 4).toString(); // cột ẩn
+        String tuyen     = modelCT.getValueAt(row, 5).toString(); // cột ẩn
 
         // Lấy thông tin LT từ DB (không còn hidden cols trong modelCT)
         List<LichTrinhRow> dsLTUpd = daoLichTrinh.getByMaChuyen(maChuyen);
@@ -1339,15 +1444,15 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             // 1. UPDATE ChuyenTau trong DB
             boolean okChuyen = daoChuyenTau.update(
                     maChuyenFinal, newTenChuyen, newMaTau,
-                    modelCT.getValueAt(selRow, 3).toString());
+                    modelCT.getValueAt(selRow, 4).toString()); // maTuyen cột ẩn
 
             // 2. UPDATE LichTrinh trong DB
             daoLichTrinh.update(maLTFinal, newNgayKH, newGioDi, newNgayDen, maChuyenFinal);
 
             if (okChuyen) {
-                modelCT.setValueAt(newMaTau,     selRow, 2);
+                modelCT.setValueAt(newMaTau,     selRow, 3); // cột ẩn
                 modelCT.setValueAt(newTenChuyen, selRow, 1);
-                modelCT.setValueAt(newTuyen,     selRow, 4);
+                modelCT.setValueAt(newTuyen,     selRow, 5); // cột ẩn
                 // LT không còn lưu trong modelCT — refresh từ DB
                 refreshDetail();
                 updateStats();
@@ -1377,15 +1482,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
             for (ChuyenTauRow ct : dsChuyen) {
                 String tenTuyen = getTenTuyenFromDB(ct.maTuyen);
+                // Trạng thái hoạt động: dựa trên trạng thái tàu từ DB
+                String ttHoatDong = getTrangThaiTauFromDB(ct.maTau) ? HOAT_DONG : NGUNG_HOAT_DONG;
 
-                // Tính trạng thái dựa trên TẤT CẢ lịch trình của chuyến này
-                // (không còn embed LT vào modelCT — load từ DB riêng khi chọn dòng)
-                String tt = tinhTrangThaiChuyen(ct.maChuyen, dsLT);
-
-                // 5 cột — không còn Trạng Thái trong bảng
+                // 6 cột: Mã Chuyến, Tên Chuyến, Trạng thái, Mã Tàu(ẩn), Mã Tuyến(ẩn), Tuyến(ẩn)
                 modelCT.addRow(new Object[]{
-                        ct.maChuyen, ct.tenChuyen, ct.maTau,
-                        ct.maTuyen,  tenTuyen
+                        ct.maChuyen, ct.tenChuyen, ttHoatDong,
+                        ct.maTau, ct.maTuyen, tenTuyen
                 });
             }
             updateStats();
@@ -1513,10 +1616,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String ngayDen = tinhNgayDen(ngayKH, gioDi, thoiGianPhut);
 
             if (daoLichTrinh.insert(maLT, ngayKH, gioDi, ngayDen, maChuyen)) {
-                // Thêm vào modelLT — ngày đến chỉ hiện ngày
                 String ttNewLT = tinhTrangThai(ngayKH, gioDi, ngayDen);
                 String ndHienThi = ngayDen.length() >= 10 ? ngayDen.substring(0, 10) : ngayDen;
-                modelLT.addRow(new Object[]{maLT, ngayKH, gioDi, ndHienThi, ttNewLT});
+                String gdHienThi = ngayDen.length() >= 16 ? ngayDen.substring(11, 16) : "--:--";
+                modelLT.addRow(new Object[]{maLT, ngayKH, gioDi, ndHienThi, gdHienThi, ttNewLT});
                 // Cập nhật trạng thái chuyến
                 int ctRow = tableCT.getSelectedRow();
                 if (ctRow >= 0) {
@@ -1598,10 +1701,13 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
             if (daoLichTrinh.update(maLT, newNgay, newGio, newNgayDen, maChuyen)) {
                 String ndHienThi = newNgayDen.length() >= 10 ? newNgayDen.substring(0, 10) : newNgayDen;
-                modelLT.setValueAt(newNgay,    ltRow, 1);
-                modelLT.setValueAt(newGio,     ltRow, 2);
-                modelLT.setValueAt(ndHienThi,  ltRow, 3);
-                modelLT.setValueAt(tinhTrangThai(newNgay, newGio, newNgayDen), ltRow, 4);
+                String ndHienThi2 = newNgayDen.length() >= 10 ? newNgayDen.substring(0, 10) : newNgayDen;
+                String gdHienThi2 = newNgayDen.length() >= 16 ? newNgayDen.substring(11, 16) : "--:--";
+                modelLT.setValueAt(newNgay,     ltRow, 1);
+                modelLT.setValueAt(newGio,      ltRow, 2);
+                modelLT.setValueAt(ndHienThi2,  ltRow, 3);
+                modelLT.setValueAt(gdHienThi2,  ltRow, 4);
+                modelLT.setValueAt(tinhTrangThai(newNgay, newGio, newNgayDen), ltRow, 5);
                 // Cập nhật trạng thái chuyến
                 if (ctRow >= 0) {
                     java.util.List<com.dao.DAO_LichTrinh.LichTrinhRow> dsLT =
@@ -1910,45 +2016,44 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT + " HH:mm");
         Date batDauMoi, ketThucMoi;
         try {
-            batDauMoi = sdf.parse(ngayKHMoi + " " + gioDiMoi);
-            // Thời gian kết thúc = giờ đi + thoiGianPhut phút
+            String gioDiChuan = chuanHoaGio(gioDiMoi);
+            if (gioDiChuan == null) gioDiChuan = gioDiMoi;
+            batDauMoi = sdf.parse(ngayKHMoi + " " + gioDiChuan);
             Calendar c = Calendar.getInstance();
             c.setTime(batDauMoi);
-            c.add(Calendar.MINUTE, thoiGianPhut > 0 ? thoiGianPhut : 1440); // mặc định 1 ngày
+            c.add(Calendar.MINUTE, thoiGianPhut > 0 ? thoiGianPhut : 1440);
             ketThucMoi = c.getTime();
         } catch (Exception e) {
             return null;
         }
 
-        // Query DB trực tiếp để lấy TẤT CẢ lịch trình của cùng tàu
-        // (1 chuyến có thể có nhiều LT — cần check hết)
-        String sql = "SELECT lt.maLT, lt.ngayKhoiHanh, lt.gioKhoiHanh, lt.ngayDen, " +
-                "       ct.maChuyen, ct.tenChuyen " +
-                "FROM LichTrinh lt " +
-                "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
+        // ── CHECK 1: Cùng tàu không được chồng lịch ──────────────────────
+        String sql1 = "SELECT lt.maLT, " +
+                "CONVERT(VARCHAR, lt.ngayKhoiHanh, 103) AS ngayKH, " +
+                "CONVERT(VARCHAR, lt.gioKhoiHanh, 108) AS gioDi, " +
+                "CASE WHEN lt.ngayDen IS NOT NULL THEN FORMAT(lt.ngayDen, 'dd/MM/yyyy HH:mm') ELSE '' END AS ngayDen, " +
+                "ct.maChuyen, ct.tenChuyen " +
+                "FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
                 "WHERE ct.maTau = ?";
         try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql1)) {
             ps.setString(1, maTau);
             java.sql.ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String maChuyenRow = rs.getString("maChuyen");
-                String tenChuyenRow = rs.getString("tenChuyen");
                 String maLTRow = rs.getString("maLT");
-
-                // Bỏ qua đúng lịch trình đang cập nhật
                 if (excludeMaLT != null && maLTRow.equals(excludeMaLT)) continue;
-                // Bỏ qua toàn bộ chuyến đang cập nhật (khi cập nhật chuyến)
                 if (excludeMaChuyen != null && maChuyenRow.equals(excludeMaChuyen)) continue;
 
-                String ngayKHDb = rs.getString("ngayKhoiHanh"); // dd/MM/yyyy
-                String gioDiDb  = rs.getString("gioKhoiHanh");  // HH:mm
-                String ngayDenDb = rs.getString("ngayDen");     // dd/MM/yyyy HH:mm
-
+                String ngayKHDb = rs.getString("ngayKH");
+                String gioDiDb  = rs.getString("gioDi");
+                String ngayDenDb = rs.getString("ngayDen");
                 if (ngayKHDb == null || gioDiDb == null) continue;
 
                 try {
-                    Date batDauCu = sdf.parse(ngayKHDb + " " + gioDiDb);
+                    String gioDbChuan = chuanHoaGio(gioDiDb);
+                    if (gioDbChuan == null) gioDbChuan = gioDiDb;
+                    Date batDauCu = sdf.parse(ngayKHDb + " " + gioDbChuan);
                     Date ketThucCu;
                     if (ngayDenDb != null && !ngayDenDb.isEmpty()) {
                         ketThucCu = sdf.parse(ngayDenDb);
@@ -1958,13 +2063,72 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                         cal.add(Calendar.DAY_OF_MONTH, 1);
                         ketThucCu = cal.getTime();
                     }
-                    // Chồng lấp: batDauMoi < ketThucCu AND ketThucMoi > batDauCu
                     if (batDauMoi.before(ketThucCu) && ketThucMoi.after(batDauCu)) {
-                        return tenChuyenRow + " (" + ngayKHDb + ")";
+                        return "Tàu " + maTau + " đang chạy chuyến " + rs.getString("tenChuyen") + " (" + ngayKHDb + ")";
                     }
-                } catch (Exception ex) { /* parse lỗi → bỏ qua */ }
+                } catch (Exception ignored) {}
             }
         } catch (Exception e) { e.printStackTrace(); }
+
+        // ── CHECK 2: Cùng tuyến cùng thời điểm chỉ 1 tàu ────────────────
+        // Lấy maTuyen từ maTau thông qua chuyến đang tạo
+        String maTuyen = null;
+        String sqlTuyen = "SELECT ct.maTuyen FROM ChuyenTau ct WHERE ct.maTau = ? " +
+                "UNION SELECT ct2.maTuyen FROM ChuyenTau ct2 WHERE ct2.maChuyen = ?";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                     "SELECT ct.maTuyen FROM ChuyenTau ct WHERE ct.maTau = ?")) {
+            ps.setString(1, maTau);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) maTuyen = rs.getString("maTuyen");
+        } catch (Exception ignored) {}
+
+        if (maTuyen != null) {
+            String sql2 = "SELECT lt.maLT, " +
+                    "CONVERT(VARCHAR, lt.ngayKhoiHanh, 103) AS ngayKH, " +
+                    "CONVERT(VARCHAR, lt.gioKhoiHanh, 108) AS gioDi, " +
+                    "CASE WHEN lt.ngayDen IS NOT NULL THEN FORMAT(lt.ngayDen, 'dd/MM/yyyy HH:mm') ELSE '' END AS ngayDen, " +
+                    "ct.maChuyen, ct.tenChuyen, ct.maTau " +
+                    "FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
+                    "WHERE ct.maTuyen = ? AND ct.maTau != ?";
+            try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+                 java.sql.PreparedStatement ps = conn.prepareStatement(sql2)) {
+                ps.setString(1, maTuyen);
+                ps.setString(2, maTau);
+                java.sql.ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    String maLTRow = rs.getString("maLT");
+                    String maChuyenRow = rs.getString("maChuyen");
+                    if (excludeMaLT != null && maLTRow.equals(excludeMaLT)) continue;
+                    if (excludeMaChuyen != null && maChuyenRow.equals(excludeMaChuyen)) continue;
+
+                    String ngayKHDb = rs.getString("ngayKH");
+                    String gioDiDb  = rs.getString("gioDi");
+                    String ngayDenDb = rs.getString("ngayDen");
+                    if (ngayKHDb == null || gioDiDb == null) continue;
+
+                    try {
+                        String gioDbChuan = chuanHoaGio(gioDiDb);
+                        if (gioDbChuan == null) gioDbChuan = gioDiDb;
+                        Date batDauCu = sdf.parse(ngayKHDb + " " + gioDbChuan);
+                        Date ketThucCu;
+                        if (ngayDenDb != null && !ngayDenDb.isEmpty()) {
+                            ketThucCu = sdf.parse(ngayDenDb);
+                        } else {
+                            Calendar cal = Calendar.getInstance();
+                            cal.setTime(batDauCu);
+                            cal.add(Calendar.DAY_OF_MONTH, 1);
+                            ketThucCu = cal.getTime();
+                        }
+                        if (batDauMoi.before(ketThucCu) && ketThucMoi.after(batDauCu)) {
+                            return "Tuyến " + maTuyen + " đã có tàu " + rs.getString("maTau") +
+                                    " chạy chuyến " + rs.getString("tenChuyen") + " (" + ngayKHDb + ")";
+                        }
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        }
+
         return null;
     }
 

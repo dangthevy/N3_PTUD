@@ -9,15 +9,14 @@ import java.util.List;
 /**
  * DAO cho GiaHeader + GiaDetail
  *
- * Cấu trúc bảng (data2.sql / BanVeTau):
+ * Cấu trúc bảng (đã đơn giản hóa):
  *
- *   GiaHeader (maGia PK, moTa, ngayApDung, ngayKetThuc)
+ *   GiaHeader (maGia PK, tenGia, moTa, ngayApDung, ngayKetThuc)
  *
- *   GiaDetail (maGia FK, maLoaiToa, maLoaiVe, maTuyen, gia)
- *     PK tổng hợp: (maGia, maLoaiToa, maLoaiVe, maTuyen)
- *     maLoaiToa : LT_GMC | LT_GCC | LT_GN4
- *     maLoaiVe  : LV01   | LV02   | LV03
- *     maTuyen   : T01    | T02    | T03
+ *   GiaDetail (maGia FK, maLoaiToa, maTuyen, gia)
+ *     PK tổng hợp: (maGia, maLoaiToa, maTuyen)
+ *     - gia: giá cơ sở (áp dụng cho người lớn)
+ *     - Các mức giảm theo loại vé (trẻ em, sinh viên) được xử lý qua KhuyenMai
  */
 public class DAO_Gia {
 
@@ -40,20 +39,18 @@ public class DAO_Gia {
     }
 
     // =========================================================
-    // INNER CLASS — GiaDetailRow
+    // INNER CLASS — GiaDetailRow (bỏ maLoaiVe)
     // =========================================================
     public static class GiaDetailRow {
         public String maGia;
         public String maLoaiToa;
-        public String maLoaiVe;
         public String maTuyen;
         public long   gia;
 
         public GiaDetailRow(String maGia, String maLoaiToa,
-                            String maLoaiVe, String maTuyen, long gia) {
+                            String maTuyen, long gia) {
             this.maGia     = maGia;
             this.maLoaiToa = maLoaiToa;
-            this.maLoaiVe  = maLoaiVe;
             this.maTuyen   = maTuyen;
             this.gia       = gia;
         }
@@ -89,13 +86,12 @@ public class DAO_Gia {
     // =========================================================
     public boolean insertHeader(String maGia, String moTa,
                                 String ngayApDung, String ngayKetThuc) {
-        // tenGia = moTa, maLT để NULL (không bắt buộc từ UI)
         String sql = "INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc) " +
                 "VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
-            ps.setString(2, moTa);   // tenGia dùng moTa làm tên
+            ps.setString(2, moTa);
             ps.setString(3, moTa);
             ps.setString(4, ngayApDung);
             ps.setString(5, ngayKetThuc);
@@ -107,7 +103,7 @@ public class DAO_Gia {
     }
 
     // =========================================================
-    // GIA HEADER — UPDATE (không đổi maGia)
+    // GIA HEADER — UPDATE
     // =========================================================
     public boolean updateHeader(String maGia, String moTa,
                                 String ngayApDung, String ngayKetThuc) {
@@ -156,7 +152,7 @@ public class DAO_Gia {
     }
 
     // =========================================================
-    // GIA HEADER — COUNT ALL (để đồng bộ bộ đếm mã)
+    // GIA HEADER — COUNT ALL
     // =========================================================
     public int countAllHeader() {
         String sql = "SELECT COUNT(*) FROM GiaHeader";
@@ -175,10 +171,10 @@ public class DAO_Gia {
     // =========================================================
     public List<GiaDetailRow> getDetailByMaGia(String maGia) {
         List<GiaDetailRow> list = new ArrayList<>();
-        String sql = "SELECT maGia, maLoaiToa, maLoaiVe, maTuyen, gia " +
+        String sql = "SELECT maGia, maLoaiToa, maTuyen, gia " +
                 "FROM GiaDetail " +
                 "WHERE maGia = ? " +
-                "ORDER BY maTuyen, maLoaiToa, maLoaiVe";
+                "ORDER BY maTuyen, maLoaiToa";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
@@ -187,7 +183,6 @@ public class DAO_Gia {
                     list.add(new GiaDetailRow(
                             rs.getString("maGia"),
                             rs.getString("maLoaiToa"),
-                            rs.getString("maLoaiVe"),
                             rs.getString("maTuyen"),
                             rs.getLong("gia")
                     ));
@@ -200,19 +195,18 @@ public class DAO_Gia {
     }
 
     // =========================================================
-    // GIA DETAIL — INSERT
+    // GIA DETAIL — INSERT (bỏ maLoaiVe)
     // =========================================================
     public boolean insertDetail(String maGia, String maLoaiToa,
-                                String maLoaiVe, String maTuyen, long gia) {
-        String sql = "INSERT INTO GiaDetail (maGia, maLoaiToa, maLoaiVe, maTuyen, gia) " +
-                "VALUES (?, ?, ?, ?, ?)";
+                                String maTuyen, long gia) {
+        String sql = "INSERT INTO GiaDetail (maGia, maLoaiToa, maTuyen, gia) " +
+                "VALUES (?, ?, ?, ?)";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
             ps.setString(2, maLoaiToa);
-            ps.setString(3, maLoaiVe);
-            ps.setString(4, maTuyen);
-            ps.setLong(5, gia);
+            ps.setString(3, maTuyen);
+            ps.setLong(4, gia);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -221,19 +215,18 @@ public class DAO_Gia {
     }
 
     // =========================================================
-    // GIA DETAIL — UPDATE gia (PK tổng hợp không đổi)
+    // GIA DETAIL — UPDATE gia
     // =========================================================
     public boolean updateDetail(String maGia, String maLoaiToa,
-                                String maLoaiVe, String maTuyen, long giaNew) {
+                                String maTuyen, long giaNew) {
         String sql = "UPDATE GiaDetail SET gia = ? " +
-                "WHERE maGia = ? AND maLoaiToa = ? AND maLoaiVe = ? AND maTuyen = ?";
+                "WHERE maGia = ? AND maLoaiToa = ? AND maTuyen = ?";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, giaNew);
             ps.setString(2, maGia);
             ps.setString(3, maLoaiToa);
-            ps.setString(4, maLoaiVe);
-            ps.setString(5, maTuyen);
+            ps.setString(4, maTuyen);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -245,15 +238,14 @@ public class DAO_Gia {
     // GIA DETAIL — DELETE 1 dòng
     // =========================================================
     public boolean deleteDetail(String maGia, String maLoaiToa,
-                                String maLoaiVe, String maTuyen) {
+                                String maTuyen) {
         String sql = "DELETE FROM GiaDetail " +
-                "WHERE maGia = ? AND maLoaiToa = ? AND maLoaiVe = ? AND maTuyen = ?";
+                "WHERE maGia = ? AND maLoaiToa = ? AND maTuyen = ?";
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
             ps.setString(2, maLoaiToa);
-            ps.setString(3, maLoaiVe);
-            ps.setString(4, maTuyen);
+            ps.setString(3, maTuyen);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
