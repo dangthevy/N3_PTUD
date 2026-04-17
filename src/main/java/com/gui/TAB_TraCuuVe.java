@@ -24,6 +24,7 @@ import java.sql.*;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 public class TAB_TraCuuVe extends JPanel {
 
@@ -213,6 +214,7 @@ public class TAB_TraCuuVe extends JPanel {
         // Lấy thêm chi tiết từ DB (tuyến, tàu, ngày giờ, v.v.)
         String gaKhoiHanh = "", gaDen = "", tenTau = "", ngayDi = "", gioDi = "";
         String tenLoaiToa = "", cccd = "", sdt = "", email = "";
+        double giaVeRaw = 0; // giá gốc dạng số, dùng để tính giảm KM
         try {
             ResultSet rs = daoVe.getChiTietVe(maVe);
             if (rs != null && rs.next()) {
@@ -234,6 +236,7 @@ public class TAB_TraCuuVe extends JPanel {
                 cccd       = rs.getString("cccd")  != null ? rs.getString("cccd")  : "";
                 sdt        = rs.getString("sdt")   != null ? rs.getString("sdt")   : "";
                 email      = rs.getString("email") != null ? rs.getString("email") : "";
+                giaVeRaw   = rs.getDouble("giaVe");
                 if (tenKH.isEmpty() || tenKH.equals("Khách lẻ"))
                     tenKH = rs.getString("tenKH") != null ? rs.getString("tenKH") : "Khách lẻ";
             }
@@ -241,28 +244,11 @@ public class TAB_TraCuuVe extends JPanel {
             ex.printStackTrace();
         }
 
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Chi Tiết Vé", true);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Chi Tiết Vé — " + maVe, true);
         dialog.setLayout(new BorderLayout());
         dialog.setResizable(false);
 
-        // ---- HEADER ----
-        JPanel pHdr = new JPanel(new BorderLayout());
-        pHdr.setBackground(ACCENT);
-        pHdr.setBorder(BorderFactory.createEmptyBorder(16, 22, 16, 22));
-
-        JPanel hdrLeft = new JPanel(new GridLayout(2, 1, 0, 3));
-        hdrLeft.setOpaque(false);
-        JLabel lblHdrTitle = new JLabel("CHI TIẾT VÉ");
-        lblHdrTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblHdrTitle.setForeground(Color.WHITE);
-        JLabel lblHdrSub = new JLabel("Mã vé: " + maVe);
-        lblHdrSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblHdrSub.setForeground(new Color(0xA8C8EE));
-        hdrLeft.add(lblHdrTitle);
-        hdrLeft.add(lblHdrSub);
-        pHdr.add(hdrLeft, BorderLayout.WEST);
-
-        // Status badge
+        // Status badge colors (dùng lại bên dưới)
         String displayStatus = trangThaiToDisplay(trangThai);
         Color badgeBg, badgeFg;
         switch (trangThai) {
@@ -271,18 +257,11 @@ public class TAB_TraCuuVe extends JPanel {
             case "HETHAN":  badgeBg = new Color(0xFEE2E2); badgeFg = new Color(0x991B1B); break;
             default:        badgeBg = new Color(0xDCFCE7); badgeFg = new Color(0x16A34A);
         }
-        JLabel lblBadge = new JLabel("  " + displayStatus + "  ");
-        lblBadge.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblBadge.setForeground(badgeFg);
-        lblBadge.setBackground(badgeBg);
-        lblBadge.setOpaque(true);
-        lblBadge.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        JPanel badgeWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        badgeWrap.setOpaque(false);
-        badgeWrap.add(lblBadge);
-        pHdr.add(badgeWrap, BorderLayout.EAST);
 
-        // ---- BODY ----
+        // Lấy danh sách khuyến mãi đã áp dụng cho vé
+        List<DAO_Ve.KhuyenMaiInfo> dsKM = daoVe.getKhuyenMaiCuaVe(maVe);
+
+        // ---- BODY (dùng JScrollPane để chứa nội dung dài) ----
         JPanel pBody = new JPanel(new GridBagLayout());
         pBody.setBackground(BG_CARD);
         pBody.setBorder(BorderFactory.createEmptyBorder(22, 28, 18, 28));
@@ -321,24 +300,81 @@ public class TAB_TraCuuVe extends JPanel {
             r++;
         }
 
-        // Separator
+        // Separator giá
         g.gridy = r++; g.gridx = 0; g.gridwidth = 2; g.weightx = 1;
         g.insets = new Insets(4, 0, 4, 0);
         JSeparator sep = new JSeparator(); sep.setForeground(BORDER);
         pBody.add(sep, g);
-        g.gridwidth = 1; g.insets = new Insets(7, 0, 7, 10);
+        g.gridwidth = 1; g.insets = new Insets(6, 0, 6, 10);
 
-        // Giá vé
+        // ---- KHUYẾN MÃI (luôn hiển thị, phía trên giá) ----
         g.gridy = r; g.gridx = 0; g.weightx = 0.38;
-        JLabel lGiaKey = new JLabel("Giá/Price:");
+        JLabel lKMKey = new JLabel("Khuyến mãi:");
+        lKMKey.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lKMKey.setForeground(TEXT_MID);
+        pBody.add(lKMKey, g);
+        g.gridx = 1; g.weightx = 0.62;
+        if (dsKM.isEmpty()) {
+            JLabel lKMNone = new JLabel("Không có");
+            lKMNone.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lKMNone.setForeground(TEXT_MID);
+            pBody.add(lKMNone, g);
+            r++;
+        } else {
+            // Dòng đầu tiên thẳng hàng với label "Khuyến mãi:"
+            DAO_Ve.KhuyenMaiInfo km0 = dsKM.get(0);
+            String loai0 = km0.loaiKM.equals("GIAM_PHAN_TRAM")
+                ? String.format("%.0f%%", km0.giaTri)
+                : String.format("%,.0f VND", km0.giaTri);
+            JLabel lKM0 = new JLabel("" + km0.tenKM + "  (Giảm " + loai0 + ")");
+            lKM0.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            lKM0.setForeground(new Color(0x0369A1));
+            pBody.add(lKM0, g);
+            r++;
+            // Các KM tiếp theo (nếu có nhiều)
+            for (int i = 1; i < dsKM.size(); i++) {
+                DAO_Ve.KhuyenMaiInfo kmi = dsKM.get(i);
+                String loaii = kmi.loaiKM.equals("GIAM_PHAN_TRAM")
+                    ? String.format("%.0f%%", kmi.giaTri)
+                    : String.format("%,.0f VND", kmi.giaTri);
+                g.gridy = r; g.gridx = 1; g.weightx = 0.62;
+                g.insets = new Insets(2, 0, 2, 10);
+                JLabel lKMi = new JLabel("" + kmi.tenKM + "  (Giảm " + loaii + ")");
+                lKMi.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                lKMi.setForeground(new Color(0x0369A1));
+                pBody.add(lKMi, g);
+                r++;
+                g.insets = new Insets(6, 0, 6, 10);
+            }
+        }
+
+        // ---- GIÁ / PRICE ----
+        double tongGiam = dsKM.stream().mapToDouble(k -> k.tienGiamThucTe).sum();
+        g.gridy = r; g.gridx = 0; g.weightx = 0.38;
+        g.insets = new Insets(6, 0, 6, 10);
+        JLabel lGiaKey = new JLabel("Giá / Price:");
         lGiaKey.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lGiaKey.setForeground(TEXT_MID);
         pBody.add(lGiaKey, g);
         g.gridx = 1; g.weightx = 0.62;
-        JLabel lGiaVal = new JLabel(giaVe);
-        lGiaVal.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lGiaVal.setForeground(new Color(0xDC2626));
-        pBody.add(lGiaVal, g);
+        if (tongGiam > 0) {
+            JPanel pGia = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+            pGia.setOpaque(false);
+            JLabel lGocStrike = new JLabel("<html><strike>" + String.format("%,.0f VND", giaVeRaw) + "</strike></html>");
+            lGocStrike.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            lGocStrike.setForeground(TEXT_MID);
+            JLabel lGiaSau = new JLabel(String.format("%,.0f VND", giaVeRaw - tongGiam));
+            lGiaSau.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            lGiaSau.setForeground(new Color(0xDC2626));
+            pGia.add(lGocStrike);
+            pGia.add(lGiaSau);
+            pBody.add(pGia, g);
+        } else {
+            JLabel lGiaVal = new JLabel(String.format("%,.0f VND", giaVeRaw));
+            lGiaVal.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            lGiaVal.setForeground(TEXT_DARK);
+            pBody.add(lGiaVal, g);
+        }
         r++;
 
         // Trạng thái
@@ -362,7 +398,7 @@ public class TAB_TraCuuVe extends JPanel {
 
         JButton btnDong   = makeBtn("Đóng",       BtnStyle.SECONDARY);
         JButton btnHoanVe = makeBtn("Hoàn vé",    BtnStyle.WARNING);
-        JButton btnInLai  = makeBtn("🖨 In vé PDF", BtnStyle.PRIMARY);
+        JButton btnInLai  = makeBtn("In lại vé", BtnStyle.PRIMARY);
         btnDong.setPreferredSize(new Dimension(0, 40));
         btnHoanVe.setPreferredSize(new Dimension(0, 40));
         btnInLai.setPreferredSize(new Dimension(0, 40));
@@ -379,7 +415,7 @@ public class TAB_TraCuuVe extends JPanel {
         final String fLoaiToa = tenLoaiToa, fCccd = cccd;
 
         btnDong.addActionListener(e -> dialog.dispose());
-        btnHoanVe.addActionListener(e -> { dialog.dispose(); confirmHoanVe(fMaVe); });
+        btnHoanVe.addActionListener(e -> confirmHoanVe(fMaVe, dialog));
         btnInLai.addActionListener(e ->
             inVePDF(dialog, fMaVe, fMaKH, fTenKH, fCccd, fTenTau,
                     fGaKH, fGaDen, fNgayDi, fGioDi,
@@ -389,10 +425,9 @@ public class TAB_TraCuuVe extends JPanel {
         pFooter.add(btnInLai);
         pFooter.add(btnDong);
 
-        dialog.add(pHdr,    BorderLayout.NORTH);
         dialog.add(pBody,   BorderLayout.CENTER);
         dialog.add(pFooter, BorderLayout.SOUTH);
-        dialog.setMinimumSize(new Dimension(480, 0));
+        dialog.setMinimumSize(new Dimension(500, 0));
         dialog.pack();
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
@@ -767,19 +802,44 @@ public class TAB_TraCuuVe extends JPanel {
         }
     }
 
-    // ================= CONFIRM HOÀN VÉ =================
-    private void confirmHoanVe(String maVe) {
+    // ================= CONFIRM HOÀN VÉ (với tính phí hoàn) =================
+    private void confirmHoanVe(String maVe, JDialog chiTietDialog) {
+        // Tính tiền hoàn trước khi hiện dialog
+        double[] info = daoVe.tinhTienHoan(maVe);
+        // info: [tienHoan, phiHoan, phanTramHoan, gioConLai, tienThanhToan]
+        double tienHoan       = info[0];
+        double phiHoan        = info[1];
+        double phanTramHoan   = info[2];
+        double gioConLai      = info[3];
+        double tienThanhToan  = info[4];
+
+        // Nếu không hoàn được (< 4 giờ)
+        if (phanTramHoan == 0 && gioConLai >= 0) {
+            JOptionPane.showMessageDialog(chiTietDialog,
+                "<html>Không thể hoàn vé <b>" + maVe + "</b>!<br>"
+              + String.format("Tàu khởi hành trong <b>%.1f giờ nữa</b> (dưới 4 giờ).<br>", gioConLai)
+              + "Chính sách: không hoàn vé khi còn dưới 4 giờ khởi hành.</html>",
+                "Không thể hoàn vé", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Xây dựng dialog xác nhận
         JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Xác nhận hoàn vé", true);
-        dlg.setLayout(new BorderLayout());
+        dlg.setLayout(new BorderLayout(0, 0));
         dlg.setResizable(false);
 
+        // ---- Phần thông tin hoàn ----
+        JPanel pInfo = new JPanel(new BorderLayout(0, 0));
+        pInfo.setBackground(BG_CARD);
+
+        // Top: cảnh báo màu vàng
         JPanel pWarn = new JPanel(new BorderLayout(10, 0));
         pWarn.setBackground(new Color(0xFFF3CD));
         pWarn.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(new Color(0xFFC107), 1),
-            BorderFactory.createEmptyBorder(16, 18, 16, 18)));
+            BorderFactory.createEmptyBorder(14, 18, 14, 18)));
         JLabel warnIcon = new JLabel("⚠");
-        warnIcon.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        warnIcon.setFont(new Font("Segoe UI", Font.BOLD, 22));
         warnIcon.setForeground(new Color(0x856404));
         JLabel warnMsg = new JLabel(
             "<html>Bạn có chắc muốn hoàn vé <b>" + maVe + "</b>?<br>"
@@ -789,22 +849,103 @@ public class TAB_TraCuuVe extends JPanel {
         pWarn.add(warnIcon, BorderLayout.WEST);
         pWarn.add(warnMsg, BorderLayout.CENTER);
 
-        JPanel pBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12));
+        // Middle: chi tiết tính tiền hoàn
+        JPanel pDetail = new JPanel(new GridBagLayout());
+        pDetail.setBackground(BG_CARD);
+        pDetail.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER),
+            BorderFactory.createEmptyBorder(16, 24, 16, 24)));
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.insets = new Insets(5, 0, 5, 8);
+
+        int dRow = 0;
+
+        // Tiêu đề nhỏ
+        gc.gridy = dRow++; gc.gridx = 0; gc.gridwidth = 2; gc.weightx = 1;
+        JLabel lblChinhSach = new JLabel("Chi tiết hoàn tiền:");
+        lblChinhSach.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblChinhSach.setForeground(ACCENT);
+        pDetail.add(lblChinhSach, gc);
+        gc.gridwidth = 1;
+
+        // Dòng: giờ còn lại
+        String chinhSachStr;
+        if      (gioConLai >= 72) chinhSachStr = String.format("Còn %.1f giờ → Hoàn %.0f%%", gioConLai, phanTramHoan);
+        else if (gioConLai >= 24) chinhSachStr = String.format("Còn %.1f giờ → Hoàn %.0f%%", gioConLai, phanTramHoan);
+        else                       chinhSachStr = String.format("Còn %.1f giờ → Hoàn %.0f%%", gioConLai, phanTramHoan);
+
+        String[][] detailRows = {
+            { "Thời gian còn lại:",       chinhSachStr                                          },
+            { "Số tiền khách đã trả:",    String.format("%,.0f VND", tienThanhToan)             },
+            { "Phí hoàn vé (giữ lại):",   String.format("%,.0f VND  (%.0f%%)", phiHoan, 100 - phanTramHoan) },
+        };
+
+        for (String[] dr : detailRows) {
+            gc.gridy = dRow; gc.gridx = 0; gc.weightx = 0.5;
+            JLabel k = new JLabel(dr[0]);
+            k.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            k.setForeground(TEXT_MID);
+            pDetail.add(k, gc);
+            gc.gridx = 1; gc.weightx = 0.5;
+            JLabel v = new JLabel(dr[1]);
+            v.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            v.setForeground(TEXT_DARK);
+            pDetail.add(v, gc);
+            dRow++;
+        }
+
+        // Separator
+        gc.gridy = dRow++; gc.gridx = 0; gc.gridwidth = 2; gc.weightx = 1;
+        gc.insets = new Insets(2, 0, 2, 0);
+        JSeparator sepD = new JSeparator(); sepD.setForeground(BORDER);
+        pDetail.add(sepD, gc);
+        gc.gridwidth = 1; gc.insets = new Insets(5, 0, 5, 8);
+
+        // Dòng TIỀN HOÀN nổi bật
+        gc.gridy = dRow; gc.gridx = 0; gc.weightx = 0.5;
+        JLabel lblHoanKey = new JLabel("Tiền hoàn cho khách:");
+        lblHoanKey.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblHoanKey.setForeground(new Color(0x065F46));
+        pDetail.add(lblHoanKey, gc);
+        gc.gridx = 1; gc.weightx = 0.5;
+        JLabel lblHoanVal = new JLabel(String.format("%,.0f VND", tienHoan));
+        lblHoanVal.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblHoanVal.setForeground(new Color(0x16A34A));
+        pDetail.add(lblHoanVal, gc);
+
+        pInfo.add(pWarn,   BorderLayout.NORTH);
+        pInfo.add(pDetail, BorderLayout.CENTER);
+
+        // ---- Chính sách hoàn vé (note nhỏ) ----
+        JLabel lblNote = new JLabel(
+            "<html><font color='#6B7280' size='2'>"
+          + "Chính sách: ≥72h → hoàn 90% | 24–72h → 75% | 4–24h → 50% | &lt;4h → không hoàn"
+          + "</font></html>");
+        lblNote.setBorder(BorderFactory.createEmptyBorder(0, 24, 10, 24));
+        pInfo.add(lblNote, BorderLayout.SOUTH);
+
+        // ---- Footer buttons ----
+        JPanel pBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 12));
         pBtn.setBackground(BG_CARD);
         pBtn.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
 
-        JButton btnCancel  = makeBtn("Hủy",               BtnStyle.SECONDARY);
-        JButton btnConfirm = makeBtn("Xác nhận hoàn vé",  BtnStyle.WARNING);
-        btnCancel.setPreferredSize(new Dimension(100, 36));
-        btnConfirm.setPreferredSize(new Dimension(180, 36));
+        JButton btnCancel  = makeBtn("Hủy",       BtnStyle.SECONDARY);
+        JButton btnConfirm = makeBtn("Xác nhận hoàn vé", BtnStyle.WARNING);
+        btnCancel.setPreferredSize(new Dimension(130, 38));
+        btnConfirm.setPreferredSize(new Dimension(190, 38));
 
         btnCancel.addActionListener(e -> dlg.dispose());
         btnConfirm.addActionListener(e -> {
             dlg.dispose();
             boolean ok = daoVe.hoanVe(maVe);
             if (ok) {
+                chiTietDialog.dispose();
                 JOptionPane.showMessageDialog(TAB_TraCuuVe.this,
-                    "Hoàn vé " + maVe + " thành công!\nGhế đã được trả lại.",
+                    String.format("<html>Hoàn vé <b>%s</b> thành công!<br>"
+                        + "Số tiền hoàn trả cho khách: <b>%,.0f VND</b><br>"
+                        + "Ghế đã được trả lại.</html>", maVe, tienHoan),
                     "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 loadData(txtMaVe != null ? txtMaVe.getText().trim() : null);
             } else {
@@ -816,10 +957,11 @@ public class TAB_TraCuuVe extends JPanel {
 
         pBtn.add(btnCancel);
         pBtn.add(btnConfirm);
-        dlg.add(pWarn, BorderLayout.CENTER);
+
+        dlg.add(pInfo, BorderLayout.CENTER);
         dlg.add(pBtn,  BorderLayout.SOUTH);
         dlg.pack();
-        dlg.setMinimumSize(new Dimension(420, dlg.getHeight()));
+        dlg.setMinimumSize(new Dimension(460, dlg.getHeight()));
         dlg.setLocationRelativeTo(this);
         dlg.setVisible(true);
     }
