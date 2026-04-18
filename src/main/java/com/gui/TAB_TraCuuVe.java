@@ -67,7 +67,7 @@ public class TAB_TraCuuVe extends JPanel {
     private DefaultTableModel tableModel;
     private JTable table;
 
-    private final DecimalFormat df = new DecimalFormat("#,### VND");
+    private final DecimalFormat df = new DecimalFormat("#,##0 VND");
 
     private static final String[] COLS = {
         "Mã Vé", "Mã KH", "Tên KH", "Mã LT", "Toa", "Ghế", "Loại Vé", "Giá Vé", "Trạng Thái"
@@ -164,6 +164,8 @@ public class TAB_TraCuuVe extends JPanel {
             ResultSet rs = daoVe.getDanhSachVe(maVeFilter, null);
             while (rs != null && rs.next()) {
                 String status = rs.getString("trangThaiVe");
+                // thanhTien = giá sau ap dung KM (từ ChiTietHoaDon), fallback về giaVe nếu chưa có HĐ
+                double thanhTien = rs.getDouble("thanhTien");
                 tableModel.addRow(new Object[]{
                     rs.getString("maVe"),
                     rs.getString("maKH")     != null ? rs.getString("maKH")     : "",
@@ -172,7 +174,7 @@ public class TAB_TraCuuVe extends JPanel {
                     rs.getString("maToa"),
                     rs.getString("viTriGhe"),
                     rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
-                    df.format(rs.getDouble("giaVe")),
+                    df.format(thanhTien),   // ← giá SAU khuyến mãi
                     status != null ? status : "CHUASUDUNG"
                 });
             }
