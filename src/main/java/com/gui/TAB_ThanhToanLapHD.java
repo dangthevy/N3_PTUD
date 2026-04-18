@@ -46,7 +46,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	private final JLabel lblTongHD = new JLabel("0");
 
 	// ─── Format ───
-	private final DecimalFormat df = new DecimalFormat("#,### VNĐ");
+	private final DecimalFormat df = new DecimalFormat("#,##0 VNĐ");
 	private final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 	private static final String DATE_FMT = "dd/MM/yyyy";
 
@@ -245,7 +245,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 10));
 		bottomBar.setBackground(new Color(0xF8FAFC));
 		bottomBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
-		JButton btnIn = makeBtn("📊 In hóa đơn Excel", BtnStyle.PRIMARY);
+		JButton btnIn = makeBtn("In hóa đơn Excel", BtnStyle.PRIMARY);
 		btnIn.setPreferredSize(new Dimension(185, 36));
 		btnIn.addActionListener(e -> chonThangInDanhSach());
 		bottomBar.add(btnIn);
@@ -344,10 +344,40 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		}
 		valTongGiam.setText(df.format(tongGiam[0]));
 
-		JScrollPane sCT = new JScrollPane(tCT);
-		sCT.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, BORDER));
-		sCT.getViewport().setBackground(BG_CARD);
-		styleScrollBar(sCT.getVerticalScrollBar());
+		// Tự co cột vừa nội dung
+		tCT.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		packTableColumns(tCT, 12);
+
+		// Tính tổng chiều rộng bảng sau khi pack
+		int tableW = 0;
+		for (int c = 0; c < tCT.getColumnCount(); c++)
+			tableW += tCT.getColumnModel().getColumn(c).getPreferredWidth();
+
+		// Nếu ít vé (≤ 8 dòng): dùng bảng trực tiếp, không JScrollPane → không dư khoảng trắng
+		// Nếu nhiều vé: bọc JScrollPane để cuộn được
+		final int MAX_ROW_NO_SCROLL = 8;
+		JComponent tableContainer;
+		if (mCT.getRowCount() <= MAX_ROW_NO_SCROLL) {
+			// Đặt kích thước bảng chính xác = tổng cột × chiều cao
+			int tH = tCT.getRowHeight() * mCT.getRowCount()
+			       + tCT.getTableHeader().getPreferredSize().height;
+			tCT.setPreferredScrollableViewportSize(new Dimension(tableW, tH));
+			// Bọc trong panel có border thay JScrollPane
+			JPanel pTbl = new JPanel(new BorderLayout());
+			pTbl.setBackground(BG_CARD);
+			pTbl.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, BORDER));
+			pTbl.add(tCT.getTableHeader(), BorderLayout.NORTH);
+			pTbl.add(tCT, BorderLayout.CENTER);
+			tableContainer = pTbl;
+		} else {
+			JScrollPane sp = new JScrollPane(tCT);
+			sp.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, BORDER));
+			sp.getViewport().setBackground(BG_CARD);
+			styleScrollBar(sp.getVerticalScrollBar());
+			sp.setPreferredSize(new Dimension(tableW + 18, tCT.getRowHeight() * MAX_ROW_NO_SCROLL
+			                                             + tCT.getTableHeader().getPreferredSize().height));
+			tableContainer = sp;
+		}
 
 		// Total panel
 		JPanel pTotal = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 8));
@@ -361,7 +391,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		JPanel pCenter = new JPanel(new BorderLayout());
 		pCenter.setBackground(BG_CARD);
 		pCenter.add(pInfo, BorderLayout.NORTH);
-		pCenter.add(sCT, BorderLayout.CENTER);
+		pCenter.add(tableContainer, BorderLayout.CENTER);
 		pCenter.add(pTotal, BorderLayout.SOUTH);
 		dlg.add(pCenter, BorderLayout.CENTER);
 
@@ -371,7 +401,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		pAct.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
 
 		final DefaultTableModel mCTFinal = mCT;
-		JButton btnIn = makeBtn("🖨 In hóa đơn", BtnStyle.SUCCESS);
+		JButton btnIn = makeBtn("In hóa đơn", BtnStyle.SUCCESS);
 		JButton btnDong = makeBtn("Đóng", BtnStyle.SECONDARY);
 		btnIn.setPreferredSize(new Dimension(150, 36));
 		btnDong.setPreferredSize(new Dimension(90, 36));
@@ -386,8 +416,11 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		pAct.add(btnDong);
 		dlg.add(pAct, BorderLayout.SOUTH);
 
-		dlg.setSize(720, 520);
-		dlg.setMinimumSize(new Dimension(580, 400));
+		dlg.setMinimumSize(new Dimension(500, 300));
+		dlg.pack();  // pack() = chiều rộng khớp đúng bảng vì preferredSize đã set chính xác
+		int screenH = (int)(Toolkit.getDefaultToolkit().getScreenSize().height * 0.85);
+		if (dlg.getHeight() > screenH)
+			dlg.setSize(dlg.getWidth(), screenH);
 		dlg.setLocationRelativeTo(this);
 		dlg.setVisible(true);
 	}
@@ -849,6 +882,13 @@ public class TAB_ThanhToanLapHD extends JPanel {
 			PdfWriter.getInstance(doc, new FileOutputStream(path));
 			doc.open();
 
+			// Format tiền cho PDF: dùng locale cố định, pattern #,##0 để 500000 → 500.000
+			final java.text.DecimalFormat dfPdf = new java.text.DecimalFormat("#,##0");
+			dfPdf.setDecimalFormatSymbols(
+				new java.text.DecimalFormatSymbols(new java.util.Locale("vi", "VN")));
+			// Dùng inner class thay lambda cho tương thích Java 7/8
+			// => gọi trực tiếp: dfPdf.format((long)value) + " VNĐ"
+
 			BaseFont bf;
 			try {
 				bf = BaseFont.createFont("C:/Windows/Fonts/arial.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
@@ -903,63 +943,104 @@ public class TAB_ThanhToanLapHD extends JPanel {
 			addInfoLine(doc, "Hình thức thanh toán:", " Tiền mặt / Chuyển khoản", fIL, fN);
 			doc.add(new Paragraph(" ", fS));
 
-			PdfPTable tI = new PdfPTable(new float[] { 0.5f, 1.5f, 3f, 1f, 0.8f, 1.2f, 0.8f, 1f, 1.2f });
+			// ── Bảng chi tiết vé: STT | Mã vé | Tên DV | ĐVT | SL | Đơn giá | Khuyến mãi | Tổng ──
+			// Cột tiền rộng 85pt để "1.000.000 VNĐ" vừa 1 dòng ở font 8pt (~12 ký tự × 7pt ≈ 84pt)
+			float[] colWidths = { 28f, 95f, 115f, 35f, 25f, 85f, 90f, 85f };
+			PdfPTable tI = new PdfPTable(colWidths);
 			tI.setWidthPercentage(100);
 			tI.setSpacingBefore(4);
 			BaseColor hBg = new BaseColor(0x1A, 0x5E, 0xAB);
-			for (String h : new String[] { "STT", "Mã vé", "Tên DV", "ĐVT", "SL", "Đơn giá", "Thuế suất", "Thuế GTGT",
-					"TT thuế" }) {
+			for (String h : new String[] { "STT", "Mã vé", "Tên DV", "ĐVT", "SL", "Đơn giá", "Khuyến mãi", "Tổng" }) {
 				PdfPCell hc = new PdfPCell(new Phrase(h, fH));
 				hc.setBackgroundColor(hBg);
 				hc.setHorizontalAlignment(Element.ALIGN_CENTER);
+				hc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+				hc.setNoWrap(true);   // ← header không xuống dòng
 				hc.setPadding(5);
 				tI.addCell(hc);
 			}
-			double tCT = 0, tTh = 0, tCoTh = 0;
+
+			double tGiaGoc = 0, tKhuyenMai = 0, tThanhTien = 0;
 			int stt = 1;
+
 			for (Object[] row : rows) {
-				double goc = parseNum(row[2].toString()), coTh = parseNum(row[4].toString()), th = coTh - goc;
-				tCT += goc;
-				tTh += th;
-				tCoTh += coTh;
+				String maVeRow   = row[0].toString();
+				String loaiVe    = row[1].toString();
+				double giaGoc    = parseNum(row[2].toString());
+				double tienGiam  = parseNum(row[3].toString());
+				double thanhTien = parseNum(row[4].toString());
+
+				tGiaGoc    += giaGoc;
+				tKhuyenMai += tienGiam;
+				tThanhTien += thanhTien;
+
+				// Lấy tên KM áp dụng
+				StringBuilder sbKM = new StringBuilder();
+				try {
+					com.dao.DAO_Ve daoVeTmp = new com.dao.DAO_Ve();
+					java.util.List<com.dao.DAO_Ve.KhuyenMaiInfo> dsKM = daoVeTmp.getKhuyenMaiCuaVe(maVeRow);
+					for (com.dao.DAO_Ve.KhuyenMaiInfo km : dsKM) {
+						if (sbKM.length() > 0) sbKM.append("; ");
+						if (km.loaiKM.equals("GIAM_PHAN_TRAM"))
+							sbKM.append(km.tenKM).append(" (").append(String.format("%.0f%%", km.giaTri)).append(")");
+						else
+							sbKM.append(km.tenKM);
+					}
+				} catch (Exception ignored) {}
+
 				addPdfCell(tI, String.valueOf(stt++), fC, Element.ALIGN_CENTER);
-				addPdfCell(tI, row[0].toString(), fC, Element.ALIGN_LEFT);
-				addPdfCell(tI, "Vé: " + row[1], fC, Element.ALIGN_LEFT);
+				addPdfCell(tI, maVeRow, fC, Element.ALIGN_LEFT);
+				addPdfCell(tI, "Vé: " + loaiVe, fC, Element.ALIGN_LEFT);
 				addPdfCell(tI, "Vé", fC, Element.ALIGN_CENTER);
 				addPdfCell(tI, "1", fC, Element.ALIGN_CENTER);
-				addPdfCell(tI, row[2].toString(), fC, Element.ALIGN_RIGHT);
-				addPdfCell(tI, "10%", fC, Element.ALIGN_CENTER);
-				addPdfCell(tI, df.format(th), fC, Element.ALIGN_RIGHT);
-				addPdfCell(tI, row[4].toString(), fC, Element.ALIGN_RIGHT);
+				addPdfCellNoWrap(tI, dfPdf.format((long)(giaGoc)) + " VNĐ", fC, Element.ALIGN_RIGHT);
+
+				// Ô Khuyến mãi: tên KM (nhỏ, trái) + số tiền giảm (xanh, phải)
+				if (tienGiam > 0) {
+					PdfPCell cKM = new PdfPCell();
+					cKM.setPadding(4);
+					com.itextpdf.text.Font fKMName = new com.itextpdf.text.Font(bf, 7f,
+						com.itextpdf.text.Font.NORMAL, BaseColor.DARK_GRAY);
+					com.itextpdf.text.Font fKMVal  = new com.itextpdf.text.Font(bf, 8f,
+						com.itextpdf.text.Font.BOLD, new BaseColor(0x16, 0x63, 0x34));
+					if (sbKM.length() > 0) {
+						Paragraph pName = new Paragraph(sbKM.toString(), fKMName);
+						pName.setAlignment(Element.ALIGN_LEFT);
+						cKM.addElement(pName);
+					}
+					Paragraph pGiam = new Paragraph("-" + dfPdf.format((long)(tienGiam)) + " VNĐ", fKMVal);  // ← tiền đúng format
+					pGiam.setAlignment(Element.ALIGN_RIGHT);
+					cKM.addElement(pGiam);
+					tI.addCell(cKM);
+				} else {
+					addPdfCell(tI, "-", fC, Element.ALIGN_CENTER);
+				}
+				addPdfCellNoWrap(tI, dfPdf.format((long)(thanhTien)) + " VNĐ", fC, Element.ALIGN_RIGHT);  // ← tiền đúng format
 			}
-			addPdfCell(tI, String.valueOf(stt), fC, Element.ALIGN_CENTER);
-			for (int i = 0; i < 2; i++)
-				addPdfCell(tI, "", fC, Element.ALIGN_LEFT);
-			addPdfCell(tI, "Phí bảo hiểm HK", fC, Element.ALIGN_LEFT);
-			addPdfCell(tI, "Người", fC, Element.ALIGN_CENTER);
-			addPdfCell(tI, "1", fC, Element.ALIGN_CENTER);
-			addPdfCell(tI, "1.000 VNĐ", fC, Element.ALIGN_RIGHT);
-			addPdfCell(tI, "KCT", fC, Element.ALIGN_CENTER);
-			addPdfCell(tI, "", fC, Element.ALIGN_RIGHT);
-			addPdfCell(tI, "1.000 VNĐ", fC, Element.ALIGN_RIGHT);
 			doc.add(tI);
 
+			// ── Dòng tổng cộng: cùng colWidths → span 5 cột đầu, 3 ô cuối khớp chính xác ──
 			BaseColor sumBg = new BaseColor(0xF0, 0xF6, 0xFF);
-			PdfPTable tS = new PdfPTable(new float[] { 6f, 1f, 1f, 1.2f });
+			com.itextpdf.text.Font fRed = new com.itextpdf.text.Font(bf, 9,
+				com.itextpdf.text.Font.BOLD, new BaseColor(0xDC, 0x26, 0x26));
+			com.itextpdf.text.Font fGreen = new com.itextpdf.text.Font(bf, 9,
+				com.itextpdf.text.Font.BOLD, new BaseColor(0x16, 0x63, 0x34));
+
+			PdfPTable tS = new PdfPTable(colWidths);
 			tS.setWidthPercentage(100);
+
 			PdfPCell cTL = new PdfPCell(new Phrase("Tổng cộng:", fB));
+			cTL.setColspan(5);
 			cTL.setBorder(PdfPCell.BOX);
 			cTL.setBackgroundColor(sumBg);
 			cTL.setPadding(5);
 			tS.addCell(cTL);
-			addSumCell(tS, df.format(tCT), fB, sumBg);
-			addSumCell(tS, df.format(tTh), fB, sumBg);
-			addSumCell(tS, tongTien,
-					new com.itextpdf.text.Font(bf, 9, com.itextpdf.text.Font.BOLD, new BaseColor(0xDC, 0x26, 0x26)),
-					sumBg);
+			addSumCell(tS, dfPdf.format((long)(tGiaGoc)) + " VNĐ", fB, sumBg);                                              // Đơn giá tổng
+			addSumCell(tS, tKhuyenMai > 0 ? "-" + dfPdf.format((long)(tKhuyenMai)) + " VNĐ" : "-", fGreen, sumBg);         // KM tổng
+			addSumCell(tS, dfPdf.format((long)(tThanhTien)) + " VNĐ", fRed, sumBg);                                         // Tổng thành tiền
 			doc.add(tS);
 			doc.add(new Paragraph(" ", fS));
-			doc.add(new Paragraph("Số tiền bằng chữ: " + tongTien.replace(" VNĐ", "") + " đồng", fB));
+			doc.add(new Paragraph("Số tiền bằng chữ: " + docSoTienBangChu((long) tThanhTien), fB));
 			doc.add(new Paragraph(" ", fS));
 
 			PdfPTable tSign = new PdfPTable(2);
@@ -1008,17 +1089,96 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		t.addCell(c);
 	}
 
+	/** Giống addPdfCell nhưng không xuống dòng — dùng cho ô tiền */
+	private void addPdfCellNoWrap(PdfPTable t, String txt, com.itextpdf.text.Font f, int align) {
+		PdfPCell c = new PdfPCell(new Phrase(txt, f));
+		c.setHorizontalAlignment(align);
+		c.setPadding(4);
+		c.setNoWrap(true);
+		t.addCell(c);
+	}
+
 	private void addSumCell(PdfPTable t, String txt, com.itextpdf.text.Font f, BaseColor bg) {
 		PdfPCell c = new PdfPCell(new Phrase(txt, f));
 		c.setHorizontalAlignment(Element.ALIGN_RIGHT);
 		c.setPadding(5);
+		c.setNoWrap(true);
 		c.setBackgroundColor(bg);
 		t.addCell(c);
 	}
 
+	/**
+	 * Chuyển số tiền (VNĐ) thành chữ tiếng Việt.
+	 * Ví dụ: 700000 → "bảy trăm nghìn đồng"
+	 *         1500000 → "một triệu năm trăm nghìn đồng"
+	 */
+	private String docSoTienBangChu(long so) {
+		if (so == 0) return "không đồng";
+		if (so < 0)  return "âm " + docSoTienBangChu(-so);
+
+		String[] donvi  = { "", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín" };
+		String[] hanguc = { "", "nghìn", "triệu", "tỷ" };
+
+		// Tách thành từng nhóm 3 chữ số từ phải sang trái
+		java.util.List<Integer> nhom = new java.util.ArrayList<>();
+		long tmp = so;
+		while (tmp > 0) { nhom.add((int)(tmp % 1000)); tmp /= 1000; }
+
+		StringBuilder sb = new StringBuilder();
+		for (int i = nhom.size() - 1; i >= 0; i--) {
+			int n = nhom.get(i);
+			if (n == 0) continue;
+			String chu = docNhom(n, donvi);
+			if (sb.length() > 0) sb.append(" ");
+			sb.append(chu);
+			if (!hanguc[i].isEmpty()) sb.append(" ").append(hanguc[i]);
+		}
+
+		String result = sb.toString().trim();
+		// Viết hoa chữ đầu
+		if (!result.isEmpty())
+			result = Character.toUpperCase(result.charAt(0)) + result.substring(1);
+		return result + " đồng";
+	}
+
+	/** Đọc 1 nhóm 3 chữ số (0–999) */
+	private String docNhom(int n, String[] donvi) {
+		int tram = n / 100;
+		int chuc = (n % 100) / 10;
+		int dvi  = n % 10;
+		StringBuilder sb = new StringBuilder();
+		if (tram > 0) {
+			sb.append(donvi[tram]).append(" trăm");
+			if (chuc == 0 && dvi > 0) sb.append(" linh");
+		}
+		if (chuc > 1) {
+			if (sb.length() > 0) sb.append(" ");
+			sb.append(donvi[chuc]).append(" mươi");
+			if (dvi == 1) sb.append(" mốt");
+			else if (dvi == 5) sb.append(" lăm");
+			else if (dvi > 0) sb.append(" ").append(donvi[dvi]);
+		} else if (chuc == 1) {
+			if (sb.length() > 0) sb.append(" ");
+			sb.append("mười");
+			if (dvi == 5) sb.append(" lăm");
+			else if (dvi > 0) sb.append(" ").append(donvi[dvi]);
+		} else if (dvi > 0) {
+			if (sb.length() > 0) sb.append(" ");
+			sb.append(donvi[dvi]);
+		}
+		return sb.toString();
+	}
+
 	private double parseNum(String s) {
 		try {
-			return Double.parseDouble(s.replace(" VNĐ", "").replace(",", "").trim());
+			// df dùng locale VN: dấu "." là phân ngàn, không có dấu thập phân
+			// → strip " VNĐ", dấu ".", dấu "," rồi parse
+			String clean = s.replace(" VNĐ", "")
+			                .replace("VNĐ", "")
+			                .replace(".", "")   // bỏ dấu phân ngàn VN
+			                .replace(",", "")   // bỏ dấu phân ngàn kiểu khác
+			                .trim();
+			return Double.parseDouble(clean);
 		} catch (Exception e) {
 			return 0;
 		}
@@ -1044,6 +1204,28 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		t.getTableHeader().setPreferredSize(new Dimension(0, 38));
 		t.getTableHeader().setReorderingAllowed(false);
 		return t;
+	}
+
+	/**
+	 * Tự co chiều rộng mỗi cột vừa với nội dung header + dữ liệu (+ padding).
+	 */
+	private void packTableColumns(JTable table, int extraPadding) {
+		for (int col = 0; col < table.getColumnCount(); col++) {
+			javax.swing.table.TableColumn tc = table.getColumnModel().getColumn(col);
+			// Đo header
+			javax.swing.table.TableCellRenderer hRender = table.getTableHeader().getDefaultRenderer();
+			Component hComp = hRender.getTableCellRendererComponent(
+					table, tc.getHeaderValue(), false, false, -1, col);
+			int w = hComp.getPreferredSize().width;
+			// Đo từng dòng
+			for (int row = 0; row < table.getRowCount(); row++) {
+				javax.swing.table.TableCellRenderer cRender = table.getCellRenderer(row, col);
+				Component cComp = cRender.getTableCellRendererComponent(
+						table, table.getValueAt(row, col), false, false, row, col);
+				w = Math.max(w, cComp.getPreferredSize().width);
+			}
+			tc.setPreferredWidth(w + extraPadding * 2);
+		}
 	}
 
 	private JPanel createStatCard(String title, JLabel v, Color accent) {
