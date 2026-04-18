@@ -227,7 +227,11 @@ public class TAB_TraCuuVe extends JPanel {
                 } else if (tenTuyen != null) {
                     gaKhoiHanh = tenTuyen;
                 }
-                tenTau      = rs.getString("tenChuyen") != null ? rs.getString("tenChuyen") : "";
+                String tenChuyenFull = rs.getString("tenChuyen") != null ? rs.getString("tenChuyen") : "";
+                // Lấy mã tàu thôi: "SE1: Sài Gòn - Hà Nội" → "SE1"
+                tenTau = tenChuyenFull.contains(":") 
+                       ? tenChuyenFull.split(":")[0].trim() 
+                       : tenChuyenFull;
                 java.sql.Date ngay = rs.getDate("ngayKhoiHanh");
                 java.sql.Time gio  = rs.getTime("gioKhoiHanh");
                 ngayDi = ngay != null ? new SimpleDateFormat("dd/MM/yyyy").format(ngay) : "";
@@ -413,13 +417,15 @@ public class TAB_TraCuuVe extends JPanel {
         final String fTrangThai = trangThai, fGaKH = gaKhoiHanh, fGaDen = gaDen;
         final String fTenTau = tenTau, fNgayDi = ngayDi, fGioDi = gioDi;
         final String fLoaiToa = tenLoaiToa, fCccd = cccd;
+        final List<DAO_Ve.KhuyenMaiInfo> fDsKM = dsKM;
+        final double fGiaVeRaw = giaVeRaw;
 
         btnDong.addActionListener(e -> dialog.dispose());
         btnHoanVe.addActionListener(e -> confirmHoanVe(fMaVe, dialog));
         btnInLai.addActionListener(e ->
             inVePDF(dialog, fMaVe, fMaKH, fTenKH, fCccd, fTenTau,
                     fGaKH, fGaDen, fNgayDi, fGioDi,
-                    fMaToa, fViTri, fLoaiToa, fLoaiVe, fGiaVe, fTrangThai));
+                    fMaToa, fViTri, fLoaiToa, fLoaiVe, fGiaVeRaw, fDsKM, fTrangThai));
 
         pFooter.add(btnHoanVe);
         pFooter.add(btnInLai);
@@ -443,7 +449,8 @@ public class TAB_TraCuuVe extends JPanel {
                          String ngayDi, String gioDi,
                          String maToa, String viTri,
                          String loaiChoDon, String loaiVe,
-                         String giaVe, String trangThai) {
+                         double giaVeRaw, List<DAO_Ve.KhuyenMaiInfo> dsKM,
+                         String trangThai) {
 
         // -- Chọn nơi lưu file --
         JFileChooser fc = new JFileChooser();
@@ -459,7 +466,7 @@ public class TAB_TraCuuVe extends JPanel {
         try {
             buildBoardingPassPDF(dest, maVe, maKH, tenKH, cccd,
                 tenTau, gaKhoiHanh, gaDen, ngayDi, gioDi,
-                maToa, viTri, loaiChoDon, loaiVe, giaVe, trangThai);
+                maToa, viTri, loaiChoDon, loaiVe, giaVeRaw, dsKM, trangThai);
 
             JOptionPane.showMessageDialog(parentDialog,
                 "Đã xuất PDF thành công!\n" + dest.getAbsolutePath(),
@@ -486,7 +493,8 @@ public class TAB_TraCuuVe extends JPanel {
             String ngayDi, String gioDi,
             String maToa, String viTri,
             String loaiChoClass, String loaiVe,
-            String giaVe, String trangThai) throws Exception {
+            double giaVeRaw, List<DAO_Ve.KhuyenMaiInfo> dsKM,
+            String trangThai) throws Exception {
 
         // iText color
         DeviceRgb BLACK  = new DeviceRgb(0,   0,   0);
@@ -596,23 +604,30 @@ public class TAB_TraCuuVe extends JPanel {
         float valueX = margin + 120f;
         float lineH  = 17f;
 
+        // Tính format tiền (dấu chấm phân ngàn VN)
+        java.text.DecimalFormat dfMoney = new java.text.DecimalFormat("#,##0");
+        dfMoney.setDecimalFormatSymbols(
+            new java.text.DecimalFormatSymbols(new java.util.Locale("vi", "VN")));
+
+        double tongGiam = 0;
+        for (DAO_Ve.KhuyenMaiInfo km : dsKM) tongGiam += km.tienGiamThucTe;
+        double giaSau = giaVeRaw - tongGiam;
+
         String[][] rows = {
-            { "Tàu / Train:",         tenTau.isEmpty()   ? "N/A" : tenTau   },
-            { "Ngày đi / Date:",       ngayDi.isEmpty()   ? "N/A" : ngayDi   },
-            { "Giờ đi / Time:",        gioDi.isEmpty()    ? "N/A" : gioDi    },
-            { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri             }, // 2 cột
-            { "Loại chỗ / Class:",     loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
-            { "Loại vé / Ticket:",     loaiVe.isEmpty()  ? "N/A" : loaiVe   },
-            { "Họ tên / Name:",        tenKH.isEmpty()   ? "xxxxxxxx" : tenKH },
-            { "",                      ""                                     }, // spacer
-            { "Giấy tờ / Passport:",   cccd.isEmpty()    ? "xxxxxxxx" : cccd  },
-            { "Giá / Price:",          giaVe.isEmpty()   ? "xxxxx VND" : giaVe },
+            { "Tàu / Train:",          tenTau.isEmpty()      ? "N/A" : tenTau      },
+            { "Ngày đi / Date:",        ngayDi.isEmpty()      ? "N/A" : ngayDi      },
+            { "Giờ đi / Time:",         gioDi.isEmpty()       ? "N/A" : gioDi       },
+            { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri                    },
+            { "Loại chỗ / Class:",      loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
+            { "Loại vé / Ticket:",      loaiVe.isEmpty()      ? "N/A" : loaiVe      },
+            { "Họ tên / Name:",         tenKH.isEmpty()       ? "xxxxxxxx" : tenKH  },
+            { "",                       ""                                           },
+            { "Giấy tờ / Passport:",    cccd.isEmpty()        ? "xxxxxxxx" : cccd   },
         };
 
         for (String[] row : rows) {
             if (row[0].isEmpty() && row[1].isEmpty()) { y -= 6; continue; }
 
-            // Dòng đặc biệt: Toa và Chỗ trên cùng 1 dòng (2 cột)
             if (row[0].startsWith("Toa / Coach:")) {
                 canvas.setFillColor(GRAY);
                 canvas.beginText();
@@ -644,6 +659,95 @@ public class TAB_TraCuuVe extends JPanel {
             }
             y -= lineH;
         }
+
+        // ---- Khuyến mãi (nếu có) ----
+        DeviceRgb GREEN = new DeviceRgb(0x16, 0x63, 0x34);
+        DeviceRgb RED   = new DeviceRgb(0xDC, 0x26, 0x26);
+        if (!dsKM.isEmpty()) {
+            // Label "Khuyến mãi:"
+            canvas.setFillColor(GRAY);
+            canvas.beginText();
+            canvas.setFontAndSize(fontPlain, 8.5f);
+            canvas.moveText(labelX, y);
+            canvas.showText("Khuyến mãi:");
+            canvas.endText();
+            // Tên KM đầu tiên
+            DAO_Ve.KhuyenMaiInfo km0 = dsKM.get(0);
+            String loai0 = km0.loaiKM.equals("GIAM_PHAN_TRAM")
+                ? String.format("Giảm %.0f%%", km0.giaTri)
+                : String.format("Giảm %s VND", dfMoney.format((long)km0.giaTri));
+            canvas.setFillColor(new DeviceRgb(0x03, 0x69, 0xA1));
+            canvas.beginText();
+            canvas.setFontAndSize(fontBold, 8.5f);
+            canvas.moveText(valueX, y);
+            canvas.showText(km0.tenKM + "  (" + loai0 + ")");
+            canvas.endText();
+            y -= lineH;
+            // Các KM tiếp theo
+            for (int i = 1; i < dsKM.size(); i++) {
+                DAO_Ve.KhuyenMaiInfo kmi = dsKM.get(i);
+                String loaii = kmi.loaiKM.equals("GIAM_PHAN_TRAM")
+                    ? String.format("Giảm %.0f%%", kmi.giaTri)
+                    : String.format("Giảm %s VND", dfMoney.format((long)kmi.giaTri));
+                canvas.setFillColor(new DeviceRgb(0x03, 0x69, 0xA1));
+                canvas.beginText();
+                canvas.setFontAndSize(fontBold, 8.5f);
+                canvas.moveText(valueX, y);
+                canvas.showText(kmi.tenKM + "  (" + loaii + ")");
+                canvas.endText();
+                y -= lineH;
+            }
+            // Tiết kiệm
+            canvas.setFillColor(GREEN);
+            canvas.beginText();
+            canvas.setFontAndSize(fontPlain, 8f);
+            canvas.moveText(valueX, y);
+            canvas.showText("Tiết kiệm: -" + dfMoney.format((long)tongGiam) + " VND");
+            canvas.endText();
+            y -= lineH;
+        }
+
+        // ---- Giá / Price ----
+        canvas.setFillColor(GRAY);
+        canvas.beginText();
+        canvas.setFontAndSize(fontPlain, 8.5f);
+        canvas.moveText(labelX, y);
+        canvas.showText("Giá / Price:");
+        canvas.endText();
+
+        if (tongGiam > 0) {
+            // Giá gốc gạch ngang
+            String gocStr = dfMoney.format((long)giaVeRaw) + " VND";
+            canvas.setFillColor(GRAY);
+            canvas.beginText();
+            canvas.setFontAndSize(fontPlain, 8f);
+            canvas.moveText(valueX, y);
+            canvas.showText(gocStr);
+            canvas.endText();
+            // Gạch ngang thủ công
+            float gocW = fontPlain.getWidth(gocStr, 8f);
+            canvas.setStrokeColor(GRAY);
+            canvas.setLineWidth(0.6f);
+            canvas.moveTo(valueX, y + 3.5f);
+            canvas.lineTo(valueX + gocW, y + 3.5f);
+            canvas.stroke();
+            y -= lineH;
+            // Giá sau giảm (đậm, đỏ)
+            canvas.setFillColor(RED);
+            canvas.beginText();
+            canvas.setFontAndSize(fontBold, 10f);
+            canvas.moveText(valueX, y);
+            canvas.showText(dfMoney.format((long)giaSau) + " VND");
+            canvas.endText();
+        } else {
+            canvas.setFillColor(BLACK);
+            canvas.beginText();
+            canvas.setFontAndSize(fontBold, 8.5f);
+            canvas.moveText(valueX, y);
+            canvas.showText(dfMoney.format((long)giaVeRaw) + " VND");
+            canvas.endText();
+        }
+        y -= lineH;
 
         // ============================================================
         // 6. ĐƯỜNG CHẤM PHÂN CÁCH (phần tear-off cuống vé)
