@@ -19,7 +19,7 @@ public class DAO_NhanVien {
     // ================= GET ALL =================
     public List<NhanVien> getAllNhanVien() {
         List<NhanVien> list = new ArrayList<>();
-        String sql = "SELECT * FROM NhanVien WHERE An = 0 ORDER BY ngayVaoLam ASC";
+        String sql = "SELECT * FROM NhanVien WHERE An = 0 AND ChucVu != 'ADMIN' ORDER BY ngayVaoLam ASC";
 
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {

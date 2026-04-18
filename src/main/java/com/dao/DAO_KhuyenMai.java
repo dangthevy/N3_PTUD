@@ -23,7 +23,7 @@ public class DAO_KhuyenMai {
     // ---- READ ----
     public List<KhuyenMai> getAllKhuyenMai() {
         List<KhuyenMai> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhuyenMai WHERE An = 0 ORDER BY maKM";
+        String sql = "SELECT * FROM KhuyenMai WHERE An = 0 ORDER BY NgayBatDau";
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) list.add(mapRow(rs));
