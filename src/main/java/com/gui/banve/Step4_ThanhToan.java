@@ -139,6 +139,8 @@ public class Step4_ThanhToan extends JPanel {
     private JLabel lblThanhTien;
     private JLabel lblTienGiam;
     private JLabel lblTongTien;
+    private JLabel lblMetaNhanVien;
+    private JLabel lblMetaKhachHang;
 
     // ── Phương thức thanh toán đang chọn ─────────────────────────────────────
     private PhuongThucThanhToan phuongThuc = PhuongThucThanhToan.TIEN_MAT;
@@ -167,14 +169,17 @@ public class Step4_ThanhToan extends JPanel {
         tuyenByMaChuyenCache.clear();
         List<LoaiVe> allLoaiVe = getAllLoaiVe();
 
-        // Khởi tạo Nhân viên (Lấy từ tài khoản đang đăng nhập, ở đây tôi fix cứng làm ví dụ)
-        this.nv = new NhanVien();
-        this.nv.setMaNV("NV0001");
-        this.nv.setTenNV("Nguyễn Văn A");
+        // Lấy từ phiên đăng nhập và người đặt vé đã xác nhận ở Step3
+        this.nv = mainTab.getCurrentNhanVien();
+        this.kh = mainTab.getConfirmedBooker();
 
         // Lấy danh sách Map từ session
         List<Map<String, String>> sessionData = mainTab.getSelectedSeatsData();
-        if (sessionData.isEmpty()) return;
+        if (sessionData.isEmpty()) {
+            refreshHoaDonMeta();
+            refreshAll();
+            return;
+        }
 
         // Dùng DAO để lấy đối tượng thật từ Database
         com.dao.DAO_KhachHang daoKH = new com.dao.DAO_KhachHang();
@@ -197,8 +202,13 @@ public class Step4_ThanhToan extends JPanel {
                     .findFirst()
                     .orElse(null);
 
-            // Lấy giá vé thực tế từ Database dựa vào LichTrinh, Toa và LoaiVe
-            long giaGoc = getGiaVeTuDatabase(maLT, toa.getLoaiToa().getMaLoaiToa());
+            // Ưu tiên dùng đúng giá đã lưu tạm ở TAB_BanVe (Step2)
+            long giaGoc = parseGiaVeFromSession(map.get("giaVe"));
+            if (giaGoc <= 0 && maLT != null && toa != null && toa.getLoaiToa() != null) {
+                // Fallback cuối cùng nếu thiếu giá trong session
+                giaGoc = getGiaVeTuDatabase(maLT, toa.getLoaiToa().getMaLoaiToa());
+            }
+
             // Gán vào đối tượng Vé
             Ve ve = new Ve();
             ve.setMaVe("V" + System.currentTimeMillis() + (int)(Math.random()*100)); // Mã vé tạm thời
@@ -217,7 +227,7 @@ public class Step4_ThanhToan extends JPanel {
             dsVe.add(entry);
 
             // Lưu lại thông tin Tuyến và KH đặt vé (dùng chung cho hóa đơn)
-            if (this.tuyen == null) {
+            if (this.tuyen == null && lichTrinh != null) {
                 // Tuyen được lấy thông qua maChuyen của LichTrinh
                 String maChuyen = lichTrinh.getMaChuyen();
                 if (maChuyen != null) {
@@ -234,57 +244,28 @@ public class Step4_ThanhToan extends JPanel {
             if (this.kh == null) this.kh = khach;
         }
 
+        refreshHoaDonMeta();
         refreshAll(); // Vẽ lại toàn bộ giao diện
     }
 
-    private Tuyen getTuyenByMaChuyen(String maChuyen) {
-        if (maChuyen == null || maChuyen.isEmpty()) return null;
-        if (tuyenByMaChuyenCache.containsKey(maChuyen)) return tuyenByMaChuyenCache.get(maChuyen);
-
-        Tuyen result = null;
-        DAO_ChuyenTau daoChuyen = new DAO_ChuyenTau();
-        for (DAO_ChuyenTau.ChuyenTauRow row : daoChuyen.getAll()) {
-            if (maChuyen.equals(row.maChuyen)) {
-                result = new DAO_Tuyen().getTuyenByMa(row.maTuyen);
-                break;
-            }
+    private long parseGiaVeFromSession(String rawGia) {
+        if (rawGia == null) return 0;
+        String normalized = rawGia.replaceAll("[^0-9.]", "").trim();
+        if (normalized.isEmpty()) return 0;
+        try {
+            return Math.round(Double.parseDouble(normalized));
+        } catch (Exception e) {
+            return 0;
         }
-        tuyenByMaChuyenCache.put(maChuyen, result);
-        return result;
     }
 
-    private String getTenTuyenForVe(Ve ve) {
-        if (ve == null || ve.getLichTrinh() == null) return "—";
-        Tuyen tuyenVe = getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen());
-        return tuyenVe != null ? tuyenVe.getTenTuyen() : "—";
-    }
-
-    // Hàm gọi DB lấy giá (Bạn có thể viết hàm này bên DAO_Gia)
-    private long getGiaVeTuDatabase(String maLT, String maLoaiToa) {
-        long gia = 0;
-        String sql = "SELECT gd.gia FROM GiaDetail gd JOIN GiaHeader gh ON gd.maGia = gh.maGia " +
-                "WHERE gh.maLT = ? AND gd.maLoaiToa = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maLT); ps.setString(2, maLoaiToa);
-            var rs = ps.executeQuery();
-            if (rs.next()) gia = rs.getLong("gia");
-        } catch (Exception e) { e.printStackTrace(); }
-        return gia == 0 ? 500000 : gia; // Nếu không có giá, trả về mặc định 500k
-    }
-
-    private List<LoaiVe> getAllLoaiVe() {
-        List<LoaiVe> list = new ArrayList<>();
-        String sql = "SELECT * FROM LoaiVe";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            var rs = ps.executeQuery();
-            while (rs.next()) {
-                LoaiVe lv = new LoaiVe();
-                lv.setMaLoai(rs.getString("MaLoai"));
-                lv.setTenLoai(rs.getString("TenLoai"));
-                list.add(lv);
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-        return list;
+    private void refreshHoaDonMeta() {
+        if (lblMetaNhanVien != null) {
+            lblMetaNhanVien.setText(nv != null ? nv.getTenNV() + " (" + nv.getMaNV() + ")" : "—");
+        }
+        if (lblMetaKhachHang != null) {
+            lblMetaKhachHang.setText(kh != null ? kh.getHoTen() : "—");
+        }
     }
 
     // =========================================================================
@@ -327,9 +308,11 @@ public class Step4_ThanhToan extends JPanel {
         pnlMeta.add(makeInfoLbl("Ngày lập:",     true));
         pnlMeta.add(makeInfoLbl(new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date()), false));
         pnlMeta.add(makeInfoLbl("Nhân viên:",    true));
-        pnlMeta.add(makeInfoLbl(nv != null ? nv.getTenNV() + " (" + nv.getMaNV() + ")" : "—", false));
+        lblMetaNhanVien = makeInfoLbl(nv != null ? nv.getTenNV() + " (" + nv.getMaNV() + ")" : "—", false);
+        pnlMeta.add(lblMetaNhanVien);
         pnlMeta.add(makeInfoLbl("Khách hàng:",   true));
-        pnlMeta.add(makeInfoLbl(kh != null ? kh.getHoTen()  : "—", false));
+        lblMetaKhachHang = makeInfoLbl(kh != null ? kh.getHoTen()  : "—", false);
+        pnlMeta.add(lblMetaKhachHang);
 
         JPanel north = new JPanel(new BorderLayout(0, 8)); north.setOpaque(false);
         north.add(title, BorderLayout.NORTH);
@@ -742,6 +725,14 @@ public class Step4_ThanhToan extends JPanel {
             JOptionPane.showMessageDialog(this, "Không có vé nào để thanh toán!");
             return;
         }
+        if (nv == null) {
+            JOptionPane.showMessageDialog(this, "Không xác định được nhân viên hiện tại.", "Thiếu dữ liệu", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (kh == null) {
+            JOptionPane.showMessageDialog(this, "Chưa có khách hàng người đặt vé.", "Thiếu dữ liệu", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán và in vé?", "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
@@ -1124,6 +1115,67 @@ public class Step4_ThanhToan extends JPanel {
         String tenKM = k.getKhuyenMai() != null ? k.getKhuyenMai().getTenKM() : k.getMaKMDetail();
         String loai = k.getLoaiKM() != null ? k.getLoaiKM().getLabel() : "KM";
         return tenKM + " | " + loai + " | " + formatGiaTri(k);
+    }
+
+    private List<LoaiVe> getAllLoaiVe() {
+        return new com.dao.DAO_KhuyenMai(conn).getAllLoaiVe();
+    }
+
+    private long getGiaVeTuDatabase(String maLT, String maLoaiToa) {
+        String sql = "SELECT TOP 1 gd.gia "
+                + "FROM LichTrinh lt "
+                + "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
+                + "JOIN GiaDetail gd ON gd.maTuyen = ct.maTuyen AND gd.maLoaiToa = ? "
+                + "WHERE lt.maLT = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maLoaiToa);
+            ps.setString(2, maLT);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Math.round(rs.getDouble("gia"));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    private Tuyen getTuyenByMaChuyen(String maChuyen) {
+        if (maChuyen == null || maChuyen.isEmpty()) {
+            return null;
+        }
+        if (tuyenByMaChuyenCache.containsKey(maChuyen)) {
+            return tuyenByMaChuyenCache.get(maChuyen);
+        }
+
+        DAO_ChuyenTau daoChuyenTau = new DAO_ChuyenTau();
+        DAO_Tuyen daoTuyen = new DAO_Tuyen();
+        Tuyen found = null;
+        for (DAO_ChuyenTau.ChuyenTauRow row : daoChuyenTau.getAll()) {
+            if (maChuyen.equals(row.maChuyen)) {
+                found = daoTuyen.getTuyenByMa(row.maTuyen);
+                break;
+            }
+        }
+        tuyenByMaChuyenCache.put(maChuyen, found);
+        return found;
+    }
+
+    private String getTenTuyenForVe(Ve ve) {
+        if (ve == null || ve.getLichTrinh() == null) {
+            return "—";
+        }
+        Tuyen t = getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen());
+        if (t == null) {
+            return "—";
+        }
+        if (t.getTenTuyen() != null && !t.getTenTuyen().trim().isEmpty()) {
+            return t.getTenTuyen();
+        }
+        String gaDi = (t.getGaDi() != null && t.getGaDi().getTenGa() != null) ? t.getGaDi().getTenGa() : "?";
+        String gaDen = (t.getGaDen() != null && t.getGaDen().getTenGa() != null) ? t.getGaDen().getTenGa() : "?";
+        return gaDi + " - " + gaDen;
     }
 
     private String formatGiaTri(KhuyenMaiDetail k) {

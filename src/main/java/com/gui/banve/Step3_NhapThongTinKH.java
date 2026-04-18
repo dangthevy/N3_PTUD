@@ -475,6 +475,9 @@ public class Step3_NhapThongTinKH extends JPanel {
             kh_dao.addKhachHang(confirmedBooker);
         }
 
+        // Lưu người đặt vé dùng chung cho Step4
+        mainTab.setConfirmedBooker(confirmedBooker);
+
         setBookerFieldsEditable(false);
         btnConfirmBooker.setVisible(false);
         lblBkStatus.setText("✓ Đã xác nhận: " + hoTen + " (Nhấp đúp để sửa)");
@@ -490,6 +493,7 @@ public class Step3_NhapThongTinKH extends JPanel {
         lblBkStatus.setText("Nhập SĐT để tìm khách hàng...");
         lblBkStatus.setForeground(UITheme.TEXT_MID);
         pnlPaxSection.setVisible(false);
+        mainTab.setConfirmedBooker(null);
         txtBkSdt.requestFocusInWindow();
     }
 
@@ -590,8 +594,8 @@ public class Step3_NhapThongTinKH extends JPanel {
         seatMap.put("loaiVe", tenLoaiVe);
         seatMap.put("maLoaiVe", maLoaiVe);
 
-        // Cập nhật thẻ hiển thị
-        passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, tenLoaiVe);
+        // Cập nhật thẻ hiển thị (kèm giá vé từ Step2)
+        passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, tenLoaiVe, seatMap.get("giaVe"));
 
         // Khóa form hiện tại lại
         setPaxFieldsEditable(false);
@@ -605,6 +609,18 @@ public class Step3_NhapThongTinKH extends JPanel {
             lblCurrentTicket.setForeground(UITheme.SUCCESS);
         }
         mainTab.setNextButtonEnabled(isAllPassengersFilled());
+    }
+
+    private String formatGiaVeForCard(String rawGiaVe) {
+        if (rawGiaVe == null || rawGiaVe.trim().isEmpty()) {
+            return "Chưa cập nhật";
+        }
+        try {
+            long gia = Math.round(Double.parseDouble(rawGiaVe.trim()));
+            return String.format("%,d đ", gia);
+        } catch (Exception e) {
+            return rawGiaVe;
+        }
     }
 
     private String savePassengerToDB(String hoTen, String sdt, String cccd, String email) {
@@ -660,6 +676,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 
     public void updatePassengerForms() {
         confirmedBooker = null; clearBookerFields();
+        mainTab.setConfirmedBooker(null);
         pnlPaxSection.setVisible(false);
         mainTab.setNextButtonEnabled(false);
         pnlTicketList.removeAll(); passengerCards.clear();
@@ -792,11 +809,13 @@ public class Step3_NhapThongTinKH extends JPanel {
             applyCardBorder(sel, filled);
         }
 
-        void setData(String name, String sdt, String cccd, String type) {
+        void setData(String name, String sdt, String cccd, String type, String rawGiaVe) {
             filled = true;
             lblName.setText(name.toUpperCase());
             lblName.setForeground(UITheme.PRIMARY);
-            lblInfo.setText("Loại: " + type + " | SĐT: " + sdt + (cccd.isEmpty() ? "" : " | CCCD: " + cccd));
+            String giaVeHienThi = formatGiaVeForCard(rawGiaVe);
+            lblInfo.setText("Loại: " + type + " | Giá vé: " + giaVeHienThi + " | SĐT: " + sdt
+                    + (cccd.isEmpty() ? "" : " | CCCD: " + cccd));
             lblInfo.setFont(UITheme.FONT_STAT_LABEL);
             lblInfo.setForeground(UITheme.TEXT_MID);
             indicator.setBackground(UITheme.SUCCESS);
@@ -808,3 +827,4 @@ public class Step3_NhapThongTinKH extends JPanel {
         }
     }
 }
+

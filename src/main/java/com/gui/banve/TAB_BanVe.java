@@ -1,6 +1,8 @@
 package com.gui.banve;
 
 import com.dao.DAO_BanVe;
+import com.entities.KhachHang;
+import com.entities.NhanVien;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
@@ -22,6 +24,8 @@ public class TAB_BanVe extends JPanel {
 	private List<Map<String, String>> selectedSeatsData = new ArrayList<>();
 	private Map<String, Map<String, String>> passengerDataMap = new HashMap<>();
 	private boolean isRoundTrip = false;
+	private final NhanVien currentNhanVien;
+	private KhachHang confirmedBooker;
 
 // === CÁC PANEL CON ===
 	private Step1_TimKiem step1;
@@ -30,7 +34,8 @@ public class TAB_BanVe extends JPanel {
 	private Step4_ThanhToan step4;
 	private Step5_SuccessPanel step5;
 
-	public TAB_BanVe() {
+	public TAB_BanVe(NhanVien currentNhanVien) {
+		this.currentNhanVien = currentNhanVien;
 		setLayout(new BorderLayout());
 		setBackground(UIHelper.BG_PAGE);
 		setBorder(BorderFactory.createEmptyBorder(5, 20, 5, 20));
@@ -92,10 +97,23 @@ public class TAB_BanVe extends JPanel {
 		return step2;
 	}
 
+	public NhanVien getCurrentNhanVien() {
+		return currentNhanVien;
+	}
+
+	public KhachHang getConfirmedBooker() {
+		return confirmedBooker;
+	}
+
+	public void setConfirmedBooker(KhachHang confirmedBooker) {
+		this.confirmedBooker = confirmedBooker;
+	}
+
 	public void resetProcess() {
 		currentStep = 0;
 		selectedSeatsData.clear();
 		passengerDataMap.clear(); // SỬA ĐỔI: Clear cả kho dữ liệu khách hàng
+		confirmedBooker = null;
 		switchCard();
 	}
 
