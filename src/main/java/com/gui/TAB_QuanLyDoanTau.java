@@ -168,6 +168,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 		modTau = new DefaultTableModel(new String[] { "Mã Tàu", "Tên", "số toa" }, 0);
 		tblTau = buildTable(modTau);
+		// --- SỰ KIỆN CLICK BẢNG TÀU ---
 		tblTau.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
@@ -177,54 +178,70 @@ public class TAB_QuanLyDoanTau extends JPanel {
 					quyDinhSoToa = Integer.parseInt(modTau.getValueAt(r, 2).toString().split(" ")[0]);
 					loadToaOfTau();
 					clearSeatMap();
-					
-					// NẾU DOUBLE-CLICK ĐỂ SỬA THÔNG TIN
+
+					// DOUBLE CLICK ĐỂ SỬA
 					if (e.getClickCount() == 2) {
-						Tau tDao = daoTau.getTauByMa(currentTau); // Tàu hiện tại trong DB
-						Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(TAB_QuanLyDoanTau.this), "Sửa Thông Tin Tàu");
+						Tau tDao = daoTau.getTauByMa(currentTau);
+						Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(TAB_QuanLyDoanTau.this),
+								"Cập Nhật Tàu");
 						f.setEntity(tDao);
 						f.setVisible(true);
-						
+
 						if (f.isConfirmed()) {
-							Tau tUpdate = f.getEntity(); // Tàu với thông tin mới nhập
-							
-							// BƯỚC KIỂM TRA NGHIỆP VỤ: 
-							// Nếu đổi từ HOATDONG sang BAOTRI hoặc NGUNGHOATDONG
-							if (tDao.getTrangThaiTau().toString().equals("HOATDONG") 
-							    && !tUpdate.getTrangThaiTau().toString().equals("HOATDONG")) {
-								
-								// Quét xem tàu có đang cõng chuyến đi tương lai nào không
+							Tau tUpdate = f.getEntity();
+
+							// 1. Ràng buộc: Không được giảm số toa quy định nhỏ hơn số toa đang gắn
+							if (tUpdate.getSoToa() < modToa.getRowCount()) {
+								JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this,
+										"⚠️ LỖI RÀNG BUỘC: Không thể giảm quy định xuống " + tUpdate.getSoToa()
+												+ " toa vì tàu đang gắn " + modToa.getRowCount() + " toa thực tế.\n"
+												+ "Vui lòng gỡ bớt toa ra khỏi tàu trước!",
+										"Lỗi", JOptionPane.ERROR_MESSAGE);
+								return;
+							}
+
+							// 2. Ràng buộc: Thay đổi trạng thái
+							String oldStatus = tDao.getTrangThaiTau().name();
+							String newStatus = tUpdate.getTrangThaiTau().name();
+
+							if (oldStatus.equals("HOATDONG") && !newStatus.equals("HOATDONG")) {
+								// Kiểm tra Lịch trình tương lai
 								if (isTauCoLichTrinhTuongLai(tUpdate.getMaTau())) {
-									JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, 
-											"⚠️ KHÔNG THỂ CHUYỂN TRẠNG THÁI TÀU!\n\n"
-											+ "Tàu " + tUpdate.getTenTau() + " đang có lịch trình chạy trong tương lai.\n"
-											+ "Vui lòng phân bổ tàu khác cho các chuyến đi trước khi cho tàu này đi bảo trì.", 
-											"Lỗi ràng buộc hệ thống", JOptionPane.ERROR_MESSAGE);
-									return; // Chặn lập tức, hủy bỏ thao tác cập nhật
+									JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this,
+											"⚠️ TỪ CHỐI CẬP NHẬT TRẠNG THÁI!\n\n" + "Tàu [" + tUpdate.getTenTau()
+													+ "] đang được phân công chạy các lịch trình trong tương lai.\n"
+													+ "Không thể cho tàu đi bảo trì hoặc ngưng hoạt động lúc này.",
+											"Lỗi Ràng Buộc Hệ Thống", JOptionPane.ERROR_MESSAGE);
+									return;
 								}
-								
-								// (Mở rộng): Bạn có thể hỏi thêm xem họ có muốn tự động Gỡ tất cả các Toa về kho không
-								int ans = JOptionPane.showConfirmDialog(TAB_QuanLyDoanTau.this, 
-										"Chuyển tàu sang trạng thái Nghỉ sẽ cần gỡ tất cả Toa đang gắn.\nBạn có muốn tự động gỡ toàn bộ Toa về kho Sẵn sàng không?", 
-										"Xác nhận", JOptionPane.YES_NO_OPTION);
-								if(ans == JOptionPane.YES_OPTION) {
-									// Gọi hàm gỡ tất cả toa ở đây nếu bạn muốn làm thêm
+
+								// Nếu không có lịch trình, nhưng đang gắn toa -> Hỏi gỡ toa
+								if (modToa.getRowCount() > 0) {
+									int ans = JOptionPane.showConfirmDialog(TAB_QuanLyDoanTau.this,
+											"Chuyển tàu sang trạng thái Nghỉ/Bảo trì yêu cầu phải tháo dỡ toàn bộ Toa.\n"
+													+ "Bạn có đồng ý để hệ thống tự động gỡ " + modToa.getRowCount()
+													+ " Toa này về Kho (Sẵn sàng) không?",
+											"Xác nhận tháo dỡ Toa", JOptionPane.YES_NO_OPTION,
+											JOptionPane.QUESTION_MESSAGE);
+
+									if (ans == JOptionPane.YES_OPTION) {
+										goToanBoToaVeKho(tUpdate.getMaTau());
+									} else {
+										JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this,
+												"Cập nhật trạng thái bị hủy.", "Thông báo",
+												JOptionPane.INFORMATION_MESSAGE);
+										return; // Hủy lưu
+									}
 								}
 							}
-							// CHỐT CHẶN: Kiểm tra số toa thực tế đang lắp
-						    if (tUpdate.getSoToa() < modToa.getRowCount()) {
-						        JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, 
-						            "⚠️ LỖI: Không thể giảm số toa quy định xuống " + tUpdate.getSoToa() + 
-						            " vì tàu này đang được gắn " + modToa.getRowCount() + " toa thực tế.\n" +
-						            "Vui lòng gỡ bớt toa ra khỏi tàu trước khi cập nhật!", 
-						            "Lỗi ràng buộc", JOptionPane.ERROR_MESSAGE);
-						        return; // Hủy cập nhật
-						    }
-							
-							// Nếu an toàn, thực hiện update
-							if(daoTau.updateTau(tUpdate)) {
+
+							// Nếu mọi thứ hợp lệ -> Lưu
+							if (daoTau.updateTau(tUpdate)) {
 								loadDsTau();
-								JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, "Cập nhật thông tin Tàu thành công!");
+								loadToaOfTau();
+								loadKho();
+								clearSeatMap();
+								JOptionPane.showMessageDialog(TAB_QuanLyDoanTau.this, "Cập nhật Tàu thành công!");
 							}
 						}
 					}
@@ -276,8 +293,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		pnlToaHeader.add(new JLabel("|"));
 		pnlToaHeader.add(btnAuto);
 
-		modToa = new DefaultTableModel(
-				new String[] { "Vị trí", "Mã Toa", "Tên Toa", "Loại Toa", "Sức chứa" }, 0);
+		modToa = new DefaultTableModel(new String[] { "Vị trí", "Mã Toa", "Tên Toa", "Loại Toa", "Sức chứa" }, 0);
 		tblToa = buildTable(modToa);
 		tblToa.getSelectionModel().addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting() && tblToa.getSelectedRow() >= 0) {
@@ -323,7 +339,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JScrollPane scrollTrain = new JScrollPane(pnlTrainBar);
 		scrollTrain.setBorder(
 				BorderFactory.createCompoundBorder(new MatteBorder(1, 0, 1, 0, C_BORDER), new EmptyBorder(0, 0, 0, 0)));
-		// ĐÃ SỬA: Ép nhỏ chiều cao thanh Tàu (từ 80 -> 55)
 		scrollTrain.setPreferredSize(new Dimension(0, 55));
 		scrollTrain.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
@@ -354,20 +369,40 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		loadKho();
 		return pnlMainView;
 	}
+
 	// ====================================================================
-		// KIỂM TRA XEM TÀU CÓ ĐANG DÍNH LỊCH TRÌNH TRONG TƯƠNG LAI KHÔNG
-		// ====================================================================
-		private boolean isTauCoLichTrinhTuongLai(String maTau) {
-			String sql = "SELECT COUNT(*) FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
-					   + "WHERE ct.maTau = ? AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) "
-					   + "OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
-			try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-				ps.setString(1, maTau);
-				ResultSet rs = ps.executeQuery();
-				if (rs.next() && rs.getInt(1) > 0) return true; // Có lịch trình -> Không an toàn
-			} catch (Exception e) { e.printStackTrace(); }
+	// HÀM KIỂM TRA TÀU HOẠT ĐỘNG TRƯỚC KHI CHO LẮP RÁP (VÁ LỖI)
+	// ====================================================================
+	private boolean checkTauHoatDong() {
+		if (currentTau == null)
+			return false;
+		Tau t = daoTau.getTauByMa(currentTau);
+		if (t != null && !t.getTrangThaiTau().name().equals("HOATDONG")) {
+			JOptionPane.showMessageDialog(this,
+					"Tàu đang trong trạng thái Bảo trì hoặc Ngưng hoạt động!\nKhông thể thực hiện thao tác lắp ráp hay thay đổi cấu trúc toa lúc này.",
+					"Ràng Buộc Nghiệp Vụ", JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
+		return true;
+	}
+
+	// ====================================================================
+	// KIỂM TRA XEM TÀU CÓ ĐANG DÍNH LỊCH TRÌNH TRONG TƯƠNG LAI KHÔNG
+	// ====================================================================
+	private boolean isTauCoLichTrinhTuongLai(String maTau) {
+		String sql = "SELECT COUNT(*) FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen "
+				+ "WHERE ct.maTau = ? AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) "
+				+ "OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
+		try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+			ps.setString(1, maTau);
+			ResultSet rs = ps.executeQuery();
+			if (rs.next() && rs.getInt(1) > 0)
+				return true; // Có lịch trình -> Không an toàn
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
 
 	// ====================================================================
 	// HÀM KIỂM TRA LỊCH TRÌNH TƯƠNG LAI (CHECK NGẦM)
@@ -386,6 +421,15 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			e.printStackTrace();
 		}
 		return false;
+	}
+
+	private void goToanBoToaVeKho(String maTau) {
+		List<Object[]> attachedToa = daoCT.getToaOfTau(maTau);
+		for (Object[] obj : attachedToa) {
+			String maToa = obj[1].toString();
+			daoCT.goToaKhoiTau(maTau, maToa);
+			daoToa.updateTrangThai(maToa, "SAN_SANG");
+		}
 	}
 
 	// ====================================================================
@@ -422,7 +466,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		boolean isBaoTri = maintenanceSeats.contains(viTri);
 
 		JButton b = new JButton(viTri);
-		// ĐÃ SỬA: Thu nhỏ kích thước nút Ghế (từ 36x32 -> 32x28)
 		b.setPreferredSize(new Dimension(32, 28));
 		b.setFont(new Font("Segoe UI", Font.BOLD, 10)); // Giảm nhẹ font
 		b.setMargin(new Insets(0, 0, 0, 0));
@@ -481,7 +524,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		int uiRows = soCot;
 		int uiCols = soHang;
 		int halfRows = Math.max(1, uiRows / 2);
-		// ĐÃ SỬA: Thu hẹp khoảng cách các ghế còn 2px (từ 4px)
 		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 2, 2));
 		gridBody.setOpaque(false);
 
@@ -559,6 +601,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			JOptionPane.showMessageDialog(this, "Chọn tàu bên trái trước!");
 			return;
 		}
+		if (!checkTauHoatDong())
+			return; // VÁ LỖI TẠI ĐÂY
+
 		if (modToa.getRowCount() >= quyDinhSoToa) {
 			JOptionPane.showMessageDialog(this, "Tàu này đã gắn đủ " + quyDinhSoToa + " toa!");
 			return;
@@ -573,6 +618,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	}
 
 	private void goToa() {
+		if (!checkTauHoatDong())
+			return; // VÁ LỖI TẠI ĐÂY
+
 		int row = tblToa.getSelectedRow();
 		if (row < 0) {
 			JOptionPane.showMessageDialog(this, "Chọn một toa trong bảng để gỡ!", "Thông báo",
@@ -589,6 +637,14 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			return;
 		}
 
+		if (isTauCoLichTrinhTuongLai(currentTau)) {
+			int warn = JOptionPane.showConfirmDialog(this,
+					"⚠️ CẢNH BÁO NGHIỆP VỤ:\nTàu này đang có lịch trình tương lai. Việc gỡ toa sẽ làm khuyết vị trí toa trên hệ thống bán vé sắp tới.\nBạn có chắc chắn muốn gỡ, và sẽ chịu trách nhiệm lắp toa khác thay thế?",
+					"Cảnh báo Lịch Trình", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+			if (warn != JOptionPane.YES_OPTION)
+				return;
+		}
+
 		String[] options = { "Về kho (Sẵn sàng)", "Đem đi Bảo trì", "Hủy thao tác" };
 		int choice = JOptionPane.showOptionDialog(this,
 				"Gỡ toa \"" + tenToa + "\" khỏi tàu " + currentTau
@@ -601,34 +657,56 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			JOptionPane.showMessageDialog(this, "Đã xảy ra lỗi khi gỡ toa.", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
 			return;
 		}
-
 		String status = (choice == 1) ? "BAO_TRI" : "SAN_SANG";
 		daoToa.updateTrangThai(maToa, status);
+
 		List<String> remaining = new ArrayList<>();
 		for (int i = 0; i < modToa.getRowCount(); i++)
 			if (i != row)
 				remaining.add(modToa.getValueAt(i, 1).toString());
 		daoCT.capNhatThuTuSauKhiGo(currentTau, remaining);
-
 		loadToaOfTau();
 		loadKho();
 		clearSeatMap();
 	}
 
 	private void doDoiChoToa(int delta) {
+		if (!checkTauHoatDong()) return;
+
 		int row = tblToa.getSelectedRow();
 		if (row < 0) {
 			JOptionPane.showMessageDialog(this, "Chọn một toa để di chuyển!", "Thông báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
+		
 		int newRow = row + delta;
-		if (newRow < 0 || newRow >= modToa.getRowCount())
-			return;
+		// Kiểm tra nếu chạm nóc (lên quá dòng 1) hoặc chạm đáy (xuống quá dòng cuối)
+		if (newRow < 0 || newRow >= modToa.getRowCount()) return;
+
+		// 1. Lấy mã của 2 toa cần đổi chỗ
 		String maA = modToa.getValueAt(row, 1).toString();
 		String maB = modToa.getValueAt(newRow, 1).toString();
-		daoCT.hoanDoiThuTu(currentTau, maA, newRow + 1, maB, row + 1);
-		loadToaOfTau();
-		tblToa.setRowSelectionInterval(newRow, newRow);
+
+		// 2. Cập nhật hoán đổi dưới Database
+		boolean isSuccess = daoCT.hoanDoiThuTu(currentTau, maA, newRow + 1, maB, row + 1);
+
+		if (isSuccess) {
+			// 3. HOÁN ĐỔI TRỰC TIẾP TRÊN GIAO DIỆN (Không cần load lại Database)
+			// Chúng ta sẽ lặp qua các cột để đổi chữ (Bỏ qua cột 0 vì cột 0 là số thứ tự 1,2,3... phải giữ nguyên)
+			for (int col = 1; col < modToa.getColumnCount(); col++) {
+				Object temp = modToa.getValueAt(row, col);
+				modToa.setValueAt(modToa.getValueAt(newRow, col), row, col);
+				modToa.setValueAt(temp, newRow, col);
+			}
+
+			// 4. Bám đuôi bôi đen theo toa vừa di chuyển
+			tblToa.setRowSelectionInterval(newRow, newRow);
+			
+			// 5. Cập nhật lại hình ảnh đoàn tàu nhỏ bên dưới
+			refreshTrainBar();
+		} else {
+			JOptionPane.showMessageDialog(this, "Lỗi khi đổi chỗ dưới Cơ sở dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+		}
 	}
 
 	private void autoGenerateToaPopup() {
@@ -636,6 +714,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 tàu bên trái trước!");
 			return;
 		}
+		if (!checkTauHoatDong())
+			return; // VÁ LỖI TẠI ĐÂY
+
 		if (modToa.getRowCount() > 0) {
 			JOptionPane.showMessageDialog(this, "Chỉ được sinh tự động khi Tàu chưa có toa nào!");
 			return;
@@ -800,8 +881,17 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 	private void loadKho() {
 		cbKho.removeAllItems();
-		for (Object[] obj : daoToa.getToaTrongKhoSanSang())
-			cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
+		for (Object[] obj : daoToa.getToaTrongKhoSanSang()) {
+			// Kiểm tra an toàn: Nếu DAO đã được cập nhật (có >= 5 cột dữ liệu)
+			if (obj.length > 4) {
+				if (obj[4] != null && obj[4].toString().equals("SAN_SANG")) {
+					cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
+				}
+			} else {
+				// Nếu DAO cũ chỉ có 4 cột (chưa có cột trạng thái), thì nạp thẳng vào ComboBox
+				cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
+			}
+		}
 	}
 
 	private JPanel legendItem(Color color, String label) {

@@ -19,16 +19,16 @@ public class Form_Tau extends JDialog {
 	private JTextField txtMa, txtTen, txtSoToa;
 	private JComboBox<TrangThaiTau> cbTrangThai;
 	private JLabel lblErrTen, lblErrSoToa;
-	private JButton btnSave; // Đưa ra biến toàn cục để Enable/Disable
+	private JButton btnSave;
 
 	private boolean confirmed = false;
 	private Tau entity;
 
-	// Biến lưu trạng thái ban đầu để so sánh sự thay đổi (Dirty check)
+	// Biến lưu trạng thái ban đầu để so sánh sự thay đổi
 	private boolean isEditMode = false;
 	private String origTen = "";
-	private int origSoToa = -1;
-	private TrangThaiTau origTrangThai = null;
+	private String origSoToaStr = "";
+	private String origTrangThaiStr = "";
 
 	public Form_Tau(Frame parent, String title) {
 		super(parent, title, true);
@@ -76,9 +76,9 @@ public class Form_Tau extends JDialog {
 		lblErrSoToa = createErrorLabel();
 
 		int y = 0;
-		addRow(pnlForm, "Mã đoàn tàu (Auto):", txtMa, null, y++, gc);
-		addRow(pnlForm, "Tên mác tàu (*):", txtTen, lblErrTen, y++, gc);
-		addRow(pnlForm, "Số toa (*):", txtSoToa, lblErrSoToa, y++, gc);
+		addRow(pnlForm, "Mã đoàn tàu :", txtMa, null, y++, gc);
+		addRow(pnlForm, "Tên tàu (*):", txtTen, lblErrTen, y++, gc);
+		addRow(pnlForm, "Số toa  (*):", txtSoToa, lblErrSoToa, y++, gc);
 		addRow(pnlForm, "Trạng thái vận hành:", cbTrangThai, null, y++, gc);
 
 		pnlMain.add(pnlForm, BorderLayout.CENTER);
@@ -87,7 +87,7 @@ public class Form_Tau extends JDialog {
 		pnlBottom.setOpaque(false);
 		JButton btnCancel = createButton("Hủy Bỏ", new Color(108, 122, 137));
 		btnSave = createButton("Lưu Dữ Liệu", ACCENT);
-		btnSave.setEnabled(false); // Vô hiệu hóa mặc định
+		btnSave.setEnabled(false);
 
 		btnCancel.addActionListener(e -> dispose());
 		btnSave.addActionListener(e -> validateAndSave());
@@ -96,10 +96,10 @@ public class Form_Tau extends JDialog {
 		pnlMain.add(pnlBottom, BorderLayout.SOUTH);
 		add(pnlMain);
 
-		// Lắng nghe sự kiện để bật/tắt nút Lưu
-		addLiveValidationListener(txtTen, lblErrTen);
-		addLiveValidationListener(txtSoToa, lblErrSoToa);
-		cbTrangThai.addActionListener(e -> checkSaveButtonState());
+		// Gắn bộ lắng nghe sự kiện gõ phím để check Real-time
+		addLiveValidationListener(txtTen);
+		addLiveValidationListener(txtSoToa);
+		cbTrangThai.addActionListener(e -> liveValidate());
 	}
 
 	private void addRow(JPanel p, String l, JComponent c, JLabel err, int y, GridBagConstraints gc) {
@@ -125,73 +125,72 @@ public class Form_Tau extends JDialog {
 		}
 	}
 
-	// ================== REAL-TIME VALIDATION ==================
-	private void checkSaveButtonState() {
-		boolean isValid = true;
+	// ================== REAL-TIME VALIDATION TỐI ƯU ==================
+		private void liveValidate() {
+			boolean isValid = true;
+			
+			// 1. Validate Tên Tàu
+			String ten = txtTen.getText().trim();
+			if (ten.isEmpty()) { 
+				// FIX: Không bôi đỏ khi đang trống, chỉ ngầm báo Form chưa hợp lệ
+				clearErrorState(txtTen, lblErrTen); 
+				isValid = false; 
+			} else if (!ten.matches("^(SE|TN|SN|SPT)\\d+$")) { 
+				setErrorState(txtTen, lblErrTen, "Định dạng sai (VD: SE1, TN2)!"); 
+				isValid = false; 
+			} else {
+				clearErrorState(txtTen, lblErrTen);
+			}
 
-		String ten = txtTen.getText().trim();
-		if (ten.isEmpty() || !ten.matches("^(SE|TN|SN|SPT)\\d+$")) {
-			isValid = false;
-		}
-
-		String soToaStr = txtSoToa.getText().trim();
-		int currentSoToa = -1;
-		if (soToaStr.isEmpty()) {
-			isValid = false;
-		} else {
-			try {
-				currentSoToa = Integer.parseInt(soToaStr);
-				if (currentSoToa < 5 || currentSoToa > 20) {
-					isValid = false;
+			// 2. Validate Số Toa
+			String soToaStr = txtSoToa.getText().trim();
+			int currentSoToa = -1;
+			if (soToaStr.isEmpty()) { 
+				// FIX: Không bôi đỏ khi đang trống
+				clearErrorState(txtSoToa, lblErrSoToa); 
+				isValid = false; 
+			} else {
+				try {
+					currentSoToa = Integer.parseInt(soToaStr);
+					if (currentSoToa < 5 || currentSoToa > 20) { 
+						setErrorState(txtSoToa, lblErrSoToa, "Số toa từ 5 - 20!"); 
+						isValid = false; 
+					} else {
+						clearErrorState(txtSoToa, lblErrSoToa);
+					}
+				} catch (Exception ex) { 
+					setErrorState(txtSoToa, lblErrSoToa, "Phải là số nguyên!"); 
+					isValid = false; 
 				}
-			} catch (Exception ex) {
-				isValid = false;
 			}
+
+			// 3. Dirty Check (Kiểm tra có sự thay đổi thực sự không)
+			boolean isChanged = true;
+			if (isEditMode) {
+				String curTrangThaiStr = ((TrangThaiTau) cbTrangThai.getSelectedItem()).name();
+				if (ten.equals(origTen) && soToaStr.equals(origSoToaStr) && curTrangThaiStr.equals(origTrangThaiStr)) {
+					isChanged = false;
+				}
+			}
+
+			// Nút lưu chỉ sáng lên khi TẤT CẢ các ô đã nhập đúng và có sự thay đổi
+			btnSave.setEnabled(isValid && isChanged);
 		}
 
-		// Kiểm tra xem dữ liệu có thay đổi so với lúc đầu không (Dirty check)
-		boolean isChanged = true;
-		if (isEditMode) {
-			TrangThaiTau curTrangThai = (TrangThaiTau) cbTrangThai.getSelectedItem();
-			if (ten.equals(origTen) && currentSoToa == origSoToa && curTrangThai == origTrangThai) {
-				isChanged = false;
-			}
-		}
+	// Đổi viền ô Text thành màu Đỏ và hiện thông báo
+	private void setErrorState(JTextField tf, JLabel lbl, String msg) {
+		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(DANGER), new EmptyBorder(0, 10, 0, 10)));
+		lbl.setText(msg);
+	}
 
-		// Chỉ bật nút Lưu khi hợp lệ và có sự thay đổi
-		btnSave.setEnabled(isValid && isChanged);
+	// Hủy viền Đỏ và xóa thông báo
+	private void clearErrorState(JTextField tf, JLabel lbl) {
+		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), new EmptyBorder(0, 10, 0, 10)));
+		lbl.setText(" ");
 	}
 
 	private void validateAndSave() {
-		// Các thông báo lỗi chi tiết vẫn hiển thị nếu có gì đó sai lọt qua
-		lblErrTen.setText(" ");
-		lblErrSoToa.setText(" ");
-		String ten = txtTen.getText().trim();
-		if (ten.isEmpty()) {
-			lblErrTen.setText("Tên tàu không được để trống!");
-			return;
-		} else if (!ten.matches("^(SE|TN|SN|SPT)\\d+$")) {
-			lblErrTen.setText("Định dạng sai (VD: SE1, TN2)!");
-			return;
-		}
-		String soToaStr = txtSoToa.getText().trim();
-		if (soToaStr.isEmpty()) {
-			lblErrSoToa.setText("Số toa không được để trống!");
-			return;
-		} else {
-			try {
-				int soToa = Integer.parseInt(soToaStr);
-				if (soToa < 5 || soToa > 20) {
-					lblErrSoToa.setText("Số toa từ 5 - 20!");
-					return;
-				}
-			} catch (Exception ex) {
-				lblErrSoToa.setText("Số toa phải là số nguyên!");
-				return;
-			}
-		}
-
-		entity = new Tau(txtMa.getText().trim(), ten, Integer.parseInt(soToaStr),
+		entity = new Tau(txtMa.getText().trim(), txtTen.getText().trim(), Integer.parseInt(txtSoToa.getText().trim()),
 				(TrangThaiTau) cbTrangThai.getSelectedItem());
 		confirmed = true;
 		dispose();
@@ -220,7 +219,7 @@ public class Form_Tau extends JDialog {
 				Graphics2D g2 = (Graphics2D) g.create();
 				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 				if (!isEnabled()) {
-					g2.setColor(new Color(200, 200, 200)); // Màu xám khi khóa nút
+					g2.setColor(new Color(200, 200, 200));
 				} else {
 					g2.setColor(getModel().isRollover() ? bg.darker() : bg);
 				}
@@ -238,21 +237,18 @@ public class Form_Tau extends JDialog {
 		return b;
 	}
 
-	private void addLiveValidationListener(JTextField tf, JLabel lbl) {
+	private void addLiveValidationListener(JTextField tf) {
 		tf.getDocument().addDocumentListener(new DocumentListener() {
 			public void insertUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
+				liveValidate();
 			}
 
 			public void removeUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
+				liveValidate();
 			}
 
 			public void changedUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
+				liveValidate();
 			}
 		});
 	}
@@ -260,16 +256,15 @@ public class Form_Tau extends JDialog {
 	public void setEntity(Tau t) {
 		isEditMode = true;
 		origTen = t.getTenTau();
-		origSoToa = t.getSoToa();
-		origTrangThai = t.getTrangThaiTau();
+		origSoToaStr = String.valueOf(t.getSoToa());
+		origTrangThaiStr = t.getTrangThaiTau().name();
 
 		txtMa.setText(t.getMaTau());
 		txtTen.setText(origTen);
-		txtSoToa.setText(String.valueOf(origSoToa));
-		cbTrangThai.setSelectedItem(origTrangThai);
+		txtSoToa.setText(origSoToaStr);
+		cbTrangThai.setSelectedItem(t.getTrangThaiTau());
 
-		// Kích hoạt check ngay khi load dữ liệu lên
-		checkSaveButtonState();
+		liveValidate(); // Chạy kiểm tra ngay khi nạp dữ liệu lên form
 	}
 
 	public boolean isConfirmed() {

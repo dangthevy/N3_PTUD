@@ -43,7 +43,7 @@ public class TAB_Toa extends JPanel {
 		JPanel pnlTop = new JPanel(new BorderLayout(0, 15));
 		pnlTop.setOpaque(false);
 
-		// Header
+		// Header Row
 		JPanel pnlHeaderRow = new JPanel(new BorderLayout());
 		pnlHeaderRow.setOpaque(false);
 
@@ -66,7 +66,8 @@ public class TAB_Toa extends JPanel {
 		pnlAction.setOpaque(false);
 		JButton btnStatus = makeBtn("Đổi Trạng Thái", ACCENT, Color.WHITE);
 		JButton btnAdd = makeBtn("Thêm Toa", ACCENT, Color.WHITE);
-		JButton btnDel = makeBtn("Xóa Toa", DANGER, Color.WHITE);
+		JButton btnDel = makeBtn("Thanh Lý (Xóa)", DANGER, Color.WHITE);
+		btnDel.setPreferredSize(new Dimension(150, 38));
 
 		btnStatus.addActionListener(e -> updateStatus());
 		btnAdd.addActionListener(e -> {
@@ -78,21 +79,36 @@ public class TAB_Toa extends JPanel {
 				JOptionPane.showMessageDialog(this, "Thêm Toa thành công!");
 			}
 		});
+
 		btnDel.addActionListener(e -> {
 			int r = table.getSelectedRow();
 			if (r < 0) {
-				JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 toa để xóa!");
+				JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 toa để thanh lý!");
 				return;
 			}
 			int modelRow = table.convertRowIndexToModel(r);
-			if (JOptionPane.showConfirmDialog(this, "Xóa toa này khỏi hệ thống?", "Xác nhận",
-					JOptionPane.YES_NO_OPTION) == 0) {
-				if (dao.deleteToa(model.getValueAt(modelRow, 0).toString()))
+			String maToa = model.getValueAt(modelRow, 0).toString();
+			String trangThai = model.getValueAt(modelRow, 4).toString();
+
+			if (trangThai.equals("Thanh lý")) {
+				JOptionPane.showMessageDialog(this, "Toa này đã được thanh lý rồi!", "Thông báo",
+						JOptionPane.INFORMATION_MESSAGE);
+				return;
+			}
+			if (!model.getValueAt(modelRow, 5).toString().contains("KHO TRỐNG")) {
+				JOptionPane.showMessageDialog(this,
+						"Lỗi: Toa đang được lắp trên tàu.\nVui lòng gỡ toa về kho trước khi đem đi thanh lý!",
+						"Ràng buộc", JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+
+			if (JOptionPane.showConfirmDialog(this,
+					"Bạn có chắc chắn muốn THANH LÝ toa này?\nToa sẽ không thể dùng để lắp ráp nữa nhưng vẫn giữ lại lịch sử vé cũ.",
+					"Xác nhận Thanh Lý", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == 0) {
+				if (dao.updateTrangThai(maToa, "THANH_LY"))
 					refreshData();
 				else
-					JOptionPane.showMessageDialog(this,
-							"Lỗi: Toa đang được lắp trên tàu. Vui lòng tháo dỡ trước khi xóa!", "Ràng buộc",
-							JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(this, "Lỗi hệ thống khi thanh lý!", "Lỗi", JOptionPane.ERROR_MESSAGE);
 			}
 		});
 
@@ -101,7 +117,7 @@ public class TAB_Toa extends JPanel {
 		pnlAction.add(btnAdd);
 		pnlHeaderRow.add(pnlAction, BorderLayout.EAST);
 
-		// Filter
+		// Filter Row
 		JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
 		pnlFilter.setBackground(BG_CARD);
 		pnlFilter.setBorder(new ShadowBorder());
@@ -113,10 +129,12 @@ public class TAB_Toa extends JPanel {
 				BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), new EmptyBorder(0, 10, 0, 10)));
 		txtSearch.putClientProperty("JTextField.placeholderText", "Tìm theo Mã, Tên Toa...");
 
-		cbLocTrangThai = new JComboBox<>(new String[] { "Tất cả trạng thái", "Sẵn sàng", "Bảo trì" });
+		// CẬP NHẬT: Thêm "Thanh lý" vào bộ lọc
+		cbLocTrangThai = new JComboBox<>(new String[] { "Tất cả trạng thái", "Sẵn sàng", "Bảo trì", "Thanh lý" });
 		cbLocTrangThai.setPreferredSize(new Dimension(160, 36));
 		cbLocTrangThai.setBackground(Color.WHITE);
 		cbLocTrangThai.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
 		cbLocTau = new JComboBox<>();
 		cbLocTau.setPreferredSize(new Dimension(200, 36));
 		cbLocTau.setBackground(Color.WHITE);
@@ -142,26 +160,39 @@ public class TAB_Toa extends JPanel {
 		pnlTop.add(pnlHeaderRow, BorderLayout.NORTH);
 		pnlTop.add(pnlFilter, BorderLayout.CENTER);
 
-		// Table
+		// Table Setup
 		model = new DefaultTableModel(
 				new String[] { "Mã Toa", "Tên Toa", "Loại Toa", "Sức Chứa", "Trạng Thái", "Vị Trí Hiện Tại" }, 0);
 		table = buildTable(model);
 		sorter = new TableRowSorter<>(model);
 		table.setRowSorter(sorter);
 
+		// CẬP NHẬT: Logic lọc ẩn toa thanh lý mặc định
 		Runnable applyFilter = () -> {
 			List<RowFilter<Object, Object>> filters = new ArrayList<>();
 			String text = txtSearch.getText().trim();
 			if (!text.isEmpty())
 				filters.add(RowFilter.regexFilter("(?i)" + text, 0, 1));
-			if (cbLocTrangThai.getSelectedIndex() == 1)
+
+			int statusIdx = cbLocTrangThai.getSelectedIndex();
+			if (statusIdx == 0) {
+				// Mặc định chọn "Tất cả": Ẩn những toa có chữ "Thanh lý" ở cột Trạng thái
+				// (index 4)
+				filters.add(RowFilter.notFilter(RowFilter.regexFilter("^Thanh lý$", 4)));
+			} else if (statusIdx == 1) {
 				filters.add(RowFilter.regexFilter("^Sẵn sàng$", 4));
-			else if (cbLocTrangThai.getSelectedIndex() == 2)
+			} else if (statusIdx == 2) {
 				filters.add(RowFilter.regexFilter("^Bảo trì$", 4));
+			} else if (statusIdx == 3) {
+				// Chọn "Thanh lý": Chỉ hiện những toa thanh lý
+				filters.add(RowFilter.regexFilter("^Thanh lý$", 4));
+			}
+
 			if (cbLocTau.getSelectedIndex() == 1)
 				filters.add(RowFilter.regexFilter("KHO TRỐNG", 5));
 			else if (cbLocTau.getSelectedIndex() > 1)
 				filters.add(RowFilter.regexFilter(cbLocTau.getSelectedItem().toString(), 5));
+
 			sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
 		};
 
@@ -211,7 +242,6 @@ public class TAB_Toa extends JPanel {
 		refreshData();
 	}
 
-	// --- LOGIC GIỮ NGUYÊN ---
 	private void updateStatus() {
 		int r = table.getSelectedRow();
 		if (r < 0) {
@@ -221,6 +251,14 @@ public class TAB_Toa extends JPanel {
 		int modelRow = table.convertRowIndexToModel(r);
 		String maToa = model.getValueAt(modelRow, 0).toString();
 		String currentStatus = model.getValueAt(modelRow, 4).toString();
+
+		// RÀNG BUỘC: Đã thanh lý thì không cho đổi trạng thái
+		if (currentStatus.equals("Thanh lý")) {
+			JOptionPane.showMessageDialog(this, "Toa đã thanh lý không thể đổi trạng thái!", "Ràng buộc",
+					JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+
 		if (!model.getValueAt(modelRow, 5).toString().contains("KHO TRỐNG")) {
 			JOptionPane.showMessageDialog(this,
 					"Toa đang được gắn trên tàu!\nVui lòng gỡ toa về kho trước khi đem đi bảo trì.", "Ràng buộc",
@@ -240,6 +278,15 @@ public class TAB_Toa extends JPanel {
 
 	private void handleEdit(int r) {
 		int modelRow = table.convertRowIndexToModel(r);
+		String currentStatus = model.getValueAt(modelRow, 4).toString();
+
+		// RÀNG BUỘC: Không cho phép sửa thông tin nếu toa đã thanh lý
+		if (currentStatus.equals("Thanh lý")) {
+			JOptionPane.showMessageDialog(this, "Toa đã thanh lý không thể sửa đổi thông tin!", "Thông báo",
+					JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+
 		Form_Toa f = new Form_Toa(JOptionPane.getFrameForComponent(this), "Sửa Thông Tin Toa");
 		f.setEntity(dao.getToaById(model.getValueAt(modelRow, 0).toString()));
 		f.setVisible(true);
@@ -258,12 +305,13 @@ public class TAB_Toa extends JPanel {
 		model.setRowCount(0);
 		for (Object[] obj : dao.getAllToaWithViTri()) {
 			String viTri = obj[5] == null ? "KHO TRỐNG" : "Gắn trên " + obj[5].toString();
-			String trangThai = obj[4].toString().equals("BAO_TRI") ? "Bảo trì" : "Sẵn sàng";
+			// Dịch trạng thái từ DB sang hiển thị
+			String trangThai = obj[4].toString().equals("BAO_TRI") ? "Bảo trì"
+					: (obj[4].toString().equals("THANH_LY") ? "Thanh lý" : "Sẵn sàng");
 			model.addRow(new Object[] { obj[0], obj[1], obj[2], obj[3] + " chỗ", trangThai, viTri });
 		}
 	}
 
-	// --- UI HELPERS ---
 	private JButton makeBtn(String text, Color bg, Color fg) {
 		JButton b = new JButton(text) {
 			@Override
@@ -301,7 +349,6 @@ public class TAB_Toa extends JPanel {
 		t.setFocusable(false);
 		t.setIntercellSpacing(new Dimension(0, 0));
 
-		// ĐÃ FIX: Thiết lập kích thước Header
 		t.getTableHeader().setPreferredSize(new Dimension(0, 42));
 		t.getTableHeader().setDefaultRenderer(new HeaderRenderer());
 
@@ -336,6 +383,8 @@ public class TAB_Toa extends JPanel {
 					l.setForeground(SUCCESS);
 				} else if ("Bảo trì".equals(value)) {
 					l.setForeground(DANGER);
+				} else if ("Thanh lý".equals(value)) {
+					l.setForeground(Color.GRAY);
 				} else {
 					l.setForeground(TEXT_DARK);
 				}

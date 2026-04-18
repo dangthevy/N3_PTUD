@@ -54,7 +54,8 @@ public class GUI_General extends JPanel {
 
         // Khởi tạo các Tab
         tab_Dashboard = new TAB_Dashboard(this, nv.getChucVu().name());
-        tab_BanVe = new TAB_BanVe(nv);
+        tab_BanVe = new TAB_BanVe();
+        tab_BanVe.setNhanVien(nv);
         tab_TraCuuVe = new TAB_TraCuuVe();
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
 //        tab_Tau = new TAB_Tau();
@@ -355,4 +356,3 @@ public class GUI_General extends JPanel {
 		return header;
 	}
 }
-
