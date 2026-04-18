@@ -838,15 +838,11 @@ public class TAB_TraCuuVe extends JPanel {
         pWarn.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(new Color(0xFFC107), 1),
             BorderFactory.createEmptyBorder(14, 18, 14, 18)));
-        JLabel warnIcon = new JLabel("⚠");
-        warnIcon.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        warnIcon.setForeground(new Color(0x856404));
         JLabel warnMsg = new JLabel(
             "<html>Bạn có chắc muốn hoàn vé <b>" + maVe + "</b>?<br>"
           + "Vé sẽ chuyển sang <b>DAHOAN</b> và ghế sẽ được trả lại.</html>");
         warnMsg.setFont(F_CELL);
         warnMsg.setForeground(new Color(0x856404));
-        pWarn.add(warnIcon, BorderLayout.WEST);
         pWarn.add(warnMsg, BorderLayout.CENTER);
 
         // Middle: chi tiết tính tiền hoàn
