@@ -688,8 +688,8 @@ public class Step3_NhapThongTinKH extends JPanel {
 		seatMap.put("loaiVe", tenLoaiVe);
 		seatMap.put("maLoaiVe", maLoaiVe);
 
-		// Cập nhật thẻ hiển thị
-		passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, tenLoaiVe);
+		// Cập nhật thẻ hiển thị (kèm giá vé của ghế đã chọn)
+		passengerCards.get(currentIdx).setData(hoTen, sdt, cccd, tenLoaiVe, seatMap.get("giaVe"));
 
 		// Khóa form hiện tại lại
 		setPaxFieldsEditable(false);
@@ -771,6 +771,10 @@ public class Step3_NhapThongTinKH extends JPanel {
 		for (int i = 0; i < seats.size(); i++) {
 			Map<String, String> sd = seats.get(i);
 			String info = sd.get("tenTau") + " | " + sd.get("tenToa") + " - Ghế " + sd.get("tenCho");
+			String giaVe = formatGiaVe(sd.get("giaVe"));
+			if (!giaVe.isEmpty()) {
+				info += " | Giá: " + giaVe;
+			}
 			PassengerCard pc = new PassengerCard(i + 1, info);
 			final int idx = i;
 
@@ -882,6 +886,20 @@ public class Step3_NhapThongTinKH extends JPanel {
 		};
 	}
 
+	private String formatGiaVe(String raw) {
+		if (raw == null || raw.trim().isEmpty())
+			return "";
+		String digits = raw.replaceAll("[^0-9]", "");
+		if (digits.isEmpty())
+			return raw;
+		try {
+			long value = Long.parseLong(digits);
+			return String.format("%,d đ", value).replace(',', '.');
+		} catch (Exception e) {
+			return raw;
+		}
+	}
+
 	// PassengerCard (đồng bộ UITheme)
 	private class PassengerCard extends JPanel {
 		private final JLabel lblName, lblSeat, lblInfo;
@@ -932,11 +950,17 @@ public class Step3_NhapThongTinKH extends JPanel {
 			applyCardBorder(sel, filled);
 		}
 
-		void setData(String name, String sdt, String cccd, String type) {
+		void setData(String name, String sdt, String cccd, String type, String giaVeRaw) {
 			filled = true;
 			lblName.setText(name.toUpperCase());
 			lblName.setForeground(UITheme.PRIMARY);
-			lblInfo.setText("Loại: " + type + " | SĐT: " + sdt + (cccd.isEmpty() ? "" : " | CCCD: " + cccd));
+			String giaVe = formatGiaVe(giaVeRaw);
+			String text = "Loại: " + type + " | SĐT: " + sdt;
+			if (!cccd.isEmpty())
+				text += " | CCCD: " + cccd;
+			if (!giaVe.isEmpty())
+				text += " | Giá: " + giaVe;
+			lblInfo.setText(text);
 			lblInfo.setFont(UITheme.FONT_STAT_LABEL);
 			lblInfo.setForeground(UITheme.TEXT_MID);
 			indicator.setBackground(UITheme.SUCCESS);

@@ -233,6 +233,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 
 		public boolean fetchDataTrains(String maGaDi, String maGaDen, String ngay) {
 			clearData();
+			mainTab.setNextButtonEnabled(!mainTab.getSelectedSeatsData().isEmpty());
 			List<Map<String, Object>> dsChuyen = mainTab.getDaoBanVe().timChuyenTau(maGaDi, maGaDen, ngay);
 			if (dsChuyen.isEmpty())
 				return false;
@@ -460,6 +461,8 @@ public class Step2_ChonChoNgoi extends JPanel {
 					seatData.put("maToa", maToa);
 					seatData.put("viTriGhe", tenCho);
 
+					mainTab.getSelectedSeatsData()
+							.removeIf(s -> s.get("maCho").equals(maCho) && s.get("maLT").equals(maLT));
 					mainTab.getSelectedSeatsData().add(seatData);
 				} else {
 					// Chuyển lại màu Xanh
@@ -471,6 +474,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 					mainTab.getSelectedSeatsData()
 							.removeIf(s -> s.get("maCho").equals(maCho) && s.get("maLT").equals(maLT));
 				}
+				mainTab.setNextButtonEnabled(!mainTab.getSelectedSeatsData().isEmpty());
 			});
 
 			return b;
@@ -484,13 +488,16 @@ public class Step2_ChonChoNgoi extends JPanel {
 				JToggleButton b = seatButtonsMap.get(tenCho);
 
 				if (b != null) {
-					boolean isDat = trangThai.equals("DADAT") || trangThai.equals("GIUCHO");
+					boolean isDaDat = trangThai.equals("DADAT");
+					boolean isGiuCho = trangThai.equals("GIUCHO");
 					boolean isBaoTri = trangThai.equals("BAOTRI");
 					boolean isAlreadySelectedInSession = mainTab.getSelectedSeatsData().stream().anyMatch(
 							s -> s.get("maCho").equals(g.get("maCho").toString()) && s.get("maLT").equals(maLT));
+					boolean isGiuChoCuaMinh = isGiuCho && isAlreadySelectedInSession;
+					boolean isUnavailable = isDaDat || isBaoTri || (isGiuCho && !isGiuChoCuaMinh);
 
 					// [VÁ LỖI GIỎ HÀNG MA]: Dọn ghế bị người khác hốt
-					if (isDat || isBaoTri) {
+					if (isDaDat || isBaoTri || (isGiuCho && !isGiuChoCuaMinh)) {
 						mainTab.getSelectedSeatsData().removeIf(
 								s -> s.get("maCho").equals(g.get("maCho").toString()) && s.get("maLT").equals(maLT));
 						isAlreadySelectedInSession = false;
@@ -500,7 +507,8 @@ public class Step2_ChonChoNgoi extends JPanel {
 					if (giaHienThi == null)
 						giaHienThi = "Chưa cập nhật";
 
-					String statusText = isDat ? "Đã bán" : (isBaoTri ? "Đang bảo trì" : "Còn trống");
+					String statusText = isDaDat ? "Đã bán"
+							: (isBaoTri ? "Đang bảo trì" : (isGiuCho && !isGiuChoCuaMinh ? "Đang giữ chỗ" : "Còn trống"));
 					String htmlTooltip = "<html><body style='padding: 3px; font-family: Segoe UI;'><b style='font-size: 12px; color: #1A5EAB;'>Ghế số: "
 							+ tenCho + "</b><br/><span style='font-size: 11px;'>Trạng thái: " + statusText
 							+ "</span><br/>";
@@ -510,14 +518,13 @@ public class Step2_ChonChoNgoi extends JPanel {
 					htmlTooltip += "</body></html>";
 					b.setToolTipText(htmlTooltip);
 
-					b.setCursor(Cursor
-							.getPredefinedCursor((isDat || isBaoTri) ? Cursor.DEFAULT_CURSOR : Cursor.HAND_CURSOR));
+					b.setCursor(Cursor.getPredefinedCursor(isUnavailable ? Cursor.DEFAULT_CURSOR : Cursor.HAND_CURSOR));
 					if (isBaoTri) {
 						b.setBackground(Color.GRAY);
 						b.setForeground(Color.WHITE);
 						b.setEnabled(false);
 						b.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 1));
-					} else if (isDat) {
+					} else if (isDaDat || (isGiuCho && !isGiuChoCuaMinh)) {
 						b.setBackground(new Color(0xE74C3C));
 						b.setForeground(Color.WHITE);
 						b.setEnabled(false);

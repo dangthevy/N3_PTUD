@@ -863,20 +863,15 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	// ═══ IN HÓA ĐƠN PDF ═══
 	private void inHoaDon(String maHD, String tenKH, String ngayLap, String tenNV, String tongTien,
 			DefaultTableModel mCT) {
-		JFileChooser fc = new JFileChooser();
-		fc.setDialogTitle("Lưu hóa đơn PDF");
-		fc.setSelectedFile(new File("HoaDon_" + maHD + ".pdf"));
-		if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION)
-			return;
+		File outputDir = getHoaDonOutputDir();
+		File outFile = new File(outputDir, "HoaDon_" + maHD + ".pdf");
 		try {
 			java.util.List<Object[]> rows = new ArrayList<>();
 			for (int i = 0; i < mCT.getRowCount(); i++)
 				rows.add(new Object[] { mCT.getValueAt(i, 0), mCT.getValueAt(i, 1), mCT.getValueAt(i, 2),
 						mCT.getValueAt(i, 3), mCT.getValueAt(i, 4) });
 
-			String path = fc.getSelectedFile().getAbsolutePath();
-			if (!path.toLowerCase().endsWith(".pdf"))
-				path += ".pdf";
+			String path = outFile.getAbsolutePath();
 
 			Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
 			PdfWriter.getInstance(doc, new FileOutputStream(path));
@@ -1062,14 +1057,24 @@ public class TAB_ThanhToanLapHD extends JPanel {
 			doc.add(new Paragraph("Mã tra cứu: " + maHD, fS));
 			doc.close();
 
-			int opt = JOptionPane.showConfirmDialog(this, "In hóa đơn thành công!\nMở file PDF?", "Thành công",
-					JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			if (opt == JOptionPane.YES_OPTION)
-				Desktop.getDesktop().open(new File(path));
+			JOptionPane.showMessageDialog(this,
+					"In hóa đơn thành công!\n" + path,
+					"Thành công", JOptionPane.INFORMATION_MESSAGE);
+			if (Desktop.isDesktopSupported()) {
+				Desktop.getDesktop().open(outputDir);
+			}
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(this, "Lỗi khi in: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
 			e.printStackTrace();
 		}
+	}
+
+	private File getHoaDonOutputDir() {
+		File dir = new File(System.getProperty("user.dir"), "src/main/resources/HoaDon");
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
+		return dir;
 	}
 
 	// ═══ PDF helpers ═══

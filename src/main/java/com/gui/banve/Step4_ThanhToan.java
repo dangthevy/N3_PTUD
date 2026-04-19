@@ -12,13 +12,31 @@ import com.enums.TrangThaiVe;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
+
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.Chunk;
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.pdf.BaseFont;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+import com.itextpdf.text.pdf.draw.LineSeparator;
 
 public class Step4_ThanhToan extends JPanel {
 
@@ -47,6 +65,7 @@ public class Step4_ThanhToan extends JPanel {
 
 	// Lưu mã hóa đơn của phiên giao dịch hiện tại để đồng bộ UI và DB
 	private String currentMaHD;
+	private boolean isProcessingPayment = false;
 
 	/**
 	 * VeEntry = 1 vé + danh sách khuyến mãi đã chọn cho chính vé đó.
@@ -174,6 +193,7 @@ public class Step4_ThanhToan extends JPanel {
 		dsVe.clear();
 		tuyenByMaChuyenCache.clear();
 		List<LoaiVe> allLoaiVe = getAllLoaiVe();
+		List<Map<String, String>> sessionData = mainTab.getSelectedSeatsData();
 
 		// 1. Lấy Nhân Viên hiện tại
 		this.nv = mainTab.getNhanVienHienTai();
@@ -192,20 +212,28 @@ public class Step4_ThanhToan extends JPanel {
 			this.kh.setSdt(bookerMap.get("sdt"));
 		} else {
 			this.kh = new KhachHang();
-			this.kh.setMaKH("KH_WALKIN");
 			this.kh.setHoTen("Khách vãng lai");
 		}
 
-		List<Map<String, String>> sessionData = mainTab.getSelectedSeatsData();
 		if (sessionData == null || sessionData.isEmpty())
 			return;
+
+		if (isBlank(this.kh.getMaKH())) {
+			for (Map<String, String> seat : sessionData) {
+				String seatMaKH = seat.get("maKH");
+				if (!isBlank(seatMaKH)) {
+					this.kh.setMaKH(seatMaKH);
+					break;
+				}
+			}
+		}
 
 		com.dao.DAO_KhachHang daoKH = new com.dao.DAO_KhachHang();
 		com.dao.DAO_LichTrinh daoLT = new com.dao.DAO_LichTrinh();
 		com.dao.DAO_Toa daoToa = new com.dao.DAO_Toa();
 
 		// Sinh mã HĐ và Mã Vé ngay lúc này để UI và DB đồng nhất
-		this.currentMaHD = "HD" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+		this.currentMaHD = createMaHD();
 		int veCounter = 1;
 
 		for (Map<String, String> map : sessionData) {
@@ -215,6 +243,9 @@ public class Step4_ThanhToan extends JPanel {
 			String maLoaiVe = map.get("maLoaiVe");
 			String maToa = map.get("maToa");
 			String viTriGhe = map.get("viTriGhe");
+			if (isBlank(maToa) && !isBlank(maCho) && maCho.contains("_")) {
+				maToa = maCho.substring(0, maCho.indexOf('_'));
+			}
 
 			// Xử lý Giá Vé
 			long giaGoc = 0;
@@ -235,7 +266,7 @@ public class Step4_ThanhToan extends JPanel {
 			}
 			if (passenger == null) {
 				passenger = new KhachHang();
-				passenger.setMaKH("KH_WALKIN");
+				passenger.setMaKH(null);
 				passenger.setHoTen("Khách vãng lai");
 			}
 
@@ -245,7 +276,7 @@ public class Step4_ThanhToan extends JPanel {
 
 			// Tạo Đối tượng Vé
 			Ve ve = new Ve();
-			ve.setMaVe(this.currentMaHD + "_V" + (veCounter++)); // Mã vé đồng nhất
+			ve.setMaVe(createMaVe(veCounter++)); // Mã vé đồng nhất, đảm bảo <= 20 ký tự
 			ve.setKhachHang(passenger);
 			ve.setLichTrinh(lichTrinh);
 			ve.setToa(toa);
@@ -788,11 +819,26 @@ public class Step4_ThanhToan extends JPanel {
 			JOptionPane.showMessageDialog(this, "Không có vé nào để thanh toán!");
 			return;
 		}
+		if (isProcessingPayment) {
+			return;
+		}
+		if (conn == null) {
+			JOptionPane.showMessageDialog(this, "Không thể kết nối CSDL. Vui lòng kiểm tra SQL Server.", "Lỗi kết nối",
+					JOptionPane.ERROR_MESSAGE);
+			return;
+		}
 
-		int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán và in vé?", "Xác nhận",
+		String validationError = validatePaymentData();
+		if (validationError != null) {
+			JOptionPane.showMessageDialog(this, validationError, "Dữ liệu thanh toán chưa hợp lệ", JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+
+		int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận",
 				JOptionPane.YES_NO_OPTION);
 		if (confirm != JOptionPane.YES_OPTION)
 			return;
+		isProcessingPayment = true;
 
 		long tongTienCuoiCung = 0;
 		for (VeEntry e : dsVe)
@@ -807,7 +853,11 @@ public class Step4_ThanhToan extends JPanel {
 			try (PreparedStatement psHD = conn.prepareStatement(sqlHD)) {
 			    psHD.setString(1, this.currentMaHD);
 			    psHD.setString(2, nv.getMaNV());
-			    psHD.setString(3, kh.getMaKH());
+			    if (isBlank(kh.getMaKH())) {
+			    	psHD.setNull(3, Types.VARCHAR);
+			    } else {
+			    	psHD.setString(3, kh.getMaKH());
+			    }
 			    psHD.setLong(4, tongTienCuoiCung);
 			    psHD.executeUpdate();
 			}
@@ -844,7 +894,12 @@ public class Step4_ThanhToan extends JPanel {
 
 					// INSERT VÀO BẢNG VE
 					psVe.setString(1, maVeReal);
-					psVe.setString(2, entry.ve.getKhachHang().getMaKH());
+					String maKHVe = (entry.ve.getKhachHang() != null) ? entry.ve.getKhachHang().getMaKH() : null;
+					if (isBlank(maKHVe)) {
+						psVe.setNull(2, Types.VARCHAR);
+					} else {
+						psVe.setString(2, maKHVe);
+					}
 					psVe.setString(3, maLT);
 					psVe.setString(4, maToa);
 					psVe.setString(5, viTri);
@@ -883,11 +938,22 @@ public class Step4_ThanhToan extends JPanel {
 			// COMMIT TOÀN BỘ DỮ LIỆU
 			conn.commit();
 
-			JOptionPane.showMessageDialog(this, "Thanh toán thành công! Mã Hóa Đơn: " + this.currentMaHD);
+			String printNote = "";
+			if (phuongThuc == PhuongThucThanhToan.TIEN_MAT) {
+				String printPath = inHoaDonTienMat();
+				if (printPath != null && !printPath.isEmpty()) {
+					printNote = "\nĐã lưu hóa đơn: " + printPath;
+				}
+			}
 
-			// Xóa dữ liệu tạm sau khi thành công
-			mainTab.getSelectedSeatsData().clear();
-			mainTab.nextStep();
+			JOptionPane.showMessageDialog(this,
+					"Thanh toán thành công! Mã Hóa Đơn: " + this.currentMaHD + printNote);
+
+			// Chuyển step sau khi dialog đóng để tránh cảm giác giật UI.
+			SwingUtilities.invokeLater(() -> {
+				mainTab.getSelectedSeatsData().clear();
+				mainTab.nextStep();
+			});
 
 		} catch (Exception ex) {
 			try {
@@ -896,14 +962,112 @@ public class Step4_ThanhToan extends JPanel {
 				rbe.printStackTrace();
 			}
 			ex.printStackTrace();
-			JOptionPane.showMessageDialog(this, "Lỗi thanh toán! Đã hoàn tác dữ liệu.\n" + ex.getMessage(), "Lỗi SQL",
-					JOptionPane.ERROR_MESSAGE);
+			String extra = "";
+			if (ex instanceof SQLException sqlEx) {
+				extra = "\nSQLState=" + sqlEx.getSQLState() + " | Code=" + sqlEx.getErrorCode();
+			}
+			JOptionPane.showMessageDialog(this,
+					"Lỗi thanh toán! Đã hoàn tác dữ liệu.\n" + getRootMessage(ex) + extra,
+					"Lỗi SQL", JOptionPane.ERROR_MESSAGE);
 		} finally {
 			try {
 				conn.setAutoCommit(true);
 			} catch (Exception ignored) {
 			}
+			isProcessingPayment = false;
 		}
+	}
+
+	private String validatePaymentData() {
+		if (isBlank(this.currentMaHD)) {
+			return "Chưa tạo được mã hóa đơn. Vui lòng quay lại bước trước và thử lại.";
+		}
+		if (nv == null || isBlank(nv.getMaNV())) {
+			return "Thiếu thông tin nhân viên đăng nhập. Vui lòng đăng nhập lại.";
+		}
+		if (!existsById("SELECT 1 FROM NhanVien WHERE maNV = ?", nv.getMaNV())) {
+			return "Mã nhân viên " + nv.getMaNV() + " không tồn tại trong CSDL.";
+		}
+		if (!isBlank(kh != null ? kh.getMaKH() : null)
+				&& !existsById("SELECT 1 FROM KhachHang WHERE maKH = ?", kh.getMaKH())) {
+			return "Khách hàng hóa đơn (" + kh.getMaKH() + ") không tồn tại trong CSDL.";
+		}
+
+		for (int i = 0; i < dsVe.size(); i++) {
+			VeEntry entry = dsVe.get(i);
+			if (entry == null || entry.ve == null) {
+				return "Dữ liệu vé thứ " + (i + 1) + " bị rỗng.";
+			}
+			Ve ve = entry.ve;
+			if (isBlank(ve.getMaVe())) {
+				return "Vé thứ " + (i + 1) + " chưa có mã vé.";
+			}
+			if (ve.getMaVe().length() > 20) {
+				return "Mã vé " + ve.getMaVe() + " vượt quá 20 ký tự.";
+			}
+			if (ve.getLichTrinh() == null || isBlank(ve.getLichTrinh().getMaLT())) {
+				return "Vé " + ve.getMaVe() + " chưa có mã lịch trình (maLT).";
+			}
+			if (!existsById("SELECT 1 FROM LichTrinh WHERE maLT = ?", ve.getLichTrinh().getMaLT())) {
+				return "Lịch trình " + ve.getLichTrinh().getMaLT() + " của vé " + ve.getMaVe() + " không tồn tại.";
+			}
+			if (ve.getToa() == null || isBlank(ve.getToa().getMaToa())) {
+				return "Vé " + ve.getMaVe() + " chưa có mã toa (maToa).";
+			}
+			if (!existsById("SELECT 1 FROM Toa WHERE maToa = ?", ve.getToa().getMaToa())) {
+				return "Toa " + ve.getToa().getMaToa() + " của vé " + ve.getMaVe() + " không tồn tại.";
+			}
+			if (isBlank(ve.getViTriGhe())) {
+				return "Vé " + ve.getMaVe() + " chưa có vị trí ghế.";
+			}
+			if (ve.getLoaiVe() == null || isBlank(ve.getLoaiVe().getMaLoai())) {
+				return "Vé " + ve.getMaVe() + " chưa có loại vé (maLoaiVe).";
+			}
+			if (!existsById("SELECT 1 FROM LoaiVe WHERE maLoai = ?", ve.getLoaiVe().getMaLoai())) {
+				return "Loại vé " + ve.getLoaiVe().getMaLoai() + " của vé " + ve.getMaVe() + " không tồn tại.";
+			}
+			String maKHVe = ve.getKhachHang() != null ? ve.getKhachHang().getMaKH() : null;
+			if (!isBlank(maKHVe) && !existsById("SELECT 1 FROM KhachHang WHERE maKH = ?", maKHVe)) {
+				return "Khách hàng " + maKHVe + " của vé " + ve.getMaVe() + " không tồn tại.";
+			}
+		}
+		return null;
+	}
+
+	private boolean existsById(String sql, String value) {
+		if (isBlank(value)) {
+			return false;
+		}
+		try (PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, value);
+			try (ResultSet rs = ps.executeQuery()) {
+				return rs.next();
+			}
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	private boolean isBlank(String s) {
+		return s == null || s.trim().isEmpty();
+	}
+
+	private String getRootMessage(Throwable t) {
+		Throwable root = t;
+		while (root.getCause() != null) {
+			root = root.getCause();
+		}
+		return root.getMessage() != null ? root.getMessage() : t.getMessage();
+	}
+
+	private String createMaHD() {
+		return "HD" + new SimpleDateFormat("yyMMddHHmmssSSS").format(new Date());
+	}
+
+	private String createMaVe(int counter) {
+		String stamp = (currentMaHD != null && currentMaHD.length() > 2) ? currentMaHD.substring(2)
+				: new SimpleDateFormat("yyMMddHHmmssSSS").format(new Date());
+		return "V" + stamp + String.format("%03d", counter);
 	}
 
 	// =========================================================================
@@ -1196,5 +1360,336 @@ public class Step4_ThanhToan extends JPanel {
 
 	private String formatTien(long amount) {
 		return FMT.format(amount) + " đ";
+	}
+
+	public String getCurrentMaHD() {
+		return currentMaHD;
+	}
+
+	public List<String> getCurrentMaVeList() {
+		List<String> list = new ArrayList<>();
+		for (VeEntry entry : dsVe) {
+			if (entry != null && entry.ve != null && entry.ve.getMaVe() != null) {
+				list.add(entry.ve.getMaVe());
+			}
+		}
+		return list;
+	}
+
+	private File getHoaDonOutputDir() {
+		File dir = new File(System.getProperty("user.dir"), "src/main/resources/HoaDon");
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
+		return dir;
+	}
+
+	private String inHoaDonTienMat() {
+		File outputDir = getHoaDonOutputDir();
+		File outFile = new File(outputDir, "HoaDon_" + this.currentMaHD + ".pdf");
+		String path = outFile.getAbsolutePath();
+
+		try {
+			Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
+			PdfWriter.getInstance(doc, new FileOutputStream(path));
+			doc.open();
+
+			final java.text.DecimalFormat dfPdf = new java.text.DecimalFormat("#,##0");
+			dfPdf.setDecimalFormatSymbols(new java.text.DecimalFormatSymbols(new java.util.Locale("vi", "VN")));
+
+			BaseFont bf;
+			try {
+				bf = BaseFont.createFont("C:/Windows/Fonts/arial.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+			} catch (Exception e) {
+				bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+			}
+
+			com.itextpdf.text.Font fS = new com.itextpdf.text.Font(bf, 7);
+			com.itextpdf.text.Font fN = new com.itextpdf.text.Font(bf, 9);
+			com.itextpdf.text.Font fB = new com.itextpdf.text.Font(bf, 9, com.itextpdf.text.Font.BOLD);
+			com.itextpdf.text.Font fT = new com.itextpdf.text.Font(bf, 14, com.itextpdf.text.Font.BOLD,
+					new BaseColor(0x1A, 0x5E, 0xAB));
+			com.itextpdf.text.Font fH = new com.itextpdf.text.Font(bf, 8, com.itextpdf.text.Font.BOLD, BaseColor.WHITE);
+			com.itextpdf.text.Font fC = new com.itextpdf.text.Font(bf, 8);
+			com.itextpdf.text.Font fIL = new com.itextpdf.text.Font(bf, 8, com.itextpdf.text.Font.BOLD);
+
+			String ngayLap = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
+			String tenNV = nv != null ? nv.getTenNV() : "-";
+			String tenKH = kh != null ? kh.getHoTen() : "Khách lẻ";
+
+			Paragraph pTop = new Paragraph("Đơn vị cung cấp: CÔNG TY CỔ PHẦN VẬN TẢI ĐƯỜNG SẮT VIỆT NAM", fS);
+			pTop.setAlignment(Element.ALIGN_CENTER);
+			doc.add(pTop);
+			doc.add(new Paragraph(" ", fS));
+
+			PdfPTable tT = new PdfPTable(new float[] { 2f, 5f, 2f });
+			tT.setWidthPercentage(100);
+			PdfPCell cL = new PdfPCell();
+			cL.setBorder(PdfPCell.NO_BORDER);
+			cL.addElement(new Paragraph("ĐƯỜNG SẮT\nVIỆT NAM",
+					new com.itextpdf.text.Font(bf, 10, com.itextpdf.text.Font.BOLD, new BaseColor(0x1A, 0x5E, 0xAB))));
+			tT.addCell(cL);
+
+			PdfPCell cC = new PdfPCell();
+			cC.setBorder(PdfPCell.NO_BORDER);
+			Paragraph ph = new Paragraph("HÓA ĐƠN GIÁ TRỊ GIA TĂNG", fT);
+			ph.setAlignment(Element.ALIGN_CENTER);
+			Paragraph pd = new Paragraph("Ngày " + ngayLap, fN);
+			pd.setAlignment(Element.ALIGN_CENTER);
+			cC.addElement(ph);
+			cC.addElement(pd);
+			tT.addCell(cC);
+
+			PdfPCell cR = new PdfPCell();
+			cR.setBorder(PdfPCell.NO_BORDER);
+			cR.addElement(new Paragraph("Ký hiệu: 1K23THK", fN));
+			cR.addElement(new Paragraph("Số: " + this.currentMaHD, fN));
+			tT.addCell(cR);
+			doc.add(tT);
+			doc.add(new LineSeparator(1f, 100f, BaseColor.LIGHT_GRAY, Element.ALIGN_CENTER, -2));
+			doc.add(new Paragraph(" ", fS));
+
+			addInfoLine(doc, "Đơn vị bán hàng:", "CÔNG TY CỔ PHẦN VẬN TẢI ĐƯỜNG SẮT VIỆT NAM", fIL, fN);
+			addInfoLine(doc, "MST:", "0100106264", fIL, fN);
+			addInfoLine(doc, "Nhân viên lập:", tenNV, fIL, fN);
+			doc.add(new Paragraph(" ", fS));
+			addInfoLine(doc, "Họ tên người mua:", tenKH, fIL, fN);
+			addInfoLine(doc, "Hình thức thanh toán:", " "
+					+ (phuongThuc == PhuongThucThanhToan.TIEN_MAT ? "Tiền mặt" : "Chuyển khoản"), fIL, fN);
+			doc.add(new Paragraph(" ", fS));
+
+			float[] colWidths = { 28f, 95f, 115f, 35f, 25f, 85f, 90f, 85f };
+			PdfPTable tI = new PdfPTable(colWidths);
+			tI.setWidthPercentage(100);
+			tI.setSpacingBefore(4);
+			BaseColor hBg = new BaseColor(0x1A, 0x5E, 0xAB);
+			for (String h : new String[] { "STT", "Mã vé", "Tên DV", "ĐVT", "SL", "Đơn giá", "Khuyến mãi", "Tổng" }) {
+				PdfPCell hc = new PdfPCell(new Phrase(h, fH));
+				hc.setBackgroundColor(hBg);
+				hc.setHorizontalAlignment(Element.ALIGN_CENTER);
+				hc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+				hc.setNoWrap(true);
+				hc.setPadding(5);
+				tI.addCell(hc);
+			}
+
+			double tongGoc = 0;
+			double tongGiam = 0;
+			double tongThanhTien = 0;
+			int stt = 1;
+
+			for (VeEntry entry : dsVe) {
+				Ve ve = entry.ve;
+				long tienGoc = entry.tienGoc();
+				long tienGiam = entry.tienGiam();
+				long thanhTien = entry.thanhTien();
+
+				tongGoc += tienGoc;
+				tongGiam += tienGiam;
+				tongThanhTien += thanhTien;
+
+				StringBuilder sbKM = new StringBuilder();
+				for (ChiTiet_KhuyenMai ct : entry.getChiTietKMSortedAndCalculated()) {
+					KhuyenMaiDetail km = ct.getKhuyenMaiDetail();
+					if (km == null)
+						continue;
+					if (sbKM.length() > 0)
+						sbKM.append("; ");
+					sbKM.append(formatKhuyenMaiPdf(km));
+				}
+
+				String loaiVe = ve.getLoaiVe() != null ? ve.getLoaiVe().getTenLoai() : "-";
+
+				addPdfCell(tI, String.valueOf(stt++), fC, Element.ALIGN_CENTER);
+				addPdfCell(tI, ve.getMaVe(), fC, Element.ALIGN_LEFT);
+				addPdfCell(tI, "Vé: " + loaiVe, fC, Element.ALIGN_LEFT);
+				addPdfCell(tI, "Vé", fC, Element.ALIGN_CENTER);
+				addPdfCell(tI, "1", fC, Element.ALIGN_CENTER);
+				addPdfCellNoWrap(tI, dfPdf.format((long) tienGoc) + " VNĐ", fC, Element.ALIGN_RIGHT);
+
+				if (tienGiam > 0) {
+					PdfPCell cKM = new PdfPCell();
+					cKM.setPadding(4);
+					com.itextpdf.text.Font fKMName = new com.itextpdf.text.Font(bf, 7f, com.itextpdf.text.Font.NORMAL,
+							BaseColor.DARK_GRAY);
+					com.itextpdf.text.Font fKMVal = new com.itextpdf.text.Font(bf, 8f, com.itextpdf.text.Font.BOLD,
+							new BaseColor(0x16, 0x63, 0x34));
+					if (sbKM.length() > 0) {
+						Paragraph pName = new Paragraph(sbKM.toString(), fKMName);
+						pName.setAlignment(Element.ALIGN_LEFT);
+						cKM.addElement(pName);
+					}
+					Paragraph pGiam = new Paragraph("-" + dfPdf.format((long) tienGiam) + " VNĐ", fKMVal);
+					pGiam.setAlignment(Element.ALIGN_RIGHT);
+					cKM.addElement(pGiam);
+					tI.addCell(cKM);
+				} else {
+					addPdfCell(tI, "-", fC, Element.ALIGN_CENTER);
+				}
+
+				addPdfCellNoWrap(tI, dfPdf.format((long) thanhTien) + " VNĐ", fC, Element.ALIGN_RIGHT);
+			}
+
+			doc.add(tI);
+
+			BaseColor sumBg = new BaseColor(0xF0, 0xF6, 0xFF);
+			com.itextpdf.text.Font fRed = new com.itextpdf.text.Font(bf, 9, com.itextpdf.text.Font.BOLD,
+					new BaseColor(0xDC, 0x26, 0x26));
+			com.itextpdf.text.Font fGreen = new com.itextpdf.text.Font(bf, 9, com.itextpdf.text.Font.BOLD,
+					new BaseColor(0x16, 0x63, 0x34));
+
+			PdfPTable tS = new PdfPTable(colWidths);
+			tS.setWidthPercentage(100);
+			PdfPCell cTL = new PdfPCell(new Phrase("Tổng cộng:", fB));
+			cTL.setColspan(5);
+			cTL.setBorder(PdfPCell.BOX);
+			cTL.setBackgroundColor(sumBg);
+			cTL.setPadding(5);
+			tS.addCell(cTL);
+			addSumCell(tS, dfPdf.format((long) tongGoc) + " VNĐ", fB, sumBg);
+			addSumCell(tS, tongGiam > 0 ? "-" + dfPdf.format((long) tongGiam) + " VNĐ" : "-", fGreen, sumBg);
+			addSumCell(tS, dfPdf.format((long) tongThanhTien) + " VNĐ", fRed, sumBg);
+			doc.add(tS);
+
+			doc.add(new Paragraph(" ", fS));
+			doc.add(new Paragraph("Số tiền bằng chữ: " + docSoTienBangChu((long) tongThanhTien), fB));
+			doc.add(new Paragraph(" ", fS));
+
+			PdfPTable tSign = new PdfPTable(2);
+			tSign.setWidthPercentage(100);
+			tSign.setSpacingBefore(10);
+			PdfPCell cM = new PdfPCell();
+			cM.setBorder(PdfPCell.NO_BORDER);
+			Paragraph pM = new Paragraph("Người mua hàng\n(Ký, ghi rõ họ tên)", fN);
+			pM.setAlignment(Element.ALIGN_CENTER);
+			cM.addElement(pM);
+			PdfPCell cBn = new PdfPCell();
+			cBn.setBorder(PdfPCell.NO_BORDER);
+			Paragraph pBn = new Paragraph("Người bán hàng\n(Ký, ghi rõ họ tên)", fN);
+			pBn.setAlignment(Element.ALIGN_CENTER);
+			cBn.addElement(pBn);
+			tSign.addCell(cM);
+			tSign.addCell(cBn);
+			doc.add(tSign);
+			doc.add(new Paragraph("Mã tra cứu: " + this.currentMaHD, fS));
+			doc.close();
+
+			return path;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private void addInfoLine(Document doc, String lbl, String val, com.itextpdf.text.Font fL, com.itextpdf.text.Font fV)
+			throws DocumentException {
+		Paragraph p = new Paragraph();
+		p.add(new Chunk(lbl + " ", fL));
+		p.add(new Chunk(val, fV));
+		p.setSpacingBefore(2);
+		doc.add(p);
+	}
+
+	private void addPdfCell(PdfPTable t, String text, com.itextpdf.text.Font f, int align) {
+		PdfPCell c = new PdfPCell(new Phrase(text, f));
+		c.setHorizontalAlignment(align);
+		c.setPadding(4);
+		t.addCell(c);
+	}
+
+	private void addPdfCellNoWrap(PdfPTable t, String txt, com.itextpdf.text.Font f, int align) {
+		PdfPCell c = new PdfPCell(new Phrase(txt, f));
+		c.setHorizontalAlignment(align);
+		c.setPadding(4);
+		c.setNoWrap(true);
+		t.addCell(c);
+	}
+
+	private void addSumCell(PdfPTable t, String txt, com.itextpdf.text.Font f, BaseColor bg) {
+		PdfPCell c = new PdfPCell(new Phrase(txt, f));
+		c.setHorizontalAlignment(Element.ALIGN_RIGHT);
+		c.setPadding(5);
+		c.setNoWrap(true);
+		c.setBackgroundColor(bg);
+		t.addCell(c);
+	}
+
+	private String formatKhuyenMaiPdf(KhuyenMaiDetail km) {
+		String tenKM = km.getKhuyenMai() != null ? km.getKhuyenMai().getTenKM() : km.getMaKMDetail();
+		if (km.getLoaiKM() == LoaiKhuyenMai.GIAM_PHAN_TRAM) {
+			return tenKM + " (" + String.format("%.0f%%", km.getGiaTri()) + ")";
+		}
+		return tenKM;
+	}
+
+	private String docSoTienBangChu(long so) {
+		if (so == 0)
+			return "không đồng";
+		if (so < 0)
+			return "âm " + docSoTienBangChu(-so);
+
+		String[] donvi = { "", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín" };
+		String[] hanguc = { "", "nghìn", "triệu", "tỷ" };
+
+		java.util.List<Integer> nhom = new java.util.ArrayList<>();
+		long tmp = so;
+		while (tmp > 0) {
+			nhom.add((int) (tmp % 1000));
+			tmp /= 1000;
+		}
+
+		StringBuilder sb = new StringBuilder();
+		for (int i = nhom.size() - 1; i >= 0; i--) {
+			int n = nhom.get(i);
+			if (n == 0)
+				continue;
+			String chu = docNhom(n, donvi);
+			if (sb.length() > 0)
+				sb.append(" ");
+			sb.append(chu);
+			if (!hanguc[i].isEmpty())
+				sb.append(" ").append(hanguc[i]);
+		}
+
+		String result = sb.toString().trim();
+		if (!result.isEmpty()) {
+			result = Character.toUpperCase(result.charAt(0)) + result.substring(1);
+		}
+		return result + " đồng";
+	}
+
+	private String docNhom(int n, String[] donvi) {
+		int tram = n / 100;
+		int chuc = (n % 100) / 10;
+		int dvi = n % 10;
+		StringBuilder sb = new StringBuilder();
+		if (tram > 0) {
+			sb.append(donvi[tram]).append(" trăm");
+			if (chuc == 0 && dvi > 0)
+				sb.append(" linh");
+		}
+		if (chuc > 1) {
+			if (sb.length() > 0)
+				sb.append(" ");
+			sb.append(donvi[chuc]).append(" mươi");
+			if (dvi == 1)
+				sb.append(" mốt");
+			else if (dvi == 5)
+				sb.append(" lăm");
+			else if (dvi > 0)
+				sb.append(" ").append(donvi[dvi]);
+		} else if (chuc == 1) {
+			if (sb.length() > 0)
+				sb.append(" ");
+			sb.append("mười");
+			if (dvi == 5)
+				sb.append(" lăm");
+			else if (dvi > 0)
+				sb.append(" ").append(donvi[dvi]);
+		} else if (dvi > 0) {
+			if (sb.length() > 0)
+				sb.append(" ");
+			sb.append(donvi[dvi]);
+		}
+		return sb.toString();
 	}
 }

@@ -259,4 +259,26 @@ public class Step1_TimKiem extends JPanel {
         editor.addFocusListener(new java.awt.event.FocusAdapter() { public void focusGained(java.awt.event.FocusEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
         editor.addMouseListener(new java.awt.event.MouseAdapter() { public void mousePressed(java.awt.event.MouseEvent e) { SwingUtilities.invokeLater(editor::selectAll); }});
     }
+
+    public void resetForm() {
+        resetComboToFirstItem(cbNoiDi);
+        resetComboToFirstItem(cbNoiDen);
+
+        rdoMotChieu.setSelected(true);
+
+        String homNay = new SimpleDateFormat(UIHelper.DATE_FMT).format(new Date());
+        dpNgayDi.setDate(homNay);
+        dpNgayVe.setDate(homNay);
+        dpNgayVe.setEnabledField(false);
+    }
+
+    private void resetComboToFirstItem(JComboBox<String> cb) {
+        if (cb == null || cb.getItemCount() == 0) return;
+        String first = cb.getItemAt(0);
+        cb.setSelectedItem(first);
+        if (cb.isEditable()) {
+            JTextField editor = (JTextField) cb.getEditor().getEditorComponent();
+            editor.setText(first);
+        }
+    }
 }

@@ -116,6 +116,10 @@ public class TAB_BanVe extends JPanel {
 		return step2;
 	}
 
+	public Step4_ThanhToan getStep4() {
+		return step4;
+	}
+
 	// =========================================================================
 	// QUẢN LÝ DATABASE TRẠNG THÁI GHẾ (GIỮ CHỖ / GIẢI PHÓNG)
 	// =========================================================================
@@ -168,6 +172,9 @@ public class TAB_BanVe extends JPanel {
 		currentStep = 0;
 		selectedSeatsData.clear();
 		passengerDataMap.clear();
+		if (step1 != null) {
+			step1.resetForm();
+		}
 		switchCard();
 	}
 
@@ -248,12 +255,7 @@ public class TAB_BanVe extends JPanel {
 
 	private void prevStep() {
 		if (currentStep > 0) {
-			// [QUAN TRỌNG]: Nếu đang ở Bước Nhập Thông Tin mà bấm Quay Lại -> Bỏ giữ chỗ
-			if (currentStep == 2) {
-				updateSeatsStatusDB("TRONG", "GIUCHO");
-				if (holdTimer != null)
-					holdTimer.stop();
-			}
+			// Quay lại từ Step3 về Step2 thì giữ nguyên ghế đang GIUCHO để người dùng tiếp tục.
 
 			currentStep--;
 			switchCard();
@@ -271,9 +273,11 @@ public class TAB_BanVe extends JPanel {
 		} else if (currentStep == 1) {
 			btnNext.setVisible(true);
 			btnNext.setText("Tiếp tục");
+			btnNext.setEnabled(!selectedSeatsData.isEmpty());
 		} else if (currentStep == 2) {
 			btnNext.setVisible(true);
 			btnNext.setText("Chuyển đến Thanh toán");
+			btnNext.setEnabled(step3 != null && step3.isAllPassengersFilled());
 		} else if (currentStep == 3 || currentStep == 4) {
 			// Màn hình Thanh toán và Thành công không dùng nút Tiếp tục chung này nữa
 			btnNext.setVisible(false);
