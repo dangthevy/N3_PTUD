@@ -1037,7 +1037,10 @@ public class TAB_Gia extends JPanel {
     }
 
     // =========================================================================
-    // DIALOG CẬP NHẬT GIA DETAIL
+    // DIALOG CẬP NHẬT GIA DETAIL — Auto-versioning thông minh
+    // Nếu bảng giá đã có vé bán:
+    //   - Lần sửa đầu → clone bảng giá, đóng bảng cũ
+    //   - Các lần sửa tiếp → update trực tiếp bảng clone (chưa có vé)
     // =========================================================================
     private void openUpdateDetailDialog() {
         int row = tblGD.getSelectedRow();
@@ -1063,10 +1066,10 @@ public class TAB_Gia extends JPanel {
         addRow(form, gc, r++, "Tuyến:",     txtTuyen);
         addRow(form, gc, r,   "Giá (VND):", txtGia);
 
-        // Đọc mã raw từ cột ẩn (index mới: 3, 4)
         String maToa      = modelGD.getValueAt(row, 3).toString();
         String maTuyenSel = modelGD.getValueAt(row, 4).toString();
-        String maGiaHdr   = modelGH.getValueAt(tblGH.getSelectedRow(), 0).toString();
+        int ghRow = tblGH.getSelectedRow();
+        String maGiaHdr   = modelGH.getValueAt(ghRow, 0).toString();
 
         final int selRow = row;
         JButton btnLuu = makeBtn("Cập nhật", BtnStyle.PRIMARY);
@@ -1082,35 +1085,177 @@ public class TAB_Gia extends JPanel {
             if (giaVal <= 0) { warn("Giá vé phải lớn hơn 0!"); return; }
             if (giaVal > 100_000_000) { warn("Giá vé vượt quá giới hạn cho phép (100 triệu VND)."); return; }
 
-            // Nếu giá không đổi → không làm gì
             long giaCu;
             try { giaCu = Long.parseLong(giaHienTai.replaceAll("[^0-9]", "")); }
             catch (Exception ex) { giaCu = 0; }
             if (giaVal == giaCu) { dlg.dispose(); return; }
 
-            // --- Cảnh báo nếu đã có vé bán ---
-            int soVeTong = demSoVeDungChiTietGia(maGiaHdr, maToa, maTuyenSel);
-            if (soVeTong > 0) {
-                int choice = JOptionPane.showConfirmDialog(dlg,
-                        "<html><b>⚠ Cảnh báo: Đã có " + soVeTong + " vé được bán với giá cũ!</b><br><br>"
-                                + "Nếu sửa giá, thống kê doanh thu sẽ bị sai lệch vì các<br>"
-                                + "hóa đơn cũ vẫn tính theo giá cũ.<br><br>"
-                                + "<b>Khuyến nghị:</b> Tạo bảng giá MỚI thay vì sửa.<br><br>"
-                                + "Bạn vẫn muốn ghi đè giá cũ?</html>",
-                        "Xác nhận ghi đè giá",
-                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-                if (choice != JOptionPane.YES_OPTION) return;
-            }
+            int soVe = demSoVeDungBangGia(maGiaHdr);
 
-            // --- Update (chỉ 1 dòng theo PK mới) ---
-            if (daoGia.updateDetail(maGiaHdr, maToa, maTuyenSel, giaVal)) {
-                modelGD.setValueAt(formatGia(giaVal), selRow, 2);
-                dlg.dispose();
+            if (soVe == 0) {
+                // ── Chưa có vé bán → sửa trực tiếp ──
+                if (daoGia.updateDetail(maGiaHdr, maToa, maTuyenSel, giaVal)) {
+                    modelGD.setValueAt(formatGia(giaVal), selRow, 2);
+                    dlg.dispose();
+                } else {
+                    warn("Lỗi khi cập nhật database!");
+                }
             } else {
-                warn("Lỗi khi cập nhật database!");
+                // ── Đã có vé → auto-versioning ──
+                // Hỏi user chọn ngày áp dụng giá mới
+                java.time.LocalDate tomorrow = java.time.LocalDate.now().plusDays(1);
+                DatePickerField dpApDung = new DatePickerField(formatNgay(tomorrow.toString()));
+
+                JPanel pnlChonNgay = new JPanel(new BorderLayout(8, 8));
+                pnlChonNgay.setOpaque(false);
+                pnlChonNgay.add(new JLabel("<html>Đã có <b>" + soVe + "</b> vé bán theo bảng giá này.<br><br>"
+                        + "Chọn <b>ngày áp dụng</b> giá mới:<br>"
+                        + "<i>(Bảng giá cũ sẽ kết thúc vào ngày trước đó)</i></html>"), BorderLayout.NORTH);
+                pnlChonNgay.add(dpApDung, BorderLayout.CENTER);
+
+                int choice = JOptionPane.showConfirmDialog(dlg, pnlChonNgay,
+                        "Tạo phiên bản giá mới",
+                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                if (choice != JOptionPane.OK_OPTION) return;
+
+                String ngayApDungDisp = dpApDung.getDate().trim();
+                if (ngayApDungDisp.isEmpty()) { warn("Vui lòng chọn ngày áp dụng."); return; }
+
+                java.time.LocalDate ngayApDung;
+                try {
+                    ngayApDung = java.time.LocalDate.parse(toDbDate(ngayApDungDisp));
+                } catch (Exception ex) { warn("Ngày áp dụng không hợp lệ!"); return; }
+
+                if (!ngayApDung.isAfter(java.time.LocalDate.now())) {
+                    warn("Ngày áp dụng phải sau hôm nay!"); return;
+                }
+
+                // Kiểm tra đã có clone cho ngày này chưa
+                String maGiaClone = timBangGiaClone(maGiaHdr, ngayApDung);
+
+                if (maGiaClone != null) {
+                    // Đã có clone → update trực tiếp
+                    if (daoGia.updateDetail(maGiaClone, maToa, maTuyenSel, giaVal)) {
+                        loadFromDB();
+                        selectBangGia(maGiaClone);
+                        dlg.dispose();
+                    } else {
+                        warn("Lỗi khi cập nhật bảng giá mới!");
+                    }
+                } else {
+                    // Chưa có clone → tạo mới
+                    String maNew = cloneBangGia(maGiaHdr, maToa, maTuyenSel, giaVal, ngayApDung);
+                    if (maNew != null) {
+                        loadFromDB();
+                        selectBangGia(maNew);
+                        dlg.dispose();
+                        JOptionPane.showMessageDialog(TAB_Gia.this,
+                                "Đã tạo bảng giá mới thành công!\n" +
+                                        "Giá mới áp dụng từ " + ngayApDungDisp + ".\n" +
+                                        "Bảng giá cũ kết thúc vào " + formatNgay(ngayApDung.minusDays(1).toString()) + ".\n" +
+                                        "Bạn có thể tiếp tục sửa các dòng khác trong bảng mới.",
+                                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        warn("Lỗi khi tạo phiên bản mới!");
+                    }
+                }
             }
         });
         showDlg(dlg, form, btnLuu);
+    }
+
+    /**
+     * Tìm bảng giá clone đã được tạo cho ngày áp dụng chỉ định (chưa có vé bán).
+     * @param ngayApDung ngày áp dụng cần tìm
+     * @return maGia của bảng clone, hoặc null nếu chưa có
+     */
+    private String timBangGiaClone(String maGiaGoc, java.time.LocalDate ngayApDung) {
+        String sql = "SELECT gh.maGia FROM GiaHeader gh " +
+                "WHERE gh.ngayApDung = ? " +
+                "AND gh.moTa LIKE ? " +
+                "AND NOT EXISTS (SELECT 1 FROM Ve v " +
+                "  JOIN LichTrinh lt ON v.maLT = lt.maLT " +
+                "  JOIN GiaHeader gh2 ON gh2.maLT = lt.maLT " +
+                "  WHERE gh2.maGia = gh.maGia)";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, ngayApDung.toString());
+            ps.setString(2, "%(cập nhật%");
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getString("maGia");
+        } catch (Exception e) { e.printStackTrace(); }
+        return null;
+    }
+
+    /**
+     * Clone bảng giá: đóng bảng cũ → tạo mới → copy detail + áp giá mới.
+     * @param ngayApDung ngày áp dụng bảng giá mới (user chọn)
+     * @return maGia mới, hoặc null nếu lỗi
+     */
+    private String cloneBangGia(String maGiaCu, String maToaSua,
+                                String maTuyenSua, long giaMoi,
+                                java.time.LocalDate ngayApDung) {
+        try {
+            String moTaCu = null, denRawCu = null;
+            for (int i = 0; i < modelGH.getRowCount(); i++) {
+                if (modelGH.getValueAt(i, 0).toString().equals(maGiaCu)) {
+                    moTaCu   = modelGH.getValueAt(i, 1).toString();
+                    denRawCu = modelGH.getValueAt(i, 5).toString();
+                    break;
+                }
+            }
+            if (moTaCu == null) return null;
+
+            // Ngày kết thúc bảng cũ = ngày trước ngày áp dụng mới
+            java.time.LocalDate ngayDongCu = ngayApDung.minusDays(1);
+
+            // Ngày kết thúc bảng mới: giữ nguyên từ bảng cũ (nếu > ngày áp dụng)
+            java.time.LocalDate denCu;
+            try { denCu = java.time.LocalDate.parse(denRawCu); }
+            catch (Exception ex) { denCu = ngayApDung.plusYears(1); }
+            java.time.LocalDate denMoi = denCu.isAfter(ngayApDung) ? denCu : ngayApDung.plusMonths(6);
+
+            // 1. Đóng bảng giá cũ: ngayKetThuc = ngày trước ngày áp dụng mới
+            try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                         "UPDATE GiaHeader SET ngayKetThuc = ? WHERE maGia = ?")) {
+                ps.setString(1, ngayDongCu.toString());
+                ps.setString(2, maGiaCu);
+                ps.executeUpdate();
+            }
+
+            // 2. Tạo bảng giá mới
+            String maGiaMoi = genMaGia();
+            String moTaMoi  = moTaCu.replaceAll("\\s*\\(cập nhật.*\\)", "")
+                    + " (cập nhật " + formatNgay(ngayApDung.toString()) + ")";
+            if (!daoGia.insertHeader(maGiaMoi, moTaMoi, ngayApDung.toString(), denMoi.toString()))
+                return null;
+
+            // 3. Clone detail, thay giá dòng đang sửa
+            List<GiaDetailRow> dsCu = daoGia.getDetailByMaGia(maGiaCu);
+            for (GiaDetailRow d : dsCu) {
+                long gia = d.gia;
+                if (d.maLoaiToa.equals(maToaSua) && d.maTuyen.equals(maTuyenSua)) {
+                    gia = giaMoi;
+                }
+                daoGia.insertDetail(maGiaMoi, d.maLoaiToa, d.maTuyen, gia);
+            }
+            return maGiaMoi;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /** Chọn bảng giá theo maGia trong tblGH */
+    private void selectBangGia(String maGia) {
+        for (int i = 0; i < modelGH.getRowCount(); i++) {
+            if (modelGH.getValueAt(i, 0).toString().equals(maGia)) {
+                tblGH.setRowSelectionInterval(i, i);
+                tblGH.scrollRectToVisible(tblGH.getCellRect(i, 0, true));
+                break;
+            }
+        }
     }
 
     // =========================================================================

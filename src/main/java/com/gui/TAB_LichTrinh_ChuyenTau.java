@@ -14,7 +14,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.LineBorder;
@@ -24,12 +23,10 @@ import javax.swing.table.TableRowSorter;
 
 /**
  * Tab Quản lý Lịch trình & Chuyến tàu
- *
  * Quy tắc mã:
  *  - maChuyen : CT + XXXX    (CT01 → CT9999, tự động sinh, chỉ tăng khi xác nhận)
  *  - maTuyen  : T + XXXX        ( 5 ký tự, tự động sinh, chỉ tăng khi xác nhận)
  *  - maLT     : LT + XXXX       ( 6 ký tự, tự động sinh, chỉ tăng khi xác nhận)
- *
  * Nghiệp vụ:
  *  - 1 maChuyen ↔ 1 maLT
  *  - 2 maChuyen khác nhau có thể dùng cùng maTau
@@ -1150,16 +1147,22 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JComboBox<String> cbTuyen = makeCombo(tenTuyenArr.length > 0 ? tenTuyenArr :
                 new String[]{"Hà Nội - Sài Gòn", "Hà Nội - Đà Nẵng", "Sài Gòn - Hà Nội"});
 
-        // Hàm cập nhật tên chuyến tự động: MaTau + " - " + TenTuyen
+        // Hàm cập nhật tên chuyến tự động: TênTàu + " - " + TênTuyến
         Runnable updateTenChuyen = () -> {
             Object selTau = cbMaTau.getSelectedItem();
             String maTauStr = selTau != null ? selTau.toString().trim() : "";
-            // Tên chuyến = tên tàu (lấy từ DB), không kèm tuyến
             String tenTauDB = getTenTauFromDB(maTauStr);
-            if (!maTauStr.isEmpty()) {
-                txtTenChuyen.setText(tenTauDB.isEmpty() ? maTauStr : tenTauDB);
+            String tenTau = tenTauDB.isEmpty() ? maTauStr : tenTauDB;
+
+            Object selTuyen = cbTuyen.getSelectedItem();
+            String tenTuyenChon = selTuyen != null ? selTuyen.toString().trim() : "";
+
+            if (!maTauStr.isEmpty() && !tenTuyenChon.isEmpty()) {
+                txtTenChuyen.setText(tenTau + " - " + tenTuyenChon);
+            } else if (!maTauStr.isEmpty()) {
+                txtTenChuyen.setText(tenTau);
             } else {
-                txtTenChuyen.setText("(tự sinh theo mã tàu)");
+                txtTenChuyen.setText("(tự sinh theo mã tàu + tuyến)");
             }
         };
         // Listener sẽ được gắn trong phần form bên dưới (kèm updateHint)
@@ -1263,9 +1266,11 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
             String tenChuyen = txtTenChuyen.getText().trim();
             if (tenChuyen.startsWith("(") || tenChuyen.isEmpty()) {
-                // Tên chuyến = tên tàu (không kèm tuyến)
+                // Tên chuyến = tên tàu + " - " + tên tuyến
                 String tenTauFallback = getTenTauFromDB(maTau);
-                tenChuyen = tenTauFallback.isEmpty() ? maTau : tenTauFallback;
+                String tenTuyenFallback = cbTuyen.getSelectedItem() != null ? cbTuyen.getSelectedItem().toString() : "";
+                String tenTauPart = tenTauFallback.isEmpty() ? maTau : tenTauFallback;
+                tenChuyen = tenTuyenFallback.isEmpty() ? tenTauPart : tenTauPart + " - " + tenTuyenFallback;
             }
 
             String maChuyen = nextMaChuyen();
@@ -1330,6 +1335,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JTextField txtMaTuyen   = roField(maTuyen);
         JTextField txtMaLT      = roField(maLT);
 
+        // Trạng thái chuyến tàu (readonly, lấy từ cột 2 modelCT)
+        String ttHienTai = modelCT.getValueAt(row, 2).toString();
+        JLabel lblTTChuyen = new JLabel(ttHienTai);
+        lblTTChuyen.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblTTChuyen.setForeground(HOAT_DONG.equals(ttHienTai) ? new Color(0x22C55E) : new Color(0xEF4444));
+
         // Tuyến: load từ DB thật
         String[][] dsTuyen = getDanhSachTuyen();
         String[] tenTuyenArr2 = new String[dsTuyen.length];
@@ -1347,9 +1358,14 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         // Hàm cập nhật tên chuyến tự động: MaTau + " - " + TenTuyen
         Runnable updateTenChuyenUpd = () -> {
             String maTauStr = txtMaTau.getText().trim();
-            if (!maTauStr.isEmpty()) {
-                String tenTauDB = getTenTauFromDB(maTauStr);
-                txtTenChuyen.setText(tenTauDB.isEmpty() ? maTauStr : tenTauDB);
+            String tenTauDB = getTenTauFromDB(maTauStr);
+            String tenTauPart = tenTauDB.isEmpty() ? maTauStr : tenTauDB;
+            Object selTuyen = cbTuyen.getSelectedItem();
+            String tenTuyenPart = selTuyen != null ? selTuyen.toString().trim() : "";
+            if (!maTauStr.isEmpty() && !tenTuyenPart.isEmpty()) {
+                txtTenChuyen.setText(tenTauPart + " - " + tenTuyenPart);
+            } else if (!maTauStr.isEmpty()) {
+                txtTenChuyen.setText(tenTauPart);
             }
         };
 
@@ -1370,6 +1386,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         addSep(form, gc, r++, "Thông tin Chuyến tàu", ACCENT);
         addRow(form, gc, r++, "Mã tàu *:",    txtMaTau);
         addRow(form, gc, r++, "Tuyến *:",      cbTuyen);
+        addRow(form, gc, r++, "Trạng thái:",   lblTTChuyen);
         addRow(form, gc, r++, "Ngày đến:", lblNgayDenUpd);
 
         // Hiện tên chuyến như hint nhỏ
@@ -2143,9 +2160,14 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         try {
             List<Tau> ds = daoTau.getAllTau();
             if (ds == null || ds.isEmpty()) return new String[]{};
-            String[] arr = new String[ds.size()];
-            for (int i = 0; i < ds.size(); i++) arr[i] = ds.get(i).getMaTau();
-            return arr;
+            // Chỉ lấy tàu đang HOẠT ĐỘNG — không lấy tàu bảo trì/ngưng hoạt động
+            java.util.List<String> filtered = new java.util.ArrayList<>();
+            for (Tau t : ds) {
+                if ("HOATDONG".equals(t.getTrangThaiTau().name())) {
+                    filtered.add(t.getMaTau());
+                }
+            }
+            return filtered.toArray(new String[0]);
         } catch (Exception e) {
             e.printStackTrace();
             return new String[]{};
@@ -2802,9 +2824,5 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         }
 
         public String getDate() { return txt.getText(); }
-        public void resetDate() {
-            cal.setTime(new Date());
-            txt.setText("");
-        }
     }
 }

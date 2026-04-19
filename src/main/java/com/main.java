@@ -20,7 +20,7 @@ public class main {
 			frame.pack();
 			frame.setLocationRelativeTo(null); // Giữa màn hình
 			frame.setResizable(false);
-			frame.setVisible(true); // Hiển thị lên!
+			frame.setVisible(true); // Hivaển thị lên!
 		});
 	}
 }
