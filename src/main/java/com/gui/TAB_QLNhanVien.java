@@ -18,6 +18,8 @@ import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.sql.Connection;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -270,24 +272,16 @@ public class TAB_QLNhanVien extends JPanel {
         dialog.getContentPane().setBackground(BG_CARD);
 
         // ===== FIELDS =====
-        JTextField txtName     = makeField("Tên");
-        JTextField txtSDT      = makeField("SĐT");
-        JTextField txtEmail    = makeField("Email");
-        JTextField txtTaiKhoan = makeField("Tài khoản");
+        JTextField txtName     = makeUnderlineField("Tên");
+        JTextField txtSDT      = makeUnderlineField("SĐT");
+        JTextField txtEmail    = makeUnderlineField("Email");
+        JTextField txtTaiKhoan = makeUnderlineField("Tài khoản");
 
-        // [SỬA] Dùng JPasswordField thay vì JTextField để che mật khẩu
-        JPasswordField txtPassword = makePasswordField();
+        JPasswordField txtNewPassword = makeUnderlinePasswordField("Mật khẩu mới");
+        JPasswordField txtConfirmPassword = makeUnderlinePasswordField("Xác nhận mật khẩu");
+        JPanel pnlNewPassword = makeUnderlinePasswordWrapper(txtNewPassword);
+        JPanel pnlConfirmPassword = makeUnderlinePasswordWrapper(txtConfirmPassword);
 
-        // [THÊM MỚI] Nút toggle hiện/ẩn mật khẩu
-        JButton btnTogglePwd = makeTogglePasswordBtn(txtPassword);
-
-        // [THÊM MỚI] Wrapper gộp JPasswordField + nút toggle vào cùng 1 row
-        JPanel pwdWrapper = new JPanel(new BorderLayout(0, 0));
-        pwdWrapper.setOpaque(false);
-        pwdWrapper.add(txtPassword, BorderLayout.CENTER);
-        pwdWrapper.add(btnTogglePwd, BorderLayout.EAST);
-
-        // [SỬA] Dùng makeStyledComboBox thay vì new JComboBox trực tiếp
         JComboBox<ChucVu> cbChucVu = makeStyledComboBox(ChucVu.getWithoutAdmin());
         cbChucVu.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel());
@@ -298,7 +292,6 @@ public class TAB_QLNhanVien extends JPanel {
             return lbl;
         });
 
-        // [SỬA] Dùng makeStyledComboBox thay vì new JComboBox trực tiếp
         JComboBox<TrangThaiNhanVien> cbStatus = makeStyledComboBox(TrangThaiNhanVien.values());
         cbStatus.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             JLabel lbl = new JLabel(value.getLabel());
@@ -309,16 +302,16 @@ public class TAB_QLNhanVien extends JPanel {
             return lbl;
         });
 
-        // [SỬA] Dùng makeStyledDateChooser thay vì new JDateChooser trực tiếp
         dateVaoLam = makeStyledDateChooser();
         dateVaoLam.setDate(new Date());
 
         // ===== ERROR LABELS =====
-        JLabel errName     = makeErrorLabel();
-        JLabel errSDT      = makeErrorLabel();
-        JLabel errEmail    = makeErrorLabel();
-        JLabel errTaiKhoan = makeErrorLabel();
-        JLabel errPassword = makeErrorLabel();
+        JLabel errName            = makeErrorLabel();
+        JLabel errSDT             = makeErrorLabel();
+        JLabel errEmail           = makeErrorLabel();
+        JLabel errTaiKhoan        = makeErrorLabel();
+        JLabel errNewPassword     = makeErrorLabel();
+        JLabel errConfirmPassword = makeErrorLabel();
 
         // ===== LOAD DATA nếu EDIT =====
         if (isEdit) {
@@ -326,26 +319,25 @@ public class TAB_QLNhanVien extends JPanel {
             txtSDT.setText(nv.getSdt());
             txtEmail.setText(nv.getEmail());
             txtTaiKhoan.setText(nv.getTaiKhoan());
-            // [SỬA] dùng setText của JPasswordField
-            txtPassword.setText(nv.getMatKhau());
             cbChucVu.setSelectedItem(nv.getChucVu());
             cbStatus.setSelectedItem(nv.getTrangThai());
             dateVaoLam.setDate(nv.getNgayVaoLam());
         }
 
-        // ===== BUTTON =====
         JButton btnSave = makeBtn(isEdit ? "Cập nhật" : "Lưu", BtnStyle.PRIMARY);
         btnSave.setEnabled(isEdit);
 
-        // ===== VALIDATION – bind từng field, JPasswordField dùng bindPasswordValidation =====
-        bindFieldValidation(txtName,     errName,     btnSave, () -> validateName(txtName,         errName), errName, errSDT, errEmail, errTaiKhoan, errPassword);
-        bindFieldValidation(txtSDT,      errSDT,      btnSave, () -> validateSDT(txtSDT,           errSDT),  errName, errSDT, errEmail, errTaiKhoan, errPassword);
-        bindFieldValidation(txtEmail,    errEmail,    btnSave, () -> validateEmail(txtEmail,        errEmail),errName, errSDT, errEmail, errTaiKhoan, errPassword);
-        bindFieldValidation(txtTaiKhoan, errTaiKhoan, btnSave, () -> validateTaiKhoan(txtTaiKhoan, errTaiKhoan), errName, errSDT, errEmail, errTaiKhoan, errPassword);
-        // [SỬA] bindPasswordValidation cho JPasswordField
-        bindPasswordValidation(txtPassword, errPassword, btnSave, () -> validatePasswordField(txtPassword, errPassword), errName, errSDT, errEmail, errTaiKhoan, errPassword);
+        bindFieldValidation(txtName,     errName,     btnSave, () -> validateName(txtName, errName), errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
+        bindFieldValidation(txtSDT,      errSDT,      btnSave, () -> validateSDT(txtSDT, errSDT), errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
+        bindFieldValidation(txtEmail,    errEmail,    btnSave, () -> validateEmail(txtEmail, errEmail), errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
+        bindFieldValidation(txtTaiKhoan, errTaiKhoan, btnSave, () -> validateTaiKhoan(txtTaiKhoan, errTaiKhoan), errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
+        bindPasswordValidation(txtNewPassword, errNewPassword, btnSave,
+                () -> validateNewPasswordField(txtNewPassword, txtConfirmPassword, errNewPassword, errConfirmPassword, isEdit),
+                errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
+        bindPasswordValidation(txtConfirmPassword, errConfirmPassword, btnSave,
+                () -> validateConfirmPasswordField(txtNewPassword, txtConfirmPassword, errNewPassword, errConfirmPassword, isEdit),
+                errName, errSDT, errEmail, errTaiKhoan, errNewPassword, errConfirmPassword);
 
-        // ===== FORM – GridBagLayout =====
         JPanel form = new JPanel(new GridBagLayout());
         form.setBackground(BG_CARD);
         form.setBorder(BorderFactory.createEmptyBorder(20, 24, 10, 24));
@@ -355,34 +347,37 @@ public class TAB_QLNhanVien extends JPanel {
         gc.insets = new Insets(4, 6, 0, 6);
 
         int row = 0;
-        row = addFormRow(form, gc, row, "Tên",       txtName,     errName);
-        row = addFormRow(form, gc, row, "SĐT",       txtSDT,      errSDT);
-        row = addFormRow(form, gc, row, "Email",     txtEmail,    errEmail);
+        row = addFormRow(form, gc, row, "Tên", txtName, errName);
+        row = addFormRow(form, gc, row, "SĐT", txtSDT, errSDT);
+        row = addFormRow(form, gc, row, "Email", txtEmail, errEmail);
         row = addFormRow(form, gc, row, "Tài khoản", txtTaiKhoan, errTaiKhoan);
-        // [SỬA] truyền pwdWrapper (chứa cả field + toggle btn) vào form
-        row = addFormRow(form, gc, row, "Mật khẩu",  pwdWrapper,  errPassword);
-
-        row = addFormRowSimple(form, gc, row, "Chức vụ",      cbChucVu);
-        row = addFormRowSimple(form, gc, row, "Trạng thái",   cbStatus);
+        row = addFormRow(form, gc, row, "Mật khẩu mới", pnlNewPassword, errNewPassword);
+        row = addFormRow(form, gc, row, "Xác nhận mật khẩu", pnlConfirmPassword, errConfirmPassword);
+        row = addFormRowSimple(form, gc, row, "Chức vụ", cbChucVu);
+        row = addFormRowSimple(form, gc, row, "Trạng thái", cbStatus);
         row = addFormRowSimple(form, gc, row, "Ngày vào làm", dateVaoLam);
 
-        // ===== BOTTOM =====
         btnSave.addActionListener(e -> {
             boolean ok = validateName(txtName, errName)
                     & validateSDT(txtSDT, errSDT)
                     & validateEmail(txtEmail, errEmail)
                     & validateTaiKhoan(txtTaiKhoan, errTaiKhoan)
-                    & validatePasswordField(txtPassword, errPassword);
+                    & validateNewPasswordField(txtNewPassword, txtConfirmPassword, errNewPassword, errConfirmPassword, isEdit)
+                    & validateConfirmPasswordField(txtNewPassword, txtConfirmPassword, errNewPassword, errConfirmPassword, isEdit);
             if (!ok) return;
 
             try {
                 NhanVien newNV = getNhanVienFromForm(
-                        txtName, txtSDT, txtEmail, txtTaiKhoan, txtPassword,
+                        txtName, txtSDT, txtEmail, txtTaiKhoan, txtNewPassword,
                         cbChucVu, cbStatus, dateVaoLam
                 );
 
                 if (isEdit) {
                     newNV.setMaNV(nv.getMaNV());
+                    String newPwd = new String(txtNewPassword.getPassword()).trim();
+                    if (newPwd.isEmpty()) {
+                        newNV.setMatKhau(nv.getMatKhau());
+                    }
                     if (daoNhanVien.updateNhanVien(newNV)) {
                         loadDataNhanVien();
                         dialog.dispose();
@@ -406,7 +401,6 @@ public class TAB_QLNhanVien extends JPanel {
         bottom.setBackground(BG_CARD);
         bottom.add(btnSave);
 
-        // [THÊM MỚI] Nút xóa mềm – chỉ hiện khi edit
         if (isEdit) {
             JButton btnDelete = makeBtn("Xóa NV", BtnStyle.DANGER);
             btnDelete.addActionListener(e -> {
@@ -426,10 +420,10 @@ public class TAB_QLNhanVien extends JPanel {
             bottom.add(btnDelete);
         }
 
-        dialog.add(form,   BorderLayout.CENTER);
+        dialog.add(form, BorderLayout.CENTER);
         dialog.add(bottom, BorderLayout.SOUTH);
         dialog.pack();
-        dialog.setMinimumSize(new Dimension(440, dialog.getHeight()));
+        dialog.setMinimumSize(new Dimension(500, dialog.getHeight()));
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
@@ -532,26 +526,55 @@ public class TAB_QLNhanVien extends JPanel {
         return true;
     }
 
-    // [GIỮ] validatePassword cũ – dành cho JTextField (backward compat)
-    private boolean validatePassword(JTextField f, JLabel err) {
-        if (f.getText().trim().isEmpty()) {
-            err.setText("Mật khẩu không được rỗng");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+    private boolean validateNewPasswordField(JPasswordField newPwdField, JPasswordField confirmPwdField,
+                                             JLabel errNew, JLabel errConfirm, boolean isEdit) {
+        String newPwd = new String(newPwdField.getPassword()).trim();
+        String confirmPwd = new String(confirmPwdField.getPassword()).trim();
+
+        if (isEdit && newPwd.isEmpty() && confirmPwd.isEmpty()) {
+            errNew.setText(" ");
+            setUnderlineFieldState(newPwdField, false, newPwdField.isFocusOwner());
+            errConfirm.setText(" ");
+            setUnderlineFieldState(confirmPwdField, false, confirmPwdField.isFocusOwner());
+            return true;
+        }
+
+        if (newPwd.isEmpty()) {
+            errNew.setText("Mật khẩu mới không được rỗng");
+            setUnderlineFieldState(newPwdField, true, newPwdField.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        errNew.setText(" ");
+        setUnderlineFieldState(newPwdField, false, newPwdField.isFocusOwner());
+        if (!confirmPwd.isEmpty()) {
+            validateConfirmPasswordField(newPwdField, confirmPwdField, errNew, errConfirm, isEdit);
+        }
         return true;
     }
 
-    // [THÊM MỚI] validatePasswordField – dành riêng cho JPasswordField
-    private boolean validatePasswordField(JPasswordField f, JLabel err) {
-        String pwd = new String(f.getPassword());
-        if (pwd.trim().isEmpty()) {
-            err.setText("Mật khẩu không được rỗng");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+    private boolean validateConfirmPasswordField(JPasswordField newPwdField, JPasswordField confirmPwdField,
+                                                 JLabel errNew, JLabel errConfirm, boolean isEdit) {
+        String newPwd = new String(newPwdField.getPassword()).trim();
+        String confirmPwd = new String(confirmPwdField.getPassword()).trim();
+
+        if (isEdit && newPwd.isEmpty() && confirmPwd.isEmpty()) {
+            errConfirm.setText(" ");
+            setUnderlineFieldState(confirmPwdField, false, confirmPwdField.isFocusOwner());
+            return true;
+        }
+
+        if (confirmPwd.isEmpty()) {
+            errConfirm.setText("Vui lòng xác nhận mật khẩu");
+            setUnderlineFieldState(confirmPwdField, true, confirmPwdField.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        if (!newPwd.equals(confirmPwd)) {
+            errConfirm.setText("Xác nhận mật khẩu không khớp");
+            setUnderlineFieldState(confirmPwdField, true, confirmPwdField.isFocusOwner());
+            return false;
+        }
+        errConfirm.setText(" ");
+        setUnderlineFieldState(confirmPwdField, false, confirmPwdField.isFocusOwner());
         return true;
     }
 
@@ -600,46 +623,73 @@ public class TAB_QLNhanVien extends JPanel {
         return l;
     }
 
-    // [SỬA] makePasswordField – đồng bộ hoàn toàn với makeField
-    private JPasswordField makePasswordField() {
+    private void setUnderlineFieldState(JTextField field, boolean error, boolean focused) {
+        Color lineColor = error ? Color.RED : (focused ? ACCENT_FOC : BORDER);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, focused ? 2 : 1, 0, lineColor),
+                BorderFactory.createEmptyBorder(6, 2, 6, 2)
+        ));
+    }
+
+    private JTextField makeUnderlineField(String hint) {
+        JTextField tf = new JTextField() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setColor(TEXT_LIGHT);
+                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+                    g2.drawString(hint, getInsets().left + 2, getHeight() / 2 + 5);
+                    g2.dispose();
+                }
+            }
+        };
+        tf.setFont(F_CELL);
+        tf.setForeground(TEXT_DARK);
+        tf.setBackground(BG_CARD);
+        tf.setOpaque(false);
+        setUnderlineFieldState(tf, false, false);
+        tf.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                setUnderlineFieldState(tf, false, true);
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                setUnderlineFieldState(tf, false, false);
+            }
+        });
+        return tf;
+    }
+
+    private JPasswordField makeUnderlinePasswordField(String hint) {
         JPasswordField pf = new JPasswordField() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                // Placeholder "Mật khẩu" khi rỗng và không focus
                 if (getPassword().length == 0 && !isFocusOwner()) {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setColor(TEXT_LIGHT);
                     g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-                    g2.drawString("Mật khẩu", getInsets().left + 4, getHeight() / 2 + 5);
+                    g2.drawString(hint, getInsets().left + 2, getHeight() / 2 + 5);
                     g2.dispose();
                 }
             }
         };
         pf.setFont(F_CELL);
         pf.setForeground(TEXT_DARK);
-        pf.setBackground(new Color(0xF8FAFD));
+        pf.setBackground(BG_CARD);
+        pf.setOpaque(false);
         pf.setEchoChar('●');
-        pf.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-        // Border + padding giống makeField
-        pf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(BORDER, 1, true),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        setUnderlineFieldState(pf, false, false);
         pf.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override public void focusGained(java.awt.event.FocusEvent e) {
-                pf.setBorder(BorderFactory.createCompoundBorder(
-                        new LineBorder(ACCENT_FOC, 2, true),
-                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+                setUnderlineFieldState(pf, false, true);
             }
             @Override public void focusLost(java.awt.event.FocusEvent e) {
-                pf.setBorder(BorderFactory.createCompoundBorder(
-                        new LineBorder(BORDER, 1, true),
-                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                setUnderlineFieldState(pf, false, false);
             }
         });
         return pf;
     }
 
-    // [SỬA] makeTogglePasswordBtn – căn chỉnh chiều cao với JPasswordField
     private JButton makeTogglePasswordBtn(JPasswordField pf) {
         JButton btn = new JButton("👁") {
             boolean showing = false;
@@ -649,18 +699,26 @@ public class TAB_QLNhanVien extends JPanel {
                     showing = !showing;
                     pf.setEchoChar(showing ? (char) 0 : '●');
                     setText(showing ? "🙈" : "👁");
-                    pf.repaint(); // re-paint placeholder nếu rỗng
+                    pf.repaint();
                 });
             }
         };
         btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
-        btn.setPreferredSize(new Dimension(38, 0));
+        btn.setPreferredSize(new Dimension(38, 30));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBackground(BG_CARD);
         return btn;
+    }
+
+    private JPanel makeUnderlinePasswordWrapper(JPasswordField pf) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        panel.add(pf, BorderLayout.CENTER);
+        panel.add(makeTogglePasswordBtn(pf), BorderLayout.EAST);
+        return panel;
     }
 
     // [THÊM MỚI] makeStyledComboBox – đồng bộ style với makeField
@@ -828,7 +886,7 @@ public class TAB_QLNhanVien extends JPanel {
             JTextField txtSDT,
             JTextField txtEmail,
             JTextField txtTaiKhoan,
-            JPasswordField txtPassword,   // [SỬA] JPasswordField thay JTextField
+            JPasswordField txtNewPassword,
             JComboBox<ChucVu> cbChucVu,
             JComboBox<TrangThaiNhanVien> cbStatus,
             JDateChooser dateVaoLam
@@ -839,18 +897,35 @@ public class TAB_QLNhanVien extends JPanel {
         NhanVien nv = new NhanVien();
 
         nv.setMaNV(null);
-        nv.setTenNV(txtName.getText());
-        nv.setSdt(txtSDT.getText());
-        nv.setEmail(txtEmail.getText());
-        nv.setTaiKhoan(txtTaiKhoan.getText());
-        // [SỬA] Lấy password từ JPasswordField đúng cách (không dùng getText())
-        nv.setMatKhau(new String(txtPassword.getPassword()));
+        nv.setTenNV(txtName.getText().trim());
+        nv.setSdt(txtSDT.getText().trim());
+        nv.setEmail(txtEmail.getText().trim());
+        nv.setTaiKhoan(txtTaiKhoan.getText().trim());
+
+        String newPassword = new String(txtNewPassword.getPassword()).trim();
+        if (!newPassword.isEmpty()) {
+            nv.setMatKhau(hashPassword(newPassword));
+        }
 
         nv.setChucVu((ChucVu) cbChucVu.getSelectedItem());
         nv.setTrangThai((TrangThaiNhanVien) cbStatus.getSelectedItem());
         nv.setNgayVaoLam(dateVaoLam.getDate());
 
         return nv;
+    }
+
+    private String hashPassword(String rawPassword) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Không thể hash mật khẩu", e);
+        }
     }
 
     public Date getDate(String dateStr) {
@@ -894,23 +969,7 @@ public class TAB_QLNhanVien extends JPanel {
     }
 
     private JTextField makeField(String hint) {
-        JTextField tf = new JTextField() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (getText().isEmpty() && !isFocusOwner()) {
-                    Graphics2D g2 = (Graphics2D) g.create(); g2.setColor(TEXT_LIGHT);
-                    g2.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-                    g2.drawString(hint, getInsets().left + 4, getHeight() / 2 + 5); g2.dispose();
-                }
-            }
-        };
-        tf.setFont(F_CELL); tf.setForeground(TEXT_DARK); tf.setBackground(new Color(0xF8FAFD));
-        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-        tf.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusGained(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(ACCENT_FOC, 2, true), BorderFactory.createEmptyBorder(5, 9, 5, 9))); }
-            @Override public void focusLost(java.awt.event.FocusEvent e) { tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), BorderFactory.createEmptyBorder(6, 10, 6, 10))); }
-        });
-        return tf;
+        return makeUnderlineField(hint);
     }
 
     private JComboBox<String> makeComboBox(String[] items) {

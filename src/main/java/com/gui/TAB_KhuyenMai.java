@@ -5,6 +5,7 @@ import com.dao.DAO_KhuyenMai;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
+import com.gui.banve.UIHelper;
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
@@ -70,8 +71,8 @@ public class TAB_KhuyenMai extends JPanel {
     JTextField txtSearch;
 
     // [THÊM MỚI] Filter ngày
-    JDateChooser dateFilterBD;
-    JDateChooser dateFilterKT;
+    UIHelper.DatePickerField dateFilterBD;
+    UIHelper.DatePickerField dateFilterKT;
 
     // [THÊM MỚI] Stat labels – đếm số KM theo trạng thái
     JLabel lblStatTotal   = new JLabel("0");
@@ -86,7 +87,6 @@ public class TAB_KhuyenMai extends JPanel {
 
     private JLabel  lblKMDTitle;
     private JButton btnAddDetail;
-    //    private JButton btnEditDetail;
     private JButton btnDelDetail;
 
     DAO_KhuyenMai daoKM;
@@ -154,16 +154,17 @@ public class TAB_KhuyenMai extends JPanel {
         txtSearch = makeField("Tên khuyến mãi...");
         txtSearch.setPreferredSize(new Dimension(400, 36));
 
-        // [THÊM MỚI] JDateChooser filter ngày bắt đầu
-        dateFilterBD = new JDateChooser();
-        dateFilterBD.setDateFormatString(DATE_FORMAT);
-        dateFilterBD.setPreferredSize(new Dimension(130, 34));
+        // [SỬA] Dùng đúng UI datepicker của Step1_TimKiem cho thanh tìm kiếm
+        dateFilterBD = new UIHelper.DatePickerField("");
+        dateFilterBD.setDate("");
+        dateFilterBD.setDisablePastDates(false);
+        dateFilterBD.setPreferredSize(new Dimension(200, 34));
         dateFilterBD.setToolTipText("Lọc từ ngày bắt đầu");
 
-        // [THÊM MỚI] JDateChooser filter ngày kết thúc
-        dateFilterKT = new JDateChooser();
-        dateFilterKT.setDateFormatString(DATE_FORMAT);
-        dateFilterKT.setPreferredSize(new Dimension(130, 34));
+        dateFilterKT = new UIHelper.DatePickerField("");
+        dateFilterKT.setDate("");
+        dateFilterKT.setDisablePastDates(false);
+        dateFilterKT.setPreferredSize(new Dimension(200, 34));
         dateFilterKT.setToolTipText("Lọc đến ngày kết thúc");
 
         JButton btnSearch = makeBtn("Tìm kiếm", BtnStyle.PRIMARY);
@@ -179,8 +180,8 @@ public class TAB_KhuyenMai extends JPanel {
         btnSearch.addActionListener(e -> findKhuyenMai());
         btnReset.addActionListener(e -> {
             txtSearch.setText("");
-            dateFilterBD.setDate(null);   // [THÊM MỚI] reset ngày
-            dateFilterKT.setDate(null);   // [THÊM MỚI]
+            dateFilterBD.setDate("");   // [THÊM MỚI] reset ngày
+            dateFilterKT.setDate("");   // [THÊM MỚI]
             loadDataKhuyenMai();
         });
         return card;
@@ -374,7 +375,7 @@ public class TAB_KhuyenMai extends JPanel {
         // → mỗi cột giữ đúng width đã set, không bị co giãn làm mất chữ
 //        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         styleTable(t);
-        int[] w = { 80, 180, 110, 110, 120 };
+        int[] w = { 59, 210, 110, 110, 120 };
         for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
             t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KM.length);
@@ -501,27 +502,45 @@ public class TAB_KhuyenMai extends JPanel {
 
     // [SỬA] Đổi tên + mở rộng: tìm theo tên VÀ/HOẶC ngày bắt đầu, ngày kết thúc
     private void findKhuyenMai() {
-        String ten   = txtSearch.getText().trim();
-        Date ngayBD = dateFilterBD.getDate();  // null nếu chưa chọn
-        Date ngayKT = dateFilterKT.getDate();  // null nếu chưa chọn
+        String ten = txtSearch.getText().trim();
+        Date ngayBD = parseDatePickerField(dateFilterBD);   // có thể null
+        Date ngayKT = parseDatePickerField(dateFilterKT);   // có thể null
 
-        modelKM.setRowCount(0); modelKMD.setRowCount(0);
-        selectedKM = null; setDetailBtnsEnabled(false);
+        // Kiểm tra khi nhập cả 2 ô
+        if (ngayBD != null && ngayKT != null && ngayBD.after(ngayKT)) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!",
+                    "Lỗi ngày tìm kiếm",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            dateFilterBD.requestFocus();
+            return;
+        }
+
+        modelKM.setRowCount(0);
+        modelKMD.setRowCount(0);
+        selectedKM = null;
+        setDetailBtnsEnabled(false);
         lblKMDTitle.setText("Chi tiết — (chưa chọn khuyến mãi)");
         lblKMDTitle.setForeground(TEXT_LIGHT);
 
-        // [THÊM MỚI] Gọi DAO với 3 tham số, null = bỏ qua điều kiện đó
         List<KhuyenMai> result = daoKM.searchKhuyenMai(ten, ngayBD, ngayKT);
 
-        // Cập nhật stats theo kết quả tìm kiếm
-//        int total = result.size(), active = 0, stopped = 0;
+        int total = result.size();
+        int active = 0;
+        int stopped = 0;
+
         for (KhuyenMai km : result) {
-            if (km.isTrangThai()) //active++; else stopped++;
-                addKhuyenMaiToTable(km);
+            if (km.isTrangThai()) active++;
+            else stopped++;
+            addKhuyenMaiToTable(km);
         }
-//        lblStatTotal.setText(String.valueOf(total));
-//        lblStatActive.setText(String.valueOf(active));
-//        lblStatStopped.setText(String.valueOf(stopped));
+
+        lblStatTotal.setText(String.valueOf(total));
+        lblStatActive.setText(String.valueOf(active));
+        lblStatStopped.setText(String.valueOf(stopped));
+        lblStatUsed.setText(String.valueOf(daoKM.countKhuyenMaiDaDung()));
     }
 
     private void findKhuyenMaiByTen() { findKhuyenMai(); } // [THÊM] backward compat
@@ -631,11 +650,11 @@ public class TAB_KhuyenMai extends JPanel {
         JTextField  txtMa     = makeField("Tự động sinh"); txtMa.setEditable(false);
         JTextField  txtTen    = makeField("Tên khuyến mãi");
 
-        JDateChooser dpBD = makeStyledDateChooser();
-        dpBD.setDate(new Date());
+        UIHelper.DatePickerField dpBD = makeKhuyenMaiDatePicker(false);
+        dpBD.setDate(new SimpleDateFormat(DATE_FORMAT).format(new Date()));
 
-        JDateChooser dpKT = makeStyledDateChooser();
-        dpKT.setDate(new Date());
+        UIHelper.DatePickerField dpKT = makeKhuyenMaiDatePicker(false);
+        dpKT.setDate(new SimpleDateFormat(DATE_FORMAT).format(new Date()));
 
         JCheckBox chkActive   = new JCheckBox("Đang áp dụng");
         chkActive.setBackground(BG_CARD);
@@ -648,8 +667,8 @@ public class TAB_KhuyenMai extends JPanel {
             txtTen.setText(km.getTenKM());
             chkActive.setSelected(km.isTrangThai());
             if (km.getMoTa() != null) txtMoTa.setText(km.getMoTa());
-            dpBD.setDate(km.getNgayBatDau());
-            dpKT.setDate(km.getNgayKetThuc());
+            setDatePickerField(dpBD, km.getNgayBatDau());
+            setDatePickerField(dpKT, km.getNgayKetThuc());
             // Row 0 – Mã
             gc.gridx=0; gc.gridy=0; gc.weightx=0; form.add(makeLabel("Mã KM"),        gc);
             gc.gridx=1;              gc.weightx=1; form.add(txtMa,                      gc);
@@ -682,8 +701,19 @@ public class TAB_KhuyenMai extends JPanel {
             KhuyenMai obj = new KhuyenMai();
             obj.setMaKM(isEdit ? km.getMaKM() : null);
             obj.setTenKM(txtTen.getText().trim());
-            obj.setNgayBatDau(dpBD.getDate());
-            obj.setNgayKetThuc(dpKT.getDate());
+            Date ngayBatDau = parseDatePickerField(dpBD);
+            Date ngayKetThuc = parseDatePickerField(dpKT);
+            if (ngayBatDau == null || ngayKetThuc == null) {
+                JOptionPane.showMessageDialog(dlg, "Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!"); return;
+            }
+            if (isDateBeforeToday(ngayBatDau) || isDateBeforeToday(ngayKetThuc)) {
+                JOptionPane.showMessageDialog(dlg, "Ngày bắt đầu và ngày kết thúc không được ở quá khứ!"); return;
+            }
+            if (ngayBatDau.after(ngayKetThuc)) {
+                JOptionPane.showMessageDialog(dlg, "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!"); return;
+            }
+            obj.setNgayBatDau(ngayBatDau);
+            obj.setNgayKetThuc(ngayKetThuc);
             obj.setTrangThai(chkActive.isSelected());
             obj.setMoTa(txtMoTa.getText().trim());
 
@@ -1315,6 +1345,46 @@ public class TAB_KhuyenMai extends JPanel {
     /** Sentinel "Tất cả" → null để lưu DB; giữ nguyên nếu là giá trị thật */
     private static LoaiVe  dbLoaiVe (LoaiVe  v) { return (v == null || v == TAT_CA_LOAI_VE)  ? null : v; }
     private static LoaiToa dbLoaiToa(LoaiToa v) { return (v == null || v == TAT_CA_LOAI_TOA) ? null : v; }
+
+    private Date parseDatePickerField(UIHelper.DatePickerField field) {
+        if (field == null) return null;
+        String value = field.getDate();
+        if (value == null || value.trim().isEmpty()) return null;
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+            sdf.setLenient(false);
+            return sdf.parse(value.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void setDatePickerField(UIHelper.DatePickerField field, Date date) {
+        if (field == null) return;
+        if (date == null) {
+            field.setDate("");
+            return;
+        }
+        field.setDate(new SimpleDateFormat(DATE_FORMAT).format(date));
+    }
+
+    private boolean isDateBeforeToday(Date date) {
+        if (date == null) return false;
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+            int value = Integer.parseInt(sdf.format(date));
+            int today = Integer.parseInt(sdf.format(new Date()));
+            return value < today;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private UIHelper.DatePickerField makeKhuyenMaiDatePicker(boolean allowPastDates) {
+        UIHelper.DatePickerField dp = new UIHelper.DatePickerField("");
+        dp.setDisablePastDates(!allowPastDates);
+        return dp;
+    }
 
     // [SỬA] Enable lại btnDelDetail vì xóa mềm đã được bật
     private void setDetailBtnsEnabled(boolean on) {

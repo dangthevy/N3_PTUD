@@ -154,7 +154,7 @@ CREATE TABLE NhanVien (
                           sdt NVARCHAR(20),
                           email NVARCHAR(50),
                           taiKhoan VARCHAR(50) NOT NULL UNIQUE,
-                          matKhau VARCHAR(50) NOT NULL,
+                          matKhau VARCHAR(70) NOT NULL,
                           chucVu NVARCHAR(50),
                           trangThai NVARCHAR(20) CHECK (trangThai IN ('HOATDONG', 'NGUNGHOATDONG', 'NGHIPHEP')),
                           An BIT DEFAULT 0,
@@ -300,11 +300,15 @@ INSERT INTO LoaiToa VALUES
 INSERT INTO LoaiVe VALUES ('LV01', N'Người lớn', 0), ('LV02', N'Trẻ em', 0.5), ('LV03', N'Sinh viên', 0.3);
 
 INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, ngayVaoLam) VALUES 
-(N'Nguyễn Văn A', '0909090901', 'vana@tau.com', 'vana', '123', N'QUANLY', 'HOATDONG', '2025-01-01'),
-(N'Lê Thị Bán Vé', '0909012323', 'banve@tau.com', 'banve', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
-(N'Nguyễn Văn B', '0923122312', 'vanb@tau.com', 'vanb', '123', N'QUANLY', 'HOATDONG', '2025-01-01'),
-(N'Phạm Quang Khải', '0963212321', 'khai@tau.com', 'khai', '123', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
-(N'admin', '0963212322', 'admin@tau.com', 'admin', '123', N'ADMIN', 'HOATDONG', '2025-02-01');
+(N'Nguyễn Văn A', '0909090901', 'vana@tau.com', 'vana', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-01-01'),
+(N'Lê Thị Bán Vé', '0909012323', 'banve@tau.com', 'banve', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
+(N'Nguyễn Văn B', '0923122312', 'vanb@tau.com', 'vanb', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-01-01'),
+(N'Phạm Quang Khải', '0963212321', 'khai@tau.com', 'khai', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY', 'HOATDONG', '2025-02-01'),
+(N'Phạm Quốc Vinh', '0923452812', 'vinh@tau.com', 'vinh', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY', 'HOATDONG', '2025-02-01'),
+(N'Đặng Thế Vỹ', '0925723812', 'vy@tau.com', 'vy', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY', 'HOATDONG', '2025-02-01'),
+(N'Nguyễn Vủ Thiện', '0958472305', 'thien@tau.com', 'thien', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY', 'HOATDONG', '2025-02-01'),
+(N'Phạm Thái Bảo', '0935782312', 'bao@tau.com', 'bao', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY', 'HOATDONG', '2025-02-01'),
+(N'admin', '0963212322', 'admin@tau.com', 'admin', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'ADMIN', 'HOATDONG', '2025-02-01');
 
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES 
 ('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com');
@@ -410,12 +414,20 @@ VALUES
 (N'Khuyến mãi hè 2026', '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
 (N'Ưu đãi Sinh viên', '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
 (N'Ưu đãi vé trẻ em', '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
-(N'Flash Sale Cuối Tuần', '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn');
+(N'Flash Sale Cuối Tuần', '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
+(N'Khuyến mãi Tết Nguyên Đán 2026', '2026-02-01', '2026-02-28', 1, N'Ưu đãi dịp Tết cho các tuyến phổ biến'),
+(N'Ưu đãi Giỗ Tổ Hùng Vương 2026', '2026-04-01', '2026-04-10', 1, N'Khuyến mãi dịp lễ đầu tháng 4'),
+(N'Khuyến mãi 30/4 - 1/5', '2026-04-25', '2026-05-05', 1, N'Ưu đãi dịp lễ 30/4 và 1/5'),
+(N'Ưu đãi Mùa Du Lịch Tháng 5', '2026-05-01', '2026-05-31', 1, N'Khuyến mãi cho hành khách đi du lịch trong tháng 5'),
 
 DECLARE @KM_HE VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026');
 DECLARE @KM_SV VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Sinh viên');
 DECLARE @KM_TE VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em');
 DECLARE @KM_FS VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale Cuối Tuần');
+DECLARE @KM_TET VARCHAR(6)   = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi Tết Nguyên Đán 2026');
+DECLARE @KM_GIOTO VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Giỗ Tổ Hùng Vương 2026');
+DECLARE @KM_304 VARCHAR(6)   = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi 30/4 - 1/5');
+DECLARE @KM_T5 VARCHAR(6)    = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Mùa Du Lịch Tháng 5');
 
 INSERT INTO KhuyenMaiDetail
 (MaKM, LoaiKM, GiaTri, TrangThai, MaTuyen, maLoaiToa, MaLoai)
@@ -424,16 +436,23 @@ VALUES
     (@KM_TE, 'GIAM_TIEN', 300000, 1, NULL, NULL, 'LV02'),
     (@KM_He, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'G_NAM', NULL),
     (@KM_He, 'GIAM_PHAN_TRAM', 10, 1, 'T01', 'G_MEM', NULL),
-    (@KM_FS, 'GIAM_PHAN_TRAM', 20, 1, NULL, 'G_CUNG', NULL);
+    (@KM_FS, 'GIAM_PHAN_TRAM', 20, 1, NULL, 'G_CUNG', NULL),
+    (@KM_TET, 'GIAM_PHAN_TRAM', 15, 1, 'T02', 'G_MEM', NULL),
+    (@KM_TET, 'GIAM_TIEN', 200000, 1, NULL, 'G_CUNG', NULL),
+    (@KM_GIOTO, 'GIAM_PHAN_TRAM', 10, 1, NULL, 'G_CUNG', NULL),
+    (@KM_304, 'GIAM_PHAN_TRAM', 20, 1, 'T03', 'G_NAM', NULL),
+    (@KM_304, 'GIAM_TIEN', 150000, 1, NULL, NULL, NULL),
+    (@KM_T5, 'GIAM_PHAN_TRAM', 12, 1, 'T04', 'G_MEM', NULL),
+    (@KM_T5, 'GIAM_TIEN', 100000, 1, NULL, 'G_CUNG', NULL),
 GO
 
--- Lấy mã Khuyến mãi detail (Giảm 10% ghế cứng tuyến T01 của KM Mùa Hè)
-DECLARE @KMD_He_Cung VARCHAR(7) = (
-    SELECT MaKMDetail 
-    FROM KhuyenMaiDetail 
-    WHERE MaKM = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026') 
-      AND maLoaiToa = 'G_CUNG'
-);
+-- -- Lấy mã Khuyến mãi detail (Giảm 10% ghế cứng tuyến T01 của KM Mùa Hè)
+-- DECLARE @KMD_He_Cung VARCHAR(7) = (
+--     SELECT MaKMDetail
+--     FROM KhuyenMaiDetail
+--     WHERE MaKM = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026')
+--       AND maLoaiToa = 'G_CUNG'
+-- );
 
 -- -- 1. Áp dụng mã KMDetail vào Chi tiết Hóa Đơn và Trừ Tiền (Chỉ áp dụng cho 10 hóa đơn đầu)
 -- UPDATE ChiTietHoaDon
