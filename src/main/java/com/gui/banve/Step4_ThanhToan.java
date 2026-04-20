@@ -21,6 +21,8 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.List;
 
@@ -600,8 +602,18 @@ public class Step4_ThanhToan extends JPanel {
 		bottom.setOpaque(false);
 
 		Tuyen tuyenVe = (ve.getLichTrinh() != null) ? getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen()) : null;
-		List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(new Date(), ve.getLoaiVe(),
-				ve.getToa() != null ? ve.getToa().getLoaiToa() : null, tuyenVe);
+        LocalDate ngayKhoiHanh = ve.getLichTrinh().getNgayKhoiHanh();
+
+        Date ngayKhoiHanhDate = Date.from(
+                ngayKhoiHanh.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        );
+
+        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(
+                ngayKhoiHanhDate,
+                ve.getLoaiVe(),
+                ve.getToa() != null ? ve.getToa().getLoaiToa() : null,
+                tuyenVe
+        );
 
 		JPanel pnlChips = new JPanel(new WrapLayout(FlowLayout.LEFT, 4, 4));
 		pnlChips.setOpaque(false);
