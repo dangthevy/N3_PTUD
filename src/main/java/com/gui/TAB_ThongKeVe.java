@@ -84,22 +84,23 @@ public class TAB_ThongKeVe extends JPanel {
 
         JLabel lblTitle = new JLabel("THỐNG KÊ VÉ BÁN RA");
         lblTitle.setFont(F_TITLE);
-        lblTitle.setForeground(TEXT_DARK);
-        topWrapper.add(lblTitle, BorderLayout.NORTH);
+        lblTitle.setForeground(ACCENT);
+        topWrapper.add(lblTitle, BorderLayout.CENTER);
 
-        // --- YÊU CẦU: Khung KPI nằm trên phần chức năng lọc ---
-        JPanel kpiPanel = new JPanel(new GridLayout(1, 3, 20, 0));
+        // Khung KPI nằm trên phần chức năng lọc
+        JPanel kpiPanel = new JPanel(new GridLayout(1, 3, 16, 0));
         kpiPanel.setOpaque(false);
+        kpiPanel.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
 
-        lblTongVe = new JLabel("0", SwingConstants.CENTER);
-        lblDaSuDung = new JLabel("0", SwingConstants.CENTER);
-        lblHetHan = new JLabel("0", SwingConstants.CENTER);
+        lblTongVe = new JLabel("0");
+        lblDaSuDung = new JLabel("0");
+        lblHetHan = new JLabel("0");
 
         kpiPanel.add(createKpiCard("Tổng Vé Bán Ra", lblTongVe, new Color(0, 122, 255)));
         kpiPanel.add(createKpiCard("Vé Đã Sử Dụng", lblDaSuDung, new Color(40, 167, 69)));
         kpiPanel.add(createKpiCard("Vé Hủy/Hết Hạn", lblHetHan, new Color(220, 53, 69)));
 
-        topWrapper.add(kpiPanel, BorderLayout.CENTER);
+        topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
         // --- Bộ lọc chức năng ---
         JPanel filterCard = makeCard(new FlowLayout(FlowLayout.LEFT, 15, 12));
@@ -126,9 +127,9 @@ public class TAB_ThongKeVe extends JPanel {
         filterCard.add(dcDenNgay);
 
         btnThongKe = makeBtn("Thống kê", BtnStyle.PRIMARY);
-        btnThongKe.setPreferredSize(new Dimension(105, 36));
+        btnThongKe.setPreferredSize(new Dimension(100, 36));
         btnXuatExcel = makeBtn("Xuất Excel", BtnStyle.SUCCESS);
-        btnXuatExcel.setPreferredSize(new Dimension(105, 36));
+        btnXuatExcel.setPreferredSize(new Dimension(100, 36));
 
         JPanel actionGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actionGroup.setOpaque(false);
@@ -230,17 +231,18 @@ public class TAB_ThongKeVe extends JPanel {
     }
 
     private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
-        JPanel card = makeCard(new BorderLayout());
+        JPanel card = new JPanel(new BorderLayout(5, 5));
+        card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(color, 2, true),
-                BorderFactory.createEmptyBorder(10, 0, 10, 0)
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(15, 20, 15, 20)
         ));
 
-        JLabel lblTitle = new JLabel(title, SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblTitle.setForeground(TEXT_MID);
 
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblValue.setForeground(color);
 
         card.add(lblTitle, BorderLayout.NORTH);

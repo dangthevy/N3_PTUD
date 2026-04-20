@@ -281,7 +281,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("QUẢN LÝ BẢNG GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(TEXT_DARK);
+        title.setForeground(ACCENT);
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -370,7 +370,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("CHI TIẾT GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(TEXT_DARK);
+        title.setForeground(ACCENT);
 
         JPanel top = new JPanel();
         top.setOpaque(false);

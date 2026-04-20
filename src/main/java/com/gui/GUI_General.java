@@ -112,49 +112,66 @@ public class GUI_General extends JPanel {
 		boolean isQuanLy = (nv.getChucVu() == ChucVu.QUANLY);
 		boolean canAccessMain = (nv.getChucVu() == ChucVu.NHANVIEN || isAdmin);
 		boolean canAccessAdminTools = (isQuanLy || isAdmin);
+		boolean managementFirst = isQuanLy && !isAdmin;
 
-		// Menu chính bám sát đường kẻ ngang
+		if (managementFirst) {
+			addManagementSection(sidebar, canAccessAdminTools);
+			addMainSection(sidebar, canAccessMain);
+		} else {
+			addMainSection(sidebar, canAccessMain);
+			addManagementSection(sidebar, canAccessAdminTools);
+		}
+		addReportSection(sidebar, canAccessAdminTools);
+
+		sidebar.add(Box.createVerticalGlue());
+	}
+
+	private void addMainSection(JPanel sidebar, boolean canAccessMain) {
+		int before = sidebar.getComponentCount();
 		sidebar.add(createSideTitle("CHỨC NĂNG CHÍNH"));
 		addTabButton(sidebar, "Màn hình chính", tab_Dashboard, true);
 		addTabButton(sidebar, "Bán vé", tab_BanVe, canAccessMain);
 		addTabButton(sidebar, "Tra cứu vé", tab_TraCuuVe, canAccessMain);
 		addTabButton(sidebar, "Tra cứu hóa đơn", tab_ThanhToanLapHD, canAccessMain);
+		if (sidebar.getComponentCount() > before + 1) {
+			sidebar.add(Box.createVerticalStrut(10));
+		} else {
+			sidebar.remove(before);
+		}
+	}
 
-        // Thêm khoảng trống 10px để tách biệt các nhóm
-        sidebar.add(Box.createVerticalStrut(10));
-        sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
-//        addDropdownMenu(sidebar, "Quản lý Đoàn Tàu", 
-//        	    new String[] { "Loại Toa", "Toa", "Tàu", "Sơ Đồ Chỗ Ngồi" },
-//        	    new JPanel[] { tab_LoaiToa, tab_Toa, tab_Tau, tab_Cho }, 
-//        	    canAccessAdminTools);
-        addTabButton(sidebar, "Quản lý Đoàn Tàu", tab_qlDoanTau, canAccessAdminTools);
-        addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga", "Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
-                new JPanel[] { tab_Ga, tab_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, canAccessAdminTools);
-        addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
-        addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, canAccessAdminTools);
-        addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, canAccessAdminTools);
-
-		// Thêm khoảng trống 10px để tách biệt các nhóm
+	private void addManagementSection(JPanel sidebar, boolean canAccessAdminTools) {
+		if (!canAccessAdminTools) {
+			return;
+		}
+		sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
+		addTabButton(sidebar, "Quản lý Đoàn Tàu", tab_qlDoanTau, true);
+		addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga", "Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
+				new JPanel[] { tab_Ga, tab_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, true);
+		addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, true);
+		addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, true);
+		addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, true);
 		sidebar.add(Box.createVerticalStrut(10));
+	}
+
+	private void addReportSection(JPanel sidebar, boolean canAccessAdminTools) {
+		if (!canAccessAdminTools) {
+			return;
+		}
 		sidebar.add(createSideTitle("BÁO CÁO"));
 		addDropdownMenu(sidebar, "Thống kê", new String[] { "Doanh thu", "Lượng vé" },
-				new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe }, canAccessAdminTools);
-
-		sidebar.add(Box.createVerticalGlue());
+				new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe }, true);
 	}
 
 	private void addTabButton(JPanel sidebar, String title, JPanel target, boolean canAccess) {
-		JButton btn = createStyledButton(title, false);
-		btn.setEnabled(canAccess);
-		if (canAccess) {
-			btn.addActionListener(e -> {
-				updateActiveButton(btn);
-				showTab(target);
-			});
-		} else {
-			btn.setForeground(TEXT_LIGHT);
-			btn.setToolTipText("Chức năng này chỉ dành cho Quản lý");
+		if (!canAccess) {
+			return;
 		}
+		JButton btn = createStyledButton(title, false);
+		btn.addActionListener(e -> {
+			updateActiveButton(btn);
+			showTab(target);
+		});
 		sidebar.add(btn);
 
 		// Khởi tạo trạng thái active cho nút đầu tiên
@@ -166,33 +183,31 @@ public class GUI_General extends JPanel {
 
 	private void addDropdownMenu(JPanel sidebar, String title, String[] subTitles, JPanel[] targets,
 			boolean canAccess) {
+		if (!canAccess) {
+			return;
+		}
 		JButton parentBtn = createStyledButton("▼  " + title, false);
-		parentBtn.setEnabled(canAccess);
 
 		JPanel subMenuPanel = new JPanel();
 		subMenuPanel.setLayout(new BoxLayout(subMenuPanel, BoxLayout.Y_AXIS));
 		subMenuPanel.setOpaque(false);
 		subMenuPanel.setVisible(false);
 
-		if (canAccess) {
-			for (int i = 0; i < subTitles.length; i++) {
-				final int index = i;
-				JButton subBtn = createStyledButton("•  " + subTitles[i], true);
-				subBtn.addActionListener(e -> {
-					updateActiveButton(subBtn);
-					showTab(targets[index]);
-				});
-				subMenuPanel.add(subBtn);
-			}
-			parentBtn.addActionListener(e -> {
-				boolean isVisible = !subMenuPanel.isVisible();
-				subMenuPanel.setVisible(isVisible);
-				parentBtn.setText((isVisible ? "▲  " : "▼  ") + title);
-				sidebar.revalidate();
+		for (int i = 0; i < subTitles.length; i++) {
+			final int index = i;
+			JButton subBtn = createStyledButton("•  " + subTitles[i], true);
+			subBtn.addActionListener(e -> {
+				updateActiveButton(subBtn);
+				showTab(targets[index]);
 			});
-		} else {
-			parentBtn.setForeground(TEXT_LIGHT);
+			subMenuPanel.add(subBtn);
 		}
+		parentBtn.addActionListener(e -> {
+			boolean isVisible = !subMenuPanel.isVisible();
+			subMenuPanel.setVisible(isVisible);
+			parentBtn.setText((isVisible ? "▲  " : "▼  ") + title);
+			sidebar.revalidate();
+		});
 		sidebar.add(parentBtn);
 		sidebar.add(subMenuPanel);
 	}

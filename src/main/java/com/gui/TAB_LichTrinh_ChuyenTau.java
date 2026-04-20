@@ -343,7 +343,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
         // Tiêu đề
         JLabel title = new JLabel("QUẢN LÝ CHUYẾN TÀU");
-        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
 
         JPanel top = new JPanel(new BorderLayout(0, 8));
         top.setOpaque(false);
@@ -624,7 +624,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         icoLich.setPreferredSize(new Dimension(28, 28));
 
         JLabel title = new JLabel("CHI TIẾT LỊCH TRÌNH");
-        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
 
         JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         titleRow.setOpaque(false);

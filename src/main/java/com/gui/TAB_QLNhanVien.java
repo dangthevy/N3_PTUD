@@ -89,9 +89,10 @@ public class TAB_QLNhanVien extends JPanel {
         topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
         topPanel.setOpaque(false);
 
-        topPanel.add(buildHeader());
-        topPanel.add(Box.createVerticalStrut(10));
+
         topPanel.add(buildStatsBar());      // ← thanh stats riêng
+        topPanel.add(Box.createVerticalStrut(10));
+        topPanel.add(buildHeader());
         topPanel.add(Box.createVerticalStrut(10));
         topPanel.add(buildFilterCard());
 

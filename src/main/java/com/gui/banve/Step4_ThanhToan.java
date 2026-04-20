@@ -536,7 +536,7 @@ public class Step4_ThanhToan extends JPanel {
 		lblMaVe.setFont(new Font("Segoe UI", Font.BOLD, 14));
 		lblMaVe.setForeground(UIHelper.ACCENT);
 
-		JButton btnXoa = new JButton("✕ Xóa vé");
+		JButton btnXoa = new JButton("Xóa vé");
 		btnXoa.setFont(new Font("Segoe UI", Font.BOLD, 11));
 		btnXoa.setForeground(UIHelper.DANGER);
 		btnXoa.setBackground(new Color(0xFFF0F0));

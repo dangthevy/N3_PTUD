@@ -70,6 +70,8 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     private JTable tableTKDT;
     private DefaultTableModel tableModel;
     private DefaultCategoryDataset chartDataset;
+    private JLabel lblTongHoaDon;
+    private JLabel lblTongDoanhThu;
 
     public TAB_ThongKeDoanhThu() {
         setLayout(new BorderLayout(0, 16));
@@ -82,8 +84,20 @@ public class TAB_ThongKeDoanhThu extends JPanel {
 
         JLabel lblTitle = new JLabel("THỐNG KÊ DOANH THU");
         lblTitle.setFont(F_TITLE);
-        lblTitle.setForeground(TEXT_DARK);
-        topWrapper.add(lblTitle, BorderLayout.NORTH);
+        lblTitle.setForeground(ACCENT);
+        topWrapper.add(lblTitle, BorderLayout.CENTER);
+
+        JPanel kpiPanel = new JPanel(new GridLayout(1, 2, 16, 0));
+        kpiPanel.setOpaque(false);
+        kpiPanel.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+
+        lblTongHoaDon = new JLabel("0");
+        lblTongDoanhThu = new JLabel("0 đ");
+
+        kpiPanel.add(createKpiCard("TỔNG HÓA ĐƠN", lblTongHoaDon, ACCENT));
+        kpiPanel.add(createKpiCard("TỔNG DOANH THU", lblTongDoanhThu, new Color(40, 167, 69)));
+
+        topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
         JPanel filterCard = makeCard(new FlowLayout(FlowLayout.LEFT, 15, 12));
 
@@ -116,7 +130,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         filterCard.add(Box.createHorizontalStrut(20)); // Tạo khoảng cách
         filterCard.add(actionGroup);
 
-        topWrapper.add(filterCard, BorderLayout.CENTER);
+        topWrapper.add(filterCard, BorderLayout.SOUTH);
         add(topWrapper, BorderLayout.NORTH);
 
         // ================= BIỂU ĐỒ & BẢNG (CENTER) =================
@@ -197,8 +211,34 @@ public class TAB_ThongKeDoanhThu extends JPanel {
             if (isCustom) {
                 tableModel.setRowCount(0); // Xóa dữ liệu bảng
                 chartDataset.clear();      // Xóa dữ liệu biểu đồ
+                lblTongHoaDon.setText("0");
+                lblTongDoanhThu.setText("0 đ");
             }
         });
+    }
+
+    private String formatCurrencyVnd(double amount) {
+        return new DecimalFormat("#,###").format(amount) + " đ";
+    }
+
+    private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
+        JPanel card = new JPanel(new BorderLayout(5, 5));
+        card.setBackground(BG_CARD);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(BORDER, 1, true),
+                BorderFactory.createEmptyBorder(15, 20, 15, 20)
+        ));
+
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setForeground(TEXT_MID);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        lblValue.setForeground(color);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
+
+        card.add(lblTitle, BorderLayout.NORTH);
+        card.add(lblValue, BorderLayout.CENTER);
+        return card;
     }
 
     // HÀM XỬ LÝ LẤY DỮ LIỆU TỪ DATABASE
@@ -267,6 +307,8 @@ public class TAB_ThongKeDoanhThu extends JPanel {
 
         tableModel.setRowCount(0);
         chartDataset.clear();
+        lblTongHoaDon.setText("0");
+        lblTongDoanhThu.setText("0 đ");
 
         if (listData == null || listData.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Không tìm thấy dữ liệu doanh thu trong khoảng thời gian này!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
@@ -275,24 +317,31 @@ public class TAB_ThongKeDoanhThu extends JPanel {
 
         DecimalFormat df = new DecimalFormat("#,###");
         SimpleDateFormat shortSdf = new SimpleDateFormat("dd/MM");
+        int tongHoaDon = 0;
+        double tongDoanhThu = 0;
 
         int stt = 1;
         for (Object[] row : listData) {
             Date ngay = (Date) row[0];
             int soHoaDon = (int) row[1]; // Đã thay đổi thành hóa đơn
             double doanhThu = (double) row[2];
+            tongHoaDon += soHoaDon;
+            tongDoanhThu += doanhThu;
 
             // Thêm vào Bảng
             tableModel.addRow(new Object[]{
                     stt++,
                     sdf.format(ngay),
                     soHoaDon, // Hiển thị số hóa đơn
-                    df.format(doanhThu)
+                    formatCurrencyVnd(doanhThu)
             });
 
             // Thêm vào Biểu đồ
             chartDataset.addValue(doanhThu, "Doanh thu", shortSdf.format(ngay));
         }
+
+        lblTongHoaDon.setText(df.format(tongHoaDon));
+        lblTongDoanhThu.setText(formatCurrencyVnd(tongDoanhThu));
     }
 
     // HÀM XUẤT FILE EXCEL

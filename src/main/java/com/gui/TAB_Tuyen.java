@@ -76,9 +76,14 @@ public class TAB_Tuyen extends JPanel {
         JPanel pnlTop = new JPanel(new BorderLayout(0, 20));
         pnlTop.setOpaque(false);
 
-        JPanel pnlDashboard = new JPanel(new GridLayout(1, 1, 0, 0));
+        JPanel pnlDashboard = new JPanel(new GridLayout(1, 3, 20, 0));
         pnlDashboard.setOpaque(false);
         pnlDashboard.add(createStatCard("TỔNG SỐ TUYẾN ĐƯỜNG", lblTotal = new JLabel("0"), ACCENT));
+        JPanel dummy1 = new JPanel(); dummy1.setOpaque(false);
+        JPanel dummy2 = new JPanel(); dummy2.setOpaque(false);
+        pnlDashboard.add(dummy1);
+        pnlDashboard.add(dummy2);
+
         pnlTop.add(pnlDashboard, BorderLayout.NORTH);
 
         JLabel title = new JLabel("QUẢN LÝ TUYẾN ĐƯỜNG");
@@ -126,8 +131,8 @@ public class TAB_Tuyen extends JPanel {
         btnXoa.addActionListener(e -> xoaTuyen());
         btnThem.addActionListener(e -> hienThiDialogThemTuyen());
 
-        pnlButtons.add(btnXoa);
         pnlButtons.add(btnThem);
+        pnlButtons.add(btnXoa);
 
         pnlToolbar.add(pnlFilterAndSearch, BorderLayout.WEST);
         pnlToolbar.add(pnlButtons, BorderLayout.EAST);

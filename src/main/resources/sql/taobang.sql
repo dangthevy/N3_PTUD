@@ -320,12 +320,12 @@ INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES
 -- TÀU (6 tàu)
 -- =============================================
 INSERT INTO Tau VALUES
-('TAU0001', N'Tàu SE1',  11, 'HOATDONG'),
-('TAU0002', N'Tàu SE2',  13, 'HOATDONG'),
-('TAU0003', N'Tàu SE3',  11, 'HOATDONG'),
-('TAU0004', N'Tàu SE4',  15, 'HOATDONG'),
-('TAU0005', N'Tàu SPT1', 11, 'HOATDONG'),
-('TAU0006', N'Tàu SPT2', 11, 'HOATDONG');
+('TAU0001', N'SE1',  11, 'HOATDONG'),
+('TAU0002', N'SE2',  13, 'HOATDONG'),
+('TAU0003', N'SE3',  11, 'HOATDONG'),
+('TAU0004', N'SE4',  15, 'HOATDONG'),
+('TAU0005', N'TN1', 11, 'HOATDONG'),
+('TAU0006', N'TN2', 11, 'HOATDONG');
 GO
 
 -- =============================================

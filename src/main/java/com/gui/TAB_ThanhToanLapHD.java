@@ -140,9 +140,13 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	}
 
 	private JPanel buildStatsBar() {
-		JPanel bar = new JPanel(new GridLayout(1, 1, 12, 0));
+		JPanel bar = new JPanel(new GridLayout(1, 3, 20, 0));
 		bar.setOpaque(false);
 		bar.add(createStatCard("TỔNG HÓA ĐƠN", lblTongHD, ACCENT));
+		JPanel dummy1 = new JPanel(); dummy1.setOpaque(false);
+		JPanel dummy2 = new JPanel(); dummy2.setOpaque(false);
+		bar.add(dummy1);
+		bar.add(dummy2);
 		return bar;
 	}
 

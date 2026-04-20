@@ -128,9 +128,9 @@ public class TAB_KhuyenMai extends JPanel {
         topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
         topPanel.setOpaque(false);
 
-        topPanel.add(buildHeader());
-        topPanel.add(Box.createVerticalStrut(10));
         topPanel.add(buildStatsBar());      // [THÊM MỚI] thanh stats riêng bên dưới header
+        topPanel.add(Box.createVerticalStrut(10));
+        topPanel.add(buildHeader());
         topPanel.add(Box.createVerticalStrut(10));
         topPanel.add(buildFilterCard());    // filter đã được mở rộng thêm ngày
 
