@@ -186,25 +186,25 @@ public class DAO_NhanVien {
     }
 
     public boolean create(String ten, String sdt, String email, String tk, String mk, String cv, int tinhTrang, int an, java.sql.Date ngayVaoLam) {
-    // BỎ maNV ra khỏi danh sách cột và VALUES
-    String sql = "INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, An, ngayVaoLam) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    try (PreparedStatement pst = conn.prepareStatement(sql)) {
-        pst.setString(1, ten);
-        pst.setString(2, sdt);
-        pst.setString(3, email);
-        pst.setString(4, tk);
-        pst.setString(5, mk);
-        pst.setString(6, cv);
-        pst.setInt(7, tinhTrang); 
-        pst.setInt(8, an);        
-        pst.setDate(9, ngayVaoLam);
-        
-        return pst.executeUpdate() > 0;
-    } catch (SQLException e) {
-        e.printStackTrace();
-        return false;
+        // BỎ maNV ra khỏi danh sách cột và VALUES
+        String sql = "INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, An, ngayVaoLam) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setString(1, ten);
+            pst.setString(2, sdt);
+            pst.setString(3, email);
+            pst.setString(4, tk);
+            pst.setString(5, mk);
+            pst.setString(6, cv);
+            pst.setInt(7, tinhTrang);
+            pst.setInt(8, an);
+            pst.setDate(9, ngayVaoLam);
+
+            return pst.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
-}
 
     public boolean verifyUserByEmail(String taiKhoan, String email) {
         String sql = "SELECT COUNT(*) FROM NhanVien WHERE taiKhoan = ? AND email = ?";
@@ -223,6 +223,26 @@ public class DAO_NhanVien {
         } catch (SQLException e) {
             System.err.println("Lỗi truy vấn verifyUserByEmail: " + e.getMessage());
         }
+        return false;
+    }
+
+    // ================= KIỂM TRA SĐT =================
+    /**
+     * Kiểm tra SĐT đã tồn tại với An = 0 (đang hoạt động) chưa.
+     * - excludeMaNV: khi edit thì bỏ qua chính nhân viên đang sửa (truyền maNV của họ).
+     *               khi thêm mới thì truyền null.
+     * @return true nếu SĐT bị trùng (chặn lưu), false nếu hợp lệ (cho phép lưu)
+     */
+    public boolean isSdtExists(String sdt, String excludeMaNV) {
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE sdt = ? AND An = 0"
+                + (excludeMaNV != null ? " AND maNV != ?" : "");
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sdt);
+            if (excludeMaNV != null) ps.setString(2, excludeMaNV);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
         return false;
     }
 

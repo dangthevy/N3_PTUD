@@ -359,8 +359,11 @@ public class TAB_QLNhanVien extends JPanel {
         row = addFormRowSimple(form, gc, row, "Ngày vào làm", dateVaoLam);
 
         btnSave.addActionListener(e -> {
+            // excludeMaNV: null khi thêm mới, maNV của NV hiện tại khi edit
+            String excludeMaNV = isEdit ? nv.getMaNV() : null;
+
             boolean ok = validateName(txtName, errName)
-                    & validateSDT(txtSDT, errSDT)
+                    & validateSDT(txtSDT, errSDT, excludeMaNV)   // check DB
                     & validateEmail(txtEmail, errEmail)
                     & validateTaiKhoan(txtTaiKhoan, errTaiKhoan)
                     & validateNewPasswordField(txtNewPassword, txtConfirmPassword, errNewPassword, errConfirmPassword, isEdit)
@@ -493,8 +496,22 @@ public class TAB_QLNhanVien extends JPanel {
     }
 
     private boolean validateSDT(JTextField f, JLabel err) {
-        if (!f.getText().matches("0\\d{9}")) {
+        return validateSDT(f, err, null); // dùng khi không cần check DB (không truyền maNV)
+    }
+
+    /**
+     * @param excludeMaNV null = thêm mới; maNV = edit (bỏ qua chính mình khi check trùng)
+     */
+    private boolean validateSDT(JTextField f, JLabel err, String excludeMaNV) {
+        String val = f.getText().trim();
+        if (!val.matches("0\\d{9}")) {
             err.setText("SĐT phải 10 số, bắt đầu bằng 0");
+            f.setBorder(new LineBorder(Color.RED, 1, true));
+            return false;
+        }
+        // Chỉ check DB khi đã truyền context (gọi từ btnSave)
+        if (daoNhanVien.isSdtExists(val, excludeMaNV)) {
+            err.setText("SĐT này đã được dùng bởi nhân viên khác");
             f.setBorder(new LineBorder(Color.RED, 1, true));
             return false;
         }
