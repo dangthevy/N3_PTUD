@@ -201,7 +201,7 @@ public class DAO_KhuyenMai {
 //        ps.setString(1, km.getMaKM());
         ps.setString(1, km.getTenKM());
         ps.setDate(2, km.getNgayBatDau()  != null ? new java.sql.Date(km.getNgayBatDau().getTime()) : null);
-        ps.setDate(3, km.getNgayKetThuc() != null ? new java.sql.Date(km.getNgayBatDau().getTime()) : null);
+        ps.setDate(3, km.getNgayKetThuc() != null ? new java.sql.Date(km.getNgayKetThuc().getTime()) : null);
         ps.setBoolean(4, km.isTrangThai());
         ps.setString(5, km.getMoTa());
     }
