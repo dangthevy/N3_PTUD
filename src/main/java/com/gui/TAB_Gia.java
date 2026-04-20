@@ -281,7 +281,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("QUẢN LÝ BẢNG GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(ACCENT);
+        title.setForeground(TEXT_DARK);
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -370,7 +370,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("CHI TIẾT GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(ACCENT);
+        title.setForeground(TEXT_DARK);
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -380,9 +380,29 @@ public class TAB_Gia extends JPanel {
 
         // Bảng GiaDetail
         JPanel cardDetail = makeCard(new BorderLayout());
-        JScrollPane scDetail = new JScrollPane(tblGD);
+        JScrollPane scDetail = new JScrollPane(tblGD) {
+            @Override public void updateUI() {
+                super.updateUI();
+                // Scrollbar overlay: không chiếm chỗ trong layout
+                setComponentZOrder(getVerticalScrollBar(), 0);
+                setComponentZOrder(getViewport(), 1);
+                getVerticalScrollBar().setOpaque(false);
+            }
+            @Override public void layout() {
+                super.layout();
+                // Đặt scrollbar đè lên góc phải viewport thay vì chiếm layout riêng
+                javax.swing.JScrollBar vsb = getVerticalScrollBar();
+                if (vsb != null && vsb.isVisible()) {
+                    java.awt.Rectangle vp = getViewport().getBounds();
+                    int w = vsb.getPreferredSize().width;
+                    vsb.setBounds(vp.x + vp.width - w, vp.y, w, vp.height);
+                    getViewport().setBounds(vp.x, vp.y, vp.width, vp.height);
+                }
+            }
+        };
         scDetail.setBorder(BorderFactory.createEmptyBorder());
         scDetail.getViewport().setBackground(BG_CARD);
+        scDetail.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scDetail.setPreferredSize(new Dimension(0, 200));
         scDetail.setMinimumSize(new Dimension(0, 200));
         styleScrollBar(scDetail.getVerticalScrollBar());
@@ -502,19 +522,18 @@ public class TAB_Gia extends JPanel {
             }
         };
         styleTable(t);
-        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-
-        // Ẩn cột raw index 5
-        t.getColumnModel().getColumn(5).setMinWidth(0);
-        t.getColumnModel().getColumn(5).setMaxWidth(0);
-        t.getColumnModel().getColumn(5).setWidth(0);
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        t.setFillsViewportHeight(true);
 
         // Renderer trạng thái cột 4
         t.getColumnModel().getColumn(4).setCellRenderer(new TrangThaiRenderer());
 
         int[] w = {110, 200, 110, 110, 130};
         for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
-        applyPaddingRenderer(t, 4); // không đè renderer cột 4
+        applyPaddingRenderer(t, 4);
+
+        // Ẩn cột raw _ngayKetThucRaw (index 5) bằng removeColumn
+        t.removeColumn(t.getColumnModel().getColumn(5));
         return t;
     }
 
@@ -528,15 +547,14 @@ public class TAB_Gia extends JPanel {
             }
         };
         styleTable(t);
-        // Ẩn 2 cột mã raw (index 3, 4)
-        for (int i = 3; i <= 4; i++) {
-            t.getColumnModel().getColumn(i).setMinWidth(0);
-            t.getColumnModel().getColumn(i).setMaxWidth(0);
-            t.getColumnModel().getColumn(i).setWidth(0);
-        }
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        t.setFillsViewportHeight(true);
         int[] w = {180, 180, 150};
         for (int i = 0; i < w.length; i++) t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyPaddingRenderer(t, 3);
+        // Ẩn 2 cột mã raw bằng removeColumn (không chiếm layout)
+        t.removeColumn(t.getColumnModel().getColumn(4)); // _maTuyen
+        t.removeColumn(t.getColumnModel().getColumn(3)); // _maLoaiToa
         return t;
     }
 
@@ -554,6 +572,7 @@ public class TAB_Gia extends JPanel {
         h.setDefaultRenderer(new HeaderRenderer());
         h.setPreferredSize(new Dimension(0, 40));
         h.setReorderingAllowed(false);
+        h.setResizingAllowed(false);
     }
 
     private void applyPaddingRenderer(JTable t, int upTo) {
@@ -1556,9 +1575,23 @@ public class TAB_Gia extends JPanel {
     }
 
     private void styleScrollBar(JScrollBar sb) {
+        sb.setPreferredSize(new Dimension(8, 0));
+        sb.setOpaque(false);
         sb.setUI(new BasicScrollBarUI() {
             @Override protected void configureScrollBarColors() {
-                thumbColor = new Color(0xC0D4EE); trackColor = BG_PAGE;
+                thumbColor = new Color(0xC0D4EE);
+                trackColor = new Color(0, 0, 0, 0); // trong suốt
+            }
+            @Override protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
+                // Không vẽ track → trong suốt hoàn toàn
+            }
+            @Override protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
+                if (r.isEmpty() || !sb.isVisible()) return;
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(thumbColor);
+                g2.fillRoundRect(r.x + 1, r.y, r.width - 2, r.height, 6, 6);
+                g2.dispose();
             }
             @Override protected JButton createDecreaseButton(int o) { return zBtn(); }
             @Override protected JButton createIncreaseButton(int o) { return zBtn(); }

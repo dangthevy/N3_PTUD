@@ -311,7 +311,7 @@ public class TAB_Dashboard extends JPanel {
 			dataset.setValue("Giường nằm K6", 14);
 		}
 
-		JFreeChart chart = ChartFactory.createPieChart("Cơ cấu Loại toa bán ra (30 ngày)", dataset, true, true, false);
+		JFreeChart chart = ChartFactory.createPieChart("Cơ cấu Vé bán ra (30 ngày)", dataset, true, true, false);
 		chart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
 		chart.getTitle().setHorizontalAlignment(org.jfree.chart.ui.HorizontalAlignment.LEFT);
 

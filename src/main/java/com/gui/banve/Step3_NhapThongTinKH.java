@@ -231,7 +231,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 		txtPaxEmail = makePlainField("Ví dụ: abc@gmail.com");
 		applyEmailOnly(txtPaxEmail);
 
-		cbLoaiVe = new JComboBox<>(new String[] { "Người lớn", "Trẻ em", "Sinh viên", "Người cao tuổi" });
+		cbLoaiVe = new JComboBox<>(new String[] { "Người lớn", "Trẻ em", "Sinh viên" });
 		cbLoaiVe.setFont(UITheme.FONT_LABEL);
 
 		lblPaxSdtError = makeErrorLabel();
@@ -683,8 +683,21 @@ public class Step3_NhapThongTinKH extends JPanel {
 		seatMap.put("cccd", cccd);
 		seatMap.put("email", email);
 
-		String tenLoaiVe = cbLoaiVe.getSelectedItem().toString();
-		String maLoaiVe = tenLoaiVe.equals("Người lớn") ? "LV01" : (tenLoaiVe.equals("Trẻ em") ? "LV02" : "LV03");
+		Object selectedLoaiVe = cbLoaiVe.getSelectedItem();
+		String tenLoaiVe = selectedLoaiVe != null ? selectedLoaiVe.toString() : "Người lớn";
+		String maLoaiVe;
+		switch (tenLoaiVe) {
+		case "Trẻ em":
+			maLoaiVe = "LV02";
+			break;
+		case "Sinh viên":
+			maLoaiVe = "LV03";
+			break;
+		case "Người lớn":
+		default:
+			maLoaiVe = "LV01";
+			break;
+		}
 		seatMap.put("loaiVe", tenLoaiVe);
 		seatMap.put("maLoaiVe", maLoaiVe);
 
