@@ -19,7 +19,7 @@ public class DAO_NhanVien {
     // ================= GET ALL =================
     public List<NhanVien> getAllNhanVien() {
         List<NhanVien> list = new ArrayList<>();
-        String sql = "SELECT * FROM NhanVien WHERE An = 0 AND ChucVu != 'ADMIN' ORDER BY ngayVaoLam ASC";
+        String sql = "SELECT * FROM NhanVien WHERE An = 0 AND ChucVu != 'ADMIN' ORDER BY ngayVaoLam DESC";
 
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -79,7 +79,7 @@ public class DAO_NhanVien {
             params.add(trangThai.name());
         }
 
-        sql.append(" AND An = 0 ORDER BY tenNV");
+        sql.append(" AND ChucVu != 'ADMIN' AND An = 0 ORDER BY ngayVaoLam DESC");
 
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             for (int i = 0; i < params.size(); i++)

@@ -522,8 +522,8 @@ GO
 -- =============================================
 INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
 (N'Khuyến mãi hè 2026',           '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
-(N'Ưu đãi Sinh viên',             '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
-(N'Ưu đãi vé trẻ em',             '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
+(N'Ưu đãi Học sinh / Sinh viên',             '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
+(N'Ưu đãi vé trẻ em dưới 12 tuổi',             '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
 (N'Flash Sale Cuối Tuần',         '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
 (N'Khuyến mãi Tết Nguyên Đán 2026','2026-02-01','2026-02-28', 1, N'Ưu đãi dịp Tết cho các tuyến phổ biến'),
 (N'Ưu đãi Giỗ Tổ Hùng Vương 2026','2026-04-01','2026-04-10', 1, N'Khuyến mãi dịp lễ đầu tháng 4'),
@@ -532,8 +532,8 @@ INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
 GO
 
 DECLARE @KM_HE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026');
-DECLARE @KM_SV    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Sinh viên');
-DECLARE @KM_TE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em');
+DECLARE @KM_SV    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Học sinh / Sinh viên');
+DECLARE @KM_TE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em dưới 12 tuổi');
 DECLARE @KM_FS    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale Cuối Tuần');
 DECLARE @KM_TET   VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi Tết Nguyên Đán 2026');
 DECLARE @KM_GIOTO VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Giỗ Tổ Hùng Vương 2026');

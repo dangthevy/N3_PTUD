@@ -130,21 +130,24 @@ public class TAB_QLNhanVien extends JPanel {
         txtSearch.setPreferredSize(new Dimension(400, 36));
 
         // ── ComboBox Chức vụ với option "Tất cả" ──
-        ChucVu[] chucVuValues = ChucVu.values();
+        ChucVu[] chucVuValues = ChucVu.getWithoutAdmin();
         Object[] chucVuItems = new Object[chucVuValues.length + 1];
         chucVuItems[0] = "Tất cả";
         System.arraycopy(chucVuValues, 0, chucVuItems, 1, chucVuValues.length);
-        JComboBox<Object> cbChucVu = new JComboBox<>(chucVuItems);
-        cbChucVu.setPreferredSize(new Dimension(140, 34));
+        JComboBox<Object> cbChucVu = makeStyledComboBox(chucVuItems);
+        cbChucVu.setPreferredSize(new Dimension(200, 34));
         cbChucVu.setFont(F_CELL);
         cbChucVu.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             String text = (value instanceof ChucVu)
                     ? ((ChucVu) value).getLabel()
-                    : value.toString(); // "Tất cả"
+                    : (value != null ? value.toString() : "");
+
             JLabel lbl = new JLabel(text);
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
-            if (isSelected) lbl.setBackground(ROW_SEL);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            lbl.setBackground(isSelected ? ROW_SEL : (index % 2 == 0 ? Color.WHITE : ROW_ALT));
+            lbl.setForeground(TEXT_DARK);
+            lbl.setFont(F_CELL);
             return lbl;
         });
 
@@ -153,8 +156,8 @@ public class TAB_QLNhanVien extends JPanel {
         Object[] ttItems = new Object[ttValues.length + 1];
         ttItems[0] = "Tất cả";
         System.arraycopy(ttValues, 0, ttItems, 1, ttValues.length);
-        JComboBox<Object> cbTrangThai = new JComboBox<>(ttItems);
-        cbTrangThai.setPreferredSize(new Dimension(150, 34));
+        JComboBox<Object> cbTrangThai = makeStyledComboBox(ttItems);
+        cbTrangThai.setPreferredSize(new Dimension(200, 34));
         cbTrangThai.setFont(F_CELL);
         cbTrangThai.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             String text = (value instanceof TrangThaiNhanVien)
@@ -162,8 +165,10 @@ public class TAB_QLNhanVien extends JPanel {
                     : value.toString(); // "Tất cả"
             JLabel lbl = new JLabel(text);
             lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
-            if (isSelected) lbl.setBackground(ROW_SEL);
+            lbl.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            lbl.setBackground(isSelected ? ROW_SEL : (index % 2 == 0 ? Color.WHITE : ROW_ALT));
+            lbl.setForeground(TEXT_DARK);
+            lbl.setFont(F_CELL);
             return lbl;
         });
 
@@ -488,10 +493,10 @@ public class TAB_QLNhanVien extends JPanel {
         );
         if (!valid) {
             err.setText("Tên phải dạng \"Nguyễn Văn An\", mỗi từ viết hoa chữ đầu");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+            setUnderlineFieldState(f, true, f.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        err.setText(" "); setUnderlineFieldState(f, false, f.isFocusOwner());
         return true;
     }
 
@@ -506,16 +511,16 @@ public class TAB_QLNhanVien extends JPanel {
         String val = f.getText().trim();
         if (!val.matches("0\\d{9}")) {
             err.setText("SĐT phải 10 số, bắt đầu bằng 0");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+            setUnderlineFieldState(f, true, f.isFocusOwner());
             return false;
         }
         // Chỉ check DB khi đã truyền context (gọi từ btnSave)
         if (daoNhanVien.isSdtExists(val, excludeMaNV)) {
             err.setText("SĐT này đã được dùng bởi nhân viên khác");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+            setUnderlineFieldState(f, true, f.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        err.setText(" "); setUnderlineFieldState(f, false, f.isFocusOwner());
         return true;
     }
 
@@ -527,20 +532,20 @@ public class TAB_QLNhanVien extends JPanel {
         );
         if (!valid) {
             err.setText("Email không hợp lệ (vd: abc@gmail.com, abc@iuh.edu.vn)");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+            setUnderlineFieldState(f, true, f.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        err.setText(" "); setUnderlineFieldState(f, false, f.isFocusOwner());
         return true;
     }
 
     private boolean validateTaiKhoan(JTextField f, JLabel err) {
         if (f.getText().trim().length() < 4) {
             err.setText("Tài khoản phải ≥ 4 ký tự");
-            f.setBorder(new LineBorder(Color.RED, 1, true));
+            setUnderlineFieldState(f, true, f.isFocusOwner());
             return false;
         }
-        err.setText(" "); f.setBorder(new LineBorder(BORDER, 1, true));
+        err.setText(" "); setUnderlineFieldState(f, false, f.isFocusOwner());
         return true;
     }
 
@@ -749,45 +754,61 @@ public class TAB_QLNhanVien extends JPanel {
         cb.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(BORDER, 1, true),
                 BorderFactory.createEmptyBorder(0, 4, 0, 4)));
-        // Popup list style
+
         cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
-            @Override protected JButton createArrowButton() {
-                JButton b = new JButton("▾") {
-                    @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected JButton createArrowButton() {
+                JButton b = new JButton() {
+                    @Override
+                    protected void paintComponent(Graphics g) {
                         Graphics2D g2 = (Graphics2D) g.create();
                         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
                         g2.setColor(new Color(0xF8FAFD));
                         g2.fillRect(0, 0, getWidth(), getHeight());
+
                         g2.setColor(TEXT_MID);
-                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-                        FontMetrics fm = g2.getFontMetrics();
-                        String txt = "▾";
-                        g2.drawString(txt,
-                                (getWidth()  - fm.stringWidth(txt)) / 2,
-                                (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+
+                        int cx = getWidth() / 2;
+                        int cy = getHeight() / 2 + 1;
+                        int size = 5;
+
+                        Polygon arrow = new Polygon();
+                        arrow.addPoint(cx - size, cy - 2);
+                        arrow.addPoint(cx + size, cy - 2);
+                        arrow.addPoint(cx, cy + size - 1);
+
+                        g2.fillPolygon(arrow);
                         g2.dispose();
                     }
                 };
+
                 b.setBorderPainted(false);
                 b.setContentAreaFilled(false);
                 b.setFocusPainted(false);
+                b.setOpaque(false);
                 b.setPreferredSize(new Dimension(24, 0));
+                b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 return b;
             }
         });
-        // Focus border giống makeField
+
         cb.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusGained(java.awt.event.FocusEvent e) {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(ACCENT_FOC, 2, true),
                         BorderFactory.createEmptyBorder(0, 3, 0, 3)));
             }
-            @Override public void focusLost(java.awt.event.FocusEvent e) {
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(BORDER, 1, true),
                         BorderFactory.createEmptyBorder(0, 4, 0, 4)));
             }
         });
+
         return cb;
     }
 
