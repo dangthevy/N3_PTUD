@@ -361,8 +361,8 @@ public class GUI_Login extends JPanel implements ActionListener {
     }
 
     private void sendEmail(String recipientEmail, String otp) {
-        final String myEmail = "nguynthin31@gmail.com";
-        final String myAppPassword = "degtrhcfwnkokmsr";
+        final String myEmail = "ngbathien3101@gmail.com";
+        final String myAppPassword = "iklducoetztezmmi";
 
         Properties props = new Properties();
         props.put("mail.smtp.auth", "true");
