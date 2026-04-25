@@ -70,7 +70,7 @@ public class TAB_TraCuuVe extends JPanel {
     private final DecimalFormat df = new DecimalFormat("#,##0 VND");
 
     private static final String[] COLS = {
-        "Mã Vé", "Mã KH", "Tên KH", "Mã LT", "Toa", "Ghế", "Loại Vé", "Giá Vé", "Trạng Thái"
+        "Mã Vé", "Mã KH", "Tên KH", "Mã LT", "Toa", "Ghế", "Loại Vé", "Giá Vé", "Ngày Lập", "Trạng Thái"
     };
 
     // ================= CONSTRUCTOR =================
@@ -107,29 +107,33 @@ public class TAB_TraCuuVe extends JPanel {
         table = new JTable(tableModel) {
             public Component prepareRenderer(TableCellRenderer r, int row, int col) {
                 Component c = super.prepareRenderer(r, row, col);
-                if (!isRowSelected(row)) {
-                    c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
-                    ((JLabel) c).setForeground(TEXT_DARK);
-                } else {
+                if (isRowSelected(row)) {
                     c.setBackground(ROW_SEL);
                     ((JLabel) c).setForeground(TEXT_DARK);
+                    return c;
                 }
-                if (col == 8 && !isRowSelected(row)) {
-                    String st = getValueAt(row, col).toString().toUpperCase();
-                    switch (st) {
-                        case "DAHOAN":
-                            c.setBackground(new Color(0xFFF3CD));
-                            ((JLabel) c).setForeground(new Color(0x856404)); break;
-                        case "DASUDUNG":
-                            c.setBackground(new Color(0xD1FAE5));
-                            ((JLabel) c).setForeground(new Color(0x065F46)); break;
-                        case "HETHAN":
-                            c.setBackground(new Color(0xFEE2E2));
-                            ((JLabel) c).setForeground(new Color(0x991B1B)); break;
-                        default:
-                            c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
-                            ((JLabel) c).setForeground(new Color(0x16A34A));
-                    }
+                // Lấy trạng thái của hàng để quyết định màu nền toàn hàng
+                String st = getValueAt(row, 9).toString();
+                switch (st) {
+                    case "Đã hoàn":
+                        // Vàng lợt cho toàn hàng, ô trạng thái đậm hơn
+                        c.setBackground(col == 9 ? new Color(0xFFF3CD) : new Color(0xFFF3CD));
+                        ((JLabel) c).setForeground(col == 9 ? new Color(0x856404) : new Color(0x5A4A1A));
+                        break;
+                    case "Đã sử dụng":
+                        // Đỏ lợt cho toàn hàng
+                        c.setBackground(col == 9 ? new Color(0xFECACA) : new Color(0xFECACA));
+                        ((JLabel) c).setForeground(col == 9 ? new Color(0x991B1B) : new Color(0x5A2020));
+                        break;
+                    case "Hết hạn":
+                        // Xám lợt cho toàn hàng
+                        c.setBackground(col == 9 ? new Color(0xD1D5DB) : new Color(0xD1D5DB));
+                        ((JLabel) c).setForeground(col == 9 ? new Color(0x374151) : new Color(0x6B7280));
+                        break;
+                    default:
+                        // Chưa sử dụng: nền trắng/xen kẽ bình thường, chữ trạng thái xanh lá
+                        c.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
+                        ((JLabel) c).setForeground(col == 9 ? new Color(0x16A34A) : TEXT_DARK);
                 }
                 return c;
             }
@@ -166,6 +170,11 @@ public class TAB_TraCuuVe extends JPanel {
                 String status = rs.getString("trangThaiVe");
                 // thanhTien = giá sau ap dung KM (từ ChiTietHoaDon), fallback về giaVe nếu chưa có HĐ
                 double thanhTien = rs.getDouble("thanhTien");
+                // ngayLap từ HoaDon
+                java.sql.Timestamp ngayLap = rs.getTimestamp("ngayLap");
+                String ngayLapStr = ngayLap != null
+                    ? new SimpleDateFormat("dd/MM/yyyy HH:mm").format(ngayLap)
+                    : "";
                 tableModel.addRow(new Object[]{
                     rs.getString("maVe"),
                     rs.getString("maKH")     != null ? rs.getString("maKH")     : "",
@@ -175,7 +184,8 @@ public class TAB_TraCuuVe extends JPanel {
                     rs.getString("viTriGhe"),
                     rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
                     df.format(thanhTien),   // ← giá SAU khuyến mãi
-                    status != null ? status : "CHUASUDUNG"
+                    ngayLapStr,
+                    trangThaiToDisplay(status != null ? status : "CHUASUDUNG")
                 });
             }
         } catch (SQLException e) {
@@ -191,9 +201,9 @@ public class TAB_TraCuuVe extends JPanel {
         int tong = counts[0], daHoan = counts[1];
         int chuaSuDung = 0, daSuDung = 0;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String st = tableModel.getValueAt(i, 8).toString().toUpperCase();
-            if ("CHUASUDUNG".equals(st)) chuaSuDung++;
-            else if ("DASUDUNG".equals(st)) daSuDung++;
+            String st = tableModel.getValueAt(i, 9).toString().toUpperCase();
+            if ("CHƯA SỬ DỤNG".equals(st)) chuaSuDung++;
+            else if ("ĐÃ SỬ DỤNG".equals(st)) daSuDung++;
         }
         lblTongVe.setText(String.valueOf(tong));
         lblChuaSuDung.setText(String.valueOf(chuaSuDung));
@@ -211,7 +221,10 @@ public class TAB_TraCuuVe extends JPanel {
         String viTri    = tableModel.getValueAt(row, 5).toString();
         String loaiVe   = tableModel.getValueAt(row, 6).toString();
         String giaVe    = tableModel.getValueAt(row, 7).toString();
-        String trangThai = tableModel.getValueAt(row, 8).toString().toUpperCase();
+        // col 8 = Ngày Lập (hiển thị), col 9 = Trạng Thái (tiếng Việt)
+        String trangThaiDisplay = tableModel.getValueAt(row, 9).toString();
+        // Cần raw code để so sánh logic
+        String trangThai = displayToTrangThai(trangThaiDisplay);
 
         // Lấy thêm chi tiết từ DB (tuyến, tàu, ngày giờ, v.v.)
         String gaKhoiHanh = "", gaDen = "", tenTau = "", ngayDi = "", gioDi = "";
@@ -255,13 +268,13 @@ public class TAB_TraCuuVe extends JPanel {
         dialog.setResizable(false);
 
         // Status badge colors (dùng lại bên dưới)
-        String displayStatus = trangThaiToDisplay(trangThai);
-        Color badgeBg, badgeFg;
+        String displayStatus = trangThaiDisplay;
+        Color badgeFg;
         switch (trangThai) {
-            case "DAHOAN":  badgeBg = new Color(0xFFF3CD); badgeFg = new Color(0x856404); break;
-            case "DASUDUNG":badgeBg = new Color(0xD1FAE5); badgeFg = new Color(0x065F46); break;
-            case "HETHAN":  badgeBg = new Color(0xFEE2E2); badgeFg = new Color(0x991B1B); break;
-            default:        badgeBg = new Color(0xDCFCE7); badgeFg = new Color(0x16A34A);
+            case "DAHOAN":  badgeFg = new Color(0x856404); break;
+            case "DASUDUNG":badgeFg = new Color(0x065F46); break;
+            case "HETHAN":  badgeFg = new Color(0x991B1B); break;
+            default:        badgeFg = new Color(0x16A34A);
         }
 
         // Lấy danh sách khuyến mãi đã áp dụng cho vé
@@ -402,20 +415,92 @@ public class TAB_TraCuuVe extends JPanel {
             BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER),
             BorderFactory.createEmptyBorder(14, 22, 14, 22)));
 
-        JButton btnDong   = makeBtn("Đóng",       BtnStyle.SECONDARY);
-        JButton btnHoanVe = makeBtn("Hoàn vé",    BtnStyle.WARNING);
-        JButton btnInLai  = makeBtn("In lại vé", BtnStyle.PRIMARY);
-        btnDong.setPreferredSize(new Dimension(0, 40));
+        // Nut Hoan ve - icon undo ro rang
+        JButton btnHoanVe = new JButton("  Hoàn vé") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color base = !isEnabled() ? new Color(0xBDBDBD)
+                           : getModel().isRollover() ? BTN_ORANGE_HVR : BTN_ORANGE;
+                g2.setColor(base);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 22, cy = getHeight()/2;
+                // Vong tron ho nguoc chieu kim dong ho (arcAngle duong = CCW trong Java)
+                // Bat dau tu 60 do, quay CCW 300 do -> ket thuc tai 60+300 = 360 = 0 do (ben phai)
+                g2.drawArc(cx-7, cy-7, 14, 14, 60, 300);
+                // Mui ten tai diem ket thuc (goc 0 do = ben phai, toa do cx+7, cy)
+                // Huong CCW tai goc 0 la huong len (90 do)
+                int[] ax = {cx+7, cx+4, cx+10};
+                int[] ay = {cy,   cy+4,  cy+4 };
+                g2.fillPolygon(ax, ay, 3);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnHoanVe.setFont(F_LABEL); btnHoanVe.setForeground(Color.WHITE);
+        btnHoanVe.setOpaque(false); btnHoanVe.setContentAreaFilled(false);
+        btnHoanVe.setBorderPainted(false); btnHoanVe.setFocusPainted(false);
+        btnHoanVe.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnHoanVe.setPreferredSize(new Dimension(0, 40));
+
+        // Nut In lai ve - icon may in
+        JButton btnInLai = new JButton("  In lại vé") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 20, cy = getHeight()/2;
+                // Than may in
+                g2.drawRoundRect(cx-8, cy-4, 16, 10, 3, 3);
+                // Giay ra
+                g2.drawRect(cx-5, cy+4, 10, 6);
+                // Giay vao
+                g2.drawRect(cx-5, cy-9, 10, 5);
+                // Den may in
+                g2.fillOval(cx+3, cy-1, 3, 3);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnInLai.setFont(F_LABEL); btnInLai.setForeground(Color.WHITE);
+        btnInLai.setOpaque(false); btnInLai.setContentAreaFilled(false);
+        btnInLai.setBorderPainted(false); btnInLai.setFocusPainted(false);
+        btnInLai.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnInLai.setPreferredSize(new Dimension(0, 40));
+
+        // Nut Dong - icon X
+        JButton btnDong = new JButton("  Đóng") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(0xE5ECF6) : Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(BORDER); g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+                g2.setColor(TEXT_MID);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 20, cy = getHeight()/2;
+                g2.drawLine(cx-4, cy-4, cx+4, cy+4);
+                g2.drawLine(cx+4, cy-4, cx-4, cy+4);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnDong.setFont(F_LABEL); btnDong.setForeground(TEXT_MID);
+        btnDong.setOpaque(false); btnDong.setContentAreaFilled(false);
+        btnDong.setBorderPainted(false); btnDong.setFocusPainted(false);
+        btnDong.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnDong.setPreferredSize(new Dimension(0, 40));
 
         boolean coTheHoan = "CHUASUDUNG".equals(trangThai);
         btnHoanVe.setEnabled(coTheHoan);
-        if (!coTheHoan) btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'CHUASUDUNG'");
+        if (!coTheHoan) btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
 
         // Capture final cho lambda
-        final String fMaVe = maVe, fMaKH = maKH, fTenKH = tenKH, fMaLT = maLT;
-        final String fMaToa = maToa, fViTri = viTri, fLoaiVe = loaiVe, fGiaVe = giaVe;
+        final String fMaVe = maVe, fMaKH = maKH, fTenKH = tenKH;
+        final String fMaToa = maToa, fViTri = viTri, fLoaiVe = loaiVe;
         final String fTrangThai = trangThai, fGaKH = gaKhoiHanh, fGaDen = gaDen;
         final String fTenTau = tenTau, fNgayDi = ngayDi, fGioDi = gioDi;
         final String fLoaiToa = tenLoaiToa, fCccd = cccd;
@@ -1052,7 +1137,7 @@ public class TAB_TraCuuVe extends JPanel {
                 loadData(txtMaVe != null ? txtMaVe.getText().trim() : null);
             } else {
                 JOptionPane.showMessageDialog(TAB_TraCuuVe.this,
-                    "Không thể hoàn vé!\nVé không ở trạng thái 'CHUASUDUNG' hoặc có lỗi CSDL.",
+                    "Không thể hoàn vé!\nVé không ở trạng thái 'chưa sử dụng' hoặc có lỗi CSDL.",
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         });
@@ -1079,11 +1164,20 @@ public class TAB_TraCuuVe extends JPanel {
         }
     }
 
+    private String displayToTrangThai(String display) {
+        switch (display) {
+            case "Chưa sử dụng": return "CHUASUDUNG";
+            case "Đã sử dụng":   return "DASUDUNG";
+            case "Hết hạn":      return "HETHAN";
+            case "Đã hoàn":      return "DAHOAN";
+            default:             return display.toUpperCase();
+        }
+    }
+
     // ================= UI BUILDERS =================
     private JPanel buildStatsBar() {
         JPanel bar = new JPanel(new GridLayout(1, 4, 12, 0));
         bar.setOpaque(false);
-        bar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
         bar.add(createStatCard("TỔNG SỐ VÉ",      lblTongVe,     ACCENT));
         bar.add(createStatCard("VÉ CHƯA SỬ DỤNG", lblChuaSuDung, new Color(0x16A34A)));
         bar.add(createStatCard("VÉ ĐÃ SỬ DỤNG",   lblDaSuDung,   new Color(0x0369A1)));
@@ -1095,9 +1189,37 @@ public class TAB_TraCuuVe extends JPanel {
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setOpaque(false);
         pnl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+        // Icon ve bên cạnh title
+        JLabel icoTitle = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(ACCENT);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth()/2, cy = getHeight()/2;
+                // Hinh ve: chu nhat con dau
+                g2.drawRoundRect(cx-11, cy-6, 22, 12, 4, 4);
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(cx-3, cy-6, cx-3, cy+6);
+                g2.fillOval(cx+1, cy-3, 3, 3);
+                g2.fillOval(cx+5, cy-3, 3, 3);
+                g2.fillOval(cx+1, cy+1, 3, 3);
+                g2.fillOval(cx+5, cy+1, 3, 3);
+                g2.dispose();
+            }
+        };
+        icoTitle.setPreferredSize(new Dimension(28, 28));
+
         JLabel lbl = new JLabel("TRA CỨU VÀ HOÀN VÉ");
         lbl.setFont(F_TITLE); lbl.setForeground(ACCENT);
-        pnl.add(lbl, BorderLayout.WEST);
+
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(icoTitle);
+        titleRow.add(lbl);
+
+        pnl.add(titleRow, BorderLayout.WEST);
         return pnl;
     }
 
@@ -1107,23 +1229,75 @@ public class TAB_TraCuuVe extends JPanel {
         card.setBorder(new LineBorder(BORDER, 1, true));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
 
-        txtMaVe = new JTextField(18);
+        txtMaVe = new JTextField(18) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    g2.setColor(new Color(0xADB5BD));
+                    g2.setFont(getFont().deriveFont(Font.ITALIC));
+                    Insets ins = getInsets();
+                    g2.drawString("Nhập mã vé...", ins.left + 2, getHeight() / 2 + g2.getFontMetrics().getAscent() / 2 - 2);
+                    g2.dispose();
+                }
+            }
+        };
         txtMaVe.setFont(F_CELL);
         txtMaVe.setPreferredSize(new Dimension(200, 32));
 
-        JButton btnTim    = makeBtn("Tìm",      BtnStyle.PRIMARY);
         JButton btnLamMoi = makeBtn("Làm mới",  BtnStyle.SECONDARY);
-        btnTim.setPreferredSize(new Dimension(90, 32));
-        btnLamMoi.setPreferredSize(new Dimension(90, 32));
+        btnLamMoi.setPreferredSize(new Dimension(110, 32));
+        btnLamMoi.setIcon(new Icon() {
+            public int getIconWidth()  { return 16; }
+            public int getIconHeight() { return 16; }
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0x555555));
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                // Vong tron ho theo chieu kim dong ho (arcAngle am = CW trong Java)
+                // Bat dau tu 120 do, quay CW 300 do -> ket thuc tai 120-300 = -180 = 180 do (ben trai)
+                g2.drawArc(x+2, y+2, 12, 12, 120, -300);
+                // Mui ten tai diem ket thuc (goc 180 do = ben trai, toa do x+2, y+8)
+                // Huong CW tai goc 180 la huong xuong (270 do)
+                int[] px = {x+2, x+5, x+5};
+                int[] py = {y+8, y+5, y+11};
+                g2.fillPolygon(px, py, 3);
+                g2.dispose();
+            }
+        });
 
-        btnTim.addActionListener(e -> loadData(txtMaVe.getText().trim()));
+        // Tìm tự động khi gõ (keyReleased)
+        txtMaVe.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String val = txtMaVe.getText().trim();
+                loadData(val.isEmpty() ? null : val);
+            }
+        });
         txtMaVe.addActionListener(e -> loadData(txtMaVe.getText().trim()));
         btnLamMoi.addActionListener(e -> { txtMaVe.setText(""); loadData(null); });
 
-        JLabel lbl = new JLabel("Mã vé:");
+        // Icon kinh lup
+        JLabel icoSearch = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(TEXT_MID);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawOval(4, 4, 11, 11);
+                g2.drawLine(13, 13, 18, 18);
+                g2.dispose();
+            }
+        };
+        icoSearch.setPreferredSize(new Dimension(22, 22));
+
+        JLabel lbl = new JLabel("Tìm vé:");
         lbl.setFont(F_LABEL); lbl.setForeground(TEXT_MID);
 
-        card.add(lbl); card.add(txtMaVe); card.add(btnTim); card.add(btnLamMoi);
+        card.add(icoSearch); card.add(lbl); card.add(txtMaVe); card.add(btnLamMoi);
         return card;
     }
 
@@ -1137,12 +1311,7 @@ public class TAB_TraCuuVe extends JPanel {
         bar.setBorder(BorderFactory.createEmptyBorder(12, 18, 10, 18));
         JLabel lblTitle = new JLabel("Danh sách vé");
         lblTitle.setFont(F_LABEL); lblTitle.setForeground(TEXT_DARK);
-        JLabel lblHint = new JLabel("  Double-click để xem chi tiết & in vé PDF");
-        lblHint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblHint.setForeground(TEXT_MID);
         bar.add(lblTitle, BorderLayout.WEST);
-        bar.add(lblHint,  BorderLayout.CENTER);
-
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
         styleScrollBar(scroll.getVerticalScrollBar());
@@ -1165,8 +1334,62 @@ public class TAB_TraCuuVe extends JPanel {
         lblT.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblValue.setForeground(accent);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        p.add(lblT,     BorderLayout.NORTH);
-        p.add(lblValue, BorderLayout.CENTER);
+
+        // Icon ve tay theo loai the
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth()/2, cy = getHeight()/2;
+                if (title.contains("TỔNG")) {
+                    // Icon ve: hinh chu nhat co hai dau cut
+                    g2.drawRoundRect(cx-10, cy-5, 20, 11, 4, 4);
+                    // Duong cat hai ben
+                    g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-3, cy-5, cx-3, cy+6);
+                    // Sao trang tri
+                    g2.fillOval(cx+2, cy-2, 2, 2);
+                    g2.fillOval(cx+5, cy-2, 2, 2);
+                    g2.fillOval(cx+2, cy+2, 2, 2);
+                } else if (title.contains("CHƯA")) {
+                    // Icon dong ho - chua su dung
+                    g2.drawOval(cx-9, cy-9, 18, 18);
+                    g2.drawLine(cx, cy-6, cx, cy);
+                    g2.drawLine(cx, cy, cx+5, cy+3);
+                    g2.fillOval(cx-2, cy-2, 4, 4);
+                } else if (title.contains("ĐÃ SỬ")) {
+                    // Icon check circle - da su dung
+                    g2.drawOval(cx-9, cy-9, 18, 18);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx-5, cy, cx-1, cy+4);
+                    g2.drawLine(cx-1, cy+4, cx+5, cy-4);
+                } else {
+                    // Icon hoan ve: vong tron nguoc chieu kim dong ho (CCW)
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    // Bat dau tu 60 do, quay CCW 300 do -> ket thuc tai goc 0 (ben phai)
+                    g2.drawArc(cx-7, cy-7, 14, 14, 60, 300);
+                    // Mui ten tai diem ket thuc (goc 0 = ben phai), huong CCW = len tren
+                    int[] arrowX = {cx+7, cx+4, cx+10};
+                    int[] arrowY = {cy,   cy+4,  cy+4 };
+                    g2.fillPolygon(arrowX, arrowY, 3);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblT, BorderLayout.WEST);
+        topRow.add(ico,  BorderLayout.EAST);
+
+        p.add(topRow,    BorderLayout.NORTH);
+        p.add(lblValue,  BorderLayout.CENTER);
         return p;
     }
 
@@ -1206,29 +1429,9 @@ public class TAB_TraCuuVe extends JPanel {
     private void styleScrollBar(JScrollBar sb) {
         sb.setUI(new BasicScrollBarUI() {
             protected void configureScrollBarColors() {
-                thumbColor = new Color(0x5B9BD5);
-                trackColor = new Color(0xF0F5FF);
-            }
-            protected JButton createDecreaseButton(int o) { return zeroBtn(); }
-            protected JButton createIncreaseButton(int o) { return zeroBtn(); }
-            private JButton zeroBtn() {
-                JButton b = new JButton();
-                b.setPreferredSize(new Dimension(0, 0));
-                return b;
-            }
-            protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(isDragging ? new Color(0x1A5EAB) : new Color(0x5B9BD5));
-                g2.fillRoundRect(r.x+2, r.y+2, r.width-4, r.height-4, 8, 8);
-                g2.dispose();
-            }
-            protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
-                g.setColor(new Color(0xF0F5FF));
-                g.fillRect(r.x, r.y, r.width, r.height);
+                thumbColor = new Color(0xC0D4EE);
             }
         });
-        sb.setPreferredSize(new Dimension(10, 10));
     }
 
     private static class HeaderRenderer extends DefaultTableCellRenderer {

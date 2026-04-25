@@ -313,8 +313,59 @@ public class TAB_QLKhachHang extends JPanel {
         g.gridy = r++; formPanel.add(emailRow, g);
         g.gridy = r++;  formPanel.add(errEmail, g);
 
-        JButton btnEdit   = makeBtn("Sửa", BtnStyle.SUCCESS);
-        JButton btnDelete = makeBtn("Xóa", BtnStyle.DANGER);
+        // Nut Sua - icon but chi
+        JButton btnEdit = new JButton("  Sửa") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BTN_GREEN_HVR : BTN_GREEN);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 20, cy = getHeight()/2;
+                // Than but
+                int[] bx = {cx-6, cx+2, cx+6, cx-2};
+                int[] by = {cy+5, cy-5, cy-2, cy+8};
+                g2.drawPolygon(bx, by, 4);
+                // Mui but
+                g2.drawLine(cx+2, cy-5, cx+5, cy-8);
+                g2.drawLine(cx+5, cy-8, cx+8, cy-5);
+                g2.drawLine(cx+8, cy-5, cx+6, cy-2);
+                // Duoi but
+                g2.drawLine(cx-6, cy+5, cx-4, cy+8);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnEdit.setFont(F_LABEL); btnEdit.setForeground(Color.WHITE);
+        btnEdit.setOpaque(false); btnEdit.setContentAreaFilled(false);
+        btnEdit.setBorderPainted(false); btnEdit.setFocusPainted(false);
+        btnEdit.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnEdit.setPreferredSize(new Dimension(110, 36));
+
+        // Nut Xoa - icon thung rac
+        JButton btnDelete = new JButton("  Xóa") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(0xE74C3C) : BTN_RED);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 20, cy = getHeight()/2;
+                g2.drawLine(cx-6, cy-5, cx+6, cy-5);
+                g2.drawLine(cx-2, cy-5, cx-2, cy-8); g2.drawLine(cx+2, cy-5, cx+2, cy-8);
+                g2.drawLine(cx-2, cy-8, cx+2, cy-8);
+                g2.drawLine(cx-5, cy-5, cx-4, cy+6); g2.drawLine(cx+5, cy-5, cx+4, cy+6);
+                g2.drawLine(cx-4, cy+6, cx+4, cy+6);
+                g2.drawLine(cx-1, cy-3, cx-1, cy+4); g2.drawLine(cx+2, cy-3, cx+2, cy+4);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnDelete.setFont(F_LABEL); btnDelete.setForeground(Color.WHITE);
+        btnDelete.setOpaque(false); btnDelete.setContentAreaFilled(false);
+        btnDelete.setBorderPainted(false); btnDelete.setFocusPainted(false);
+        btnDelete.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnDelete.setPreferredSize(new Dimension(100, 36));
 
         btnDelete.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(dialog,
@@ -332,7 +383,7 @@ public class TAB_QLKhachHang extends JPanel {
         btnEdit.addActionListener(e -> {
             if (!editing[0]) {
                 for (JTextField f : fields) { f.setEditable(true); f.setBackground(Color.WHITE); }
-                btnEdit.setText("💾 Lưu");
+                btnEdit.setText("  Lưu");
                 editing[0] = true;
                 txtTen.requestFocus();
             } else {
@@ -579,9 +630,73 @@ public class TAB_QLKhachHang extends JPanel {
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
 
-        JButton btnAdd    = makeBtn("+ Thêm", BtnStyle.PRIMARY);
-        JButton btnDelete = makeBtn("Xóa", BtnStyle.DANGER);
-        JButton btnExcel  = makeBtn("In Excel", BtnStyle.EXCEL);
+        // Nut Them - icon dau cong
+        JButton btnAdd = new JButton("  Thêm") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? ACCENT_HVR : ACCENT);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int x = 16, cy = getHeight()/2;
+                g2.drawLine(x-5, cy, x+5, cy);
+                g2.drawLine(x, cy-5, x, cy+5);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnAdd.setFont(F_LABEL); btnAdd.setForeground(Color.WHITE);
+        btnAdd.setOpaque(false); btnAdd.setContentAreaFilled(false);
+        btnAdd.setBorderPainted(false); btnAdd.setFocusPainted(false);
+        btnAdd.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnAdd.setPreferredSize(new Dimension(110, 34));
+
+        // Nut Xoa - icon thung rac
+        JButton btnDelete = new JButton("  Xóa") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(0xE74C3C) : new Color(0xC0392B));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 16, cy = getHeight()/2;
+                g2.drawLine(cx-6, cy-5, cx+6, cy-5);
+                g2.drawLine(cx-2, cy-5, cx-2, cy-8); g2.drawLine(cx+2, cy-5, cx+2, cy-8);
+                g2.drawLine(cx-2, cy-8, cx+2, cy-8);
+                g2.drawLine(cx-5, cy-5, cx-4, cy+6); g2.drawLine(cx+5, cy-5, cx+4, cy+6);
+                g2.drawLine(cx-4, cy+6, cx+4, cy+6);
+                g2.drawLine(cx-1, cy-3, cx-1, cy+4); g2.drawLine(cx+2, cy-3, cx+2, cy+4);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnDelete.setFont(F_LABEL); btnDelete.setForeground(Color.WHITE);
+        btnDelete.setOpaque(false); btnDelete.setContentAreaFilled(false);
+        btnDelete.setBorderPainted(false); btnDelete.setFocusPainted(false);
+        btnDelete.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnDelete.setPreferredSize(new Dimension(100, 34));
+
+        // Nut Excel - icon luoi
+        JButton btnExcel = new JButton("  Xuất Excel") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BTN_EXCEL_HVR : BTN_EXCEL);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 16, cy = getHeight()/2;
+                g2.drawRoundRect(cx-7, cy-7, 14, 14, 2, 2);
+                g2.drawLine(cx-7, cy-2, cx+7, cy-2); g2.drawLine(cx-7, cy+2, cx+7, cy+2);
+                g2.drawLine(cx-2, cy-7, cx-2, cy+7); g2.drawLine(cx+2, cy-7, cx+2, cy+7);
+                g2.dispose(); super.paintComponent(g);
+            }
+        };
+        btnExcel.setFont(F_LABEL); btnExcel.setForeground(Color.WHITE);
+        btnExcel.setOpaque(false); btnExcel.setContentAreaFilled(false);
+        btnExcel.setBorderPainted(false); btnExcel.setFocusPainted(false);
+        btnExcel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnExcel.setPreferredSize(new Dimension(130, 34));
 
         btnAdd.addActionListener(e -> openAddDialog());
         btnDelete.addActionListener(e -> performDeleteMultiple());
@@ -616,10 +731,34 @@ public class TAB_QLKhachHang extends JPanel {
     private JPanel buildHeader() {
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setOpaque(false);
+
+        // Icon nguoi dung ben canh title
+        JLabel icoTitle = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(ACCENT);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth()/2, cy = getHeight()/2;
+                // Dau nguoi
+                g2.drawOval(cx-5, cy-10, 10, 10);
+                // Vai
+                g2.drawArc(cx-9, cy+1, 18, 12, 0, 180);
+                g2.dispose();
+            }
+        };
+        icoTitle.setPreferredSize(new Dimension(28, 28));
+
         JLabel lbl = new JLabel("QUẢN LÝ KHÁCH HÀNG");
         lbl.setFont(F_TITLE);
         lbl.setForeground(ACCENT);
-        pnl.add(lbl, BorderLayout.WEST);
+
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(icoTitle);
+        titleRow.add(lbl);
+
+        pnl.add(titleRow, BorderLayout.WEST);
         return pnl;
     }
 
@@ -633,17 +772,72 @@ public class TAB_QLKhachHang extends JPanel {
 
     private JPanel buildFilterCard() {
         JPanel card = buildCard(new FlowLayout(FlowLayout.LEFT, 12, 12));
-        txtSearch = makeDialogField(18);
+
+        // TextField co placeholder "Nhap ten / SDT / Email..."
+        txtSearch = new JTextField(18) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (getText().isEmpty() && !isFocusOwner()) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                    g2.setColor(new Color(0xADB5BD));
+                    g2.setFont(getFont().deriveFont(java.awt.Font.ITALIC));
+                    Insets ins = getInsets();
+                    g2.drawString("Nhập tên / SĐT / Email...", ins.left + 2,
+                            getHeight() / 2 + g2.getFontMetrics().getAscent() / 2 - 2);
+                    g2.dispose();
+                }
+            }
+        };
         txtSearch.setFont(F_CELL);
-        JButton btnSearch  = makeBtn("Tìm", BtnStyle.PRIMARY);
+        txtSearch.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER, 1, true),
+            BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+
+        // Tim tu dong khi go
+        txtSearch.addKeyListener(new KeyAdapter() {
+            @Override public void keyReleased(KeyEvent e) {
+                String val = txtSearch.getText().trim();
+                if (val.isEmpty()) loadData(); else search();
+            }
+        });
+
+        // Icon kinh lup
+        JLabel icoSearch = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(TEXT_MID);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawOval(3, 3, 11, 11);
+                g2.drawLine(12, 12, 18, 18);
+                g2.dispose();
+            }
+        };
+        icoSearch.setPreferredSize(new Dimension(22, 22));
+
         JButton btnRefresh = makeBtn("Làm mới", BtnStyle.SECONDARY);
+        btnRefresh.setIcon(new Icon() {
+            public int getIconWidth()  { return 16; }
+            public int getIconHeight() { return 16; }
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0x555555));
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawArc(x+2, y+2, 12, 12, 120, -300);
+                int[] px = {x+2, x+5, x+5};
+                int[] py = {y+8, y+5, y+11};
+                g2.fillPolygon(px, py, 3);
+                g2.dispose();
+            }
+        });
+        btnRefresh.addActionListener(e -> { txtSearch.setText(""); loadData(); });
+
+        card.add(icoSearch);
         card.add(makeLabel("Tìm kiếm:"));
         card.add(txtSearch);
-        card.add(btnSearch);
         card.add(btnRefresh);
-        btnSearch.addActionListener(e -> search());
-        btnRefresh.addActionListener(e -> { txtSearch.setText(""); loadData(); });
-        txtSearch.addActionListener(e -> search());
         return card;
     }
 
@@ -722,13 +916,46 @@ public class TAB_QLKhachHang extends JPanel {
         p.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(COLOR_BORDER, 1, true),
             new EmptyBorder(15, 20, 15, 20)));
+
         JLabel lblT = new JLabel(title);
         lblT.setForeground(COLOR_TEXT_MUTED);
         lblT.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 12));
         lblValue.setForeground(accent);
         lblValue.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 26));
-        p.add(lblT, BorderLayout.NORTH);
-        p.add(lblValue, BorderLayout.CENTER);
+
+        // Icon ve tay theo loai the
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth()/2, cy = getHeight()/2;
+                if (title.contains("TỔNG")) {
+                    // Icon nguoi dung (head + shoulders)
+                    g2.drawOval(cx-4, cy-9, 9, 9);
+                    g2.drawArc(cx-8, cy+1, 17, 10, 0, 180);
+                } else {
+                    // Icon email / phong bi
+                    g2.drawRoundRect(cx-9, cy-6, 18, 13, 2, 2);
+                    g2.drawLine(cx-9, cy-6, cx, cy+2);
+                    g2.drawLine(cx+9, cy-6, cx, cy+2);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblT, BorderLayout.WEST);
+        topRow.add(ico,  BorderLayout.EAST);
+
+        p.add(topRow,    BorderLayout.NORTH);
+        p.add(lblValue,  BorderLayout.CENTER);
         return p;
     }
 
@@ -790,23 +1017,10 @@ public class TAB_QLKhachHang extends JPanel {
 
     private void styleScrollBar(JScrollBar sb) {
         sb.setUI(new BasicScrollBarUI() {
-            protected void configureScrollBarColors() { thumbColor = new Color(0x5B9BD5); trackColor = new Color(0xF0F5FF); }
-            protected JButton createDecreaseButton(int o) { return zeroBtn(); }
-            protected JButton createIncreaseButton(int o) { return zeroBtn(); }
-            private JButton zeroBtn() { JButton b = new JButton(); b.setPreferredSize(new Dimension(0,0)); return b; }
-            protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(isDragging ? new Color(0x1A5EAB) : new Color(0x5B9BD5));
-                g2.fillRoundRect(r.x+2, r.y+2, r.width-4, r.height-4, 8, 8);
-                g2.dispose();
-            }
-            protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
-                g.setColor(new Color(0xF0F5FF));
-                g.fillRect(r.x, r.y, r.width, r.height);
+            protected void configureScrollBarColors() {
+                thumbColor = new Color(0xC0D4EE);
             }
         });
-        sb.setPreferredSize(new Dimension(10, 10));
     }
 
     // ==================== INNER CLASSES ====================
