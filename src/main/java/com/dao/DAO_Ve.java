@@ -21,15 +21,22 @@ public class DAO_Ve {
             "SELECT v.maVe, v.maKH, k.tenKH, v.maLT, v.maToa, v.viTriGhe, "
           + "       lv.tenLoai AS tenLoaiVe, v.giaVe, v.trangThaiVe, "
           // thanhTien = giá khách thực trả (sau KM); nếu chưa có HĐ thì dùng giaVe
-          + "       COALESCE(ct.thanhTien, v.giaVe) AS thanhTien "
+          + "       COALESCE(ct.thanhTien, v.giaVe) AS thanhTien, "
+          // ngayLap = ngày lập hóa đơn mới nhất chứa vé này
+          + "       hd.ngayLap AS ngayLap "
           + "FROM Ve v "
           + "LEFT JOIN KhachHang k  ON v.maKH     = k.maKH "
           + "LEFT JOIN LoaiVe    lv ON v.maLoaiVe = lv.maLoai "
-          // Lấy thanhTien của hóa đơn mới nhất chứa vé này
+          // Lấy thanhTien và ngayLap của hóa đơn mới nhất chứa vé này
           + "LEFT JOIN (SELECT maVe, thanhTien FROM ChiTietHoaDon ct2 "
           + "           WHERE ct2.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
           + "                             WHERE maVe = ct2.maVe ORDER BY maHD DESC)) ct "
           + "       ON ct.maVe = v.maVe "
+          + "LEFT JOIN (SELECT cth.maVe, hd2.ngayLap FROM ChiTietHoaDon cth "
+          + "           JOIN HoaDon hd2 ON cth.maHD = hd2.maHD "
+          + "           WHERE cth.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
+          + "                             WHERE maVe = cth.maVe ORDER BY maHD DESC)) hd "
+          + "       ON hd.maVe = v.maVe "
           + "WHERE 1=1 ");
 
         List<Object> params = new ArrayList<>();
@@ -43,7 +50,7 @@ public class DAO_Ve {
             params.add("%" + maKHFilter.trim() + "%");
             params.add("%" + maKHFilter.trim() + "%");
         }
-        sql.append("ORDER BY v.maVe");
+        sql.append("ORDER BY hd.ngayLap DESC, v.maVe DESC");
 
         PreparedStatement ps = conn.prepareStatement(sql.toString());
         for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));

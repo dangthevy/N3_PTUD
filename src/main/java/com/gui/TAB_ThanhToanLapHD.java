@@ -43,7 +43,9 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	private JComboBox<Object> cbNhanVienLoc;
 
 	// ─── Stat ───
-	private final JLabel lblTongHD = new JLabel("0");
+	private final JLabel lblTongHD    = new JLabel("0");
+	private final JLabel lblHomNay    = new JLabel("0");
+	private final JLabel lblTongTien  = new JLabel("0");
 
 	// ─── Format ───
 	private final DecimalFormat df = new DecimalFormat("#,##0 VNĐ");
@@ -142,21 +144,48 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	private JPanel buildStatsBar() {
 		JPanel bar = new JPanel(new GridLayout(1, 3, 20, 0));
 		bar.setOpaque(false);
-		bar.add(createStatCard("TỔNG HÓA ĐƠN", lblTongHD, ACCENT));
-		JPanel dummy1 = new JPanel(); dummy1.setOpaque(false);
-		JPanel dummy2 = new JPanel(); dummy2.setOpaque(false);
-		bar.add(dummy1);
-		bar.add(dummy2);
+		bar.add(createStatCard("TỔNG HÓA ĐƠN",   lblTongHD,   ACCENT));
+		bar.add(createStatCard("HÔM NAY",          lblHomNay,   new Color(0x0369A1)));
+		bar.add(createStatCard("TỔNG DOANH THU",   lblTongTien, new Color(0x16A34A)));
 		return bar;
 	}
 
 	private JPanel buildHeader() {
 		JPanel p = new JPanel(new BorderLayout());
 		p.setOpaque(false);
+
+		// Icon calendar bên cạnh title
+		JLabel icoTitle = new JLabel() {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(ACCENT);
+				g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = getWidth()/2, cy = getHeight()/2;
+				g2.drawRoundRect(cx-9, cy-7, 18, 16, 3, 3);
+				g2.drawLine(cx-9, cy-3, cx+9, cy-3);
+				g2.drawLine(cx-4, cy-11, cx-4, cy-5);
+				g2.drawLine(cx+4, cy-11, cx+4, cy-5);
+				g2.fillOval(cx-6, cy, 3, 3);
+				g2.fillOval(cx-1, cy, 3, 3);
+				g2.fillOval(cx+4, cy, 3, 3);
+				g2.fillOval(cx-6, cy+4, 3, 3);
+				g2.fillOval(cx-1, cy+4, 3, 3);
+				g2.dispose();
+			}
+		};
+		icoTitle.setPreferredSize(new Dimension(28, 28));
+
 		JLabel l = new JLabel("QUẢN LÝ & TRA CỨU HÓA ĐƠN");
 		l.setFont(F_TITLE);
 		l.setForeground(ACCENT);
-		p.add(l, BorderLayout.WEST);
+
+		JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+		titleRow.setOpaque(false);
+		titleRow.add(icoTitle);
+		titleRow.add(l);
+
+		p.add(titleRow, BorderLayout.WEST);
 		return p;
 	}
 
@@ -172,7 +201,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		g.fill = GridBagConstraints.HORIZONTAL;
 		g.gridy = 0;
 
-		txtTimKiemTenKH = makeTextField(160);
+		txtTimKiemTenKH = makePlaceholderField(160, "Nhập tên khách hàng...");
 		txtTimKiemTenKH.addKeyListener(new KeyAdapter() {
 			public void keyReleased(KeyEvent e) {
 				loadDanhSachHoaDon();
@@ -192,34 +221,66 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		cbNhanVienLoc.addActionListener(e -> loadDanhSachHoaDon());
 
 		JButton btnLamMoi = makeBtn("Làm mới", BtnStyle.SECONDARY);
-		btnLamMoi.setPreferredSize(new Dimension(90, 34));
+		btnLamMoi.setPreferredSize(new Dimension(110, 34));
+		btnLamMoi.setIcon(new Icon() {
+			public int getIconWidth()  { return 16; }
+			public int getIconHeight() { return 16; }
+			public void paintIcon(Component c, Graphics g, int x, int y) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(new Color(0x555555));
+				g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				g2.drawArc(x+2, y+2, 12, 12, 120, -300);
+				int[] px = {x+2, x+5, x+5};
+				int[] py = {y+8, y+5, y+11};
+				g2.fillPolygon(px, py, 3);
+				g2.dispose();
+			}
+		});
 		btnLamMoi.addActionListener(e -> xoaBoLoc());
+
+		// Icon kinh lup cho o tim kiem
+		JLabel icoSearch = new JLabel() {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(new Color(0x888888));
+				g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				g2.drawOval(3, 3, 11, 11);
+				g2.drawLine(12, 12, 18, 18);
+				g2.dispose();
+			}
+		};
+		icoSearch.setPreferredSize(new Dimension(22, 22));
 
 		g.gridx = 0;
 		g.weightx = 0;
-		card.add(makeLabel("Khách hàng:"), g);
+		card.add(icoSearch, g);
 		g.gridx = 1;
+		g.weightx = 0;
+		card.add(makeLabel("Tìm hóa đơn:"), g);
+		g.gridx = 2;
 		g.weightx = 1;
 		card.add(txtTimKiemTenKH, g);
-		g.gridx = 2;
-		g.weightx = 0;
-		card.add(makeLabel("Từ:"), g);
 		g.gridx = 3;
 		g.weightx = 0;
-		card.add(dateTuNgay, g);
+		card.add(makeLabel("Từ:"), g);
 		g.gridx = 4;
 		g.weightx = 0;
-		card.add(makeLabel("Tới:"), g);
+		card.add(dateTuNgay, g);
 		g.gridx = 5;
 		g.weightx = 0;
-		card.add(dateToiNgay, g);
+		card.add(makeLabel("Tới:"), g);
 		g.gridx = 6;
 		g.weightx = 0;
-		card.add(makeLabel("NV:"), g);
+		card.add(dateToiNgay, g);
 		g.gridx = 7;
+		g.weightx = 0;
+		card.add(makeLabel("NV:"), g);
+		g.gridx = 8;
 		g.weightx = 0.8;
 		card.add(cbNhanVienLoc, g);
-		g.gridx = 8;
+		g.gridx = 9;
 		g.weightx = 0;
 		card.add(btnLamMoi, g);
 		return card;
@@ -234,11 +295,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		titleBar.setBorder(BorderFactory.createEmptyBorder(12, 18, 8, 18));
 		JLabel lblTitle = new JLabel("Danh sách hóa đơn");
 		lblTitle.setFont(F_LABEL);
-		JLabel lblHint = new JLabel("  ← Double-click để xem chi tiết & in hóa đơn");
-		lblHint.setFont(F_SMALL);
-		lblHint.setForeground(TEXT_MID);
 		titleBar.add(lblTitle, BorderLayout.WEST);
-		titleBar.add(lblHint, BorderLayout.CENTER);
 
 		JScrollPane scroll = new JScrollPane(tableHD);
 		scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
@@ -249,8 +306,34 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 10));
 		bottomBar.setBackground(new Color(0xF8FAFC));
 		bottomBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
-		JButton btnIn = makeBtn("In hóa đơn Excel", BtnStyle.PRIMARY);
-		btnIn.setPreferredSize(new Dimension(185, 36));
+		// Nut In hoa don Excel co icon Excel ve tay
+		JButton btnIn = new JButton("  Xuất Excel") {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(getModel().isRollover() ? new Color(0x16A34A) : new Color(0x22C55E));
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+				// Icon luoi Excel
+				g2.setColor(Color.WHITE);
+				g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = 18, cy = getHeight()/2;
+				g2.drawRoundRect(cx-7, cy-7, 14, 14, 2, 2);
+				g2.drawLine(cx-7, cy-2, cx+7, cy-2);
+				g2.drawLine(cx-7, cy+2, cx+7, cy+2);
+				g2.drawLine(cx-2, cy-7, cx-2, cy+7);
+				g2.drawLine(cx+2, cy-7, cx+2, cy+7);
+				g2.dispose();
+				super.paintComponent(g);
+			}
+		};
+		btnIn.setFont(F_LABEL);
+		btnIn.setForeground(Color.WHITE);
+		btnIn.setOpaque(false);
+		btnIn.setContentAreaFilled(false);
+		btnIn.setBorderPainted(false);
+		btnIn.setFocusPainted(false);
+		btnIn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		btnIn.setPreferredSize(new Dimension(160, 36));
 		btnIn.addActionListener(e -> chonThangInDanhSach());
 		bottomBar.add(btnIn);
 
@@ -405,9 +488,51 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		pAct.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
 
 		final DefaultTableModel mCTFinal = mCT;
-		JButton btnIn = makeBtn("In hóa đơn", BtnStyle.SUCCESS);
-		JButton btnDong = makeBtn("Đóng", BtnStyle.SECONDARY);
+
+		// Nut In hoa don - icon may in
+		JButton btnIn = new JButton("  In hóa đơn") {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(getModel().isRollover() ? new Color(0x16A34A) : BTN_GREEN);
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+				g2.setColor(Color.WHITE);
+				g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = 20, cy = getHeight()/2;
+				g2.drawRoundRect(cx-8, cy-4, 16, 10, 3, 3);
+				g2.drawRect(cx-5, cy+4, 10, 6);
+				g2.drawRect(cx-5, cy-9, 10, 5);
+				g2.fillOval(cx+3, cy-1, 3, 3);
+				g2.dispose(); super.paintComponent(g);
+			}
+		};
+		btnIn.setFont(F_LABEL); btnIn.setForeground(Color.WHITE);
+		btnIn.setOpaque(false); btnIn.setContentAreaFilled(false);
+		btnIn.setBorderPainted(false); btnIn.setFocusPainted(false);
+		btnIn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		btnIn.setPreferredSize(new Dimension(150, 36));
+
+		// Nut Dong - icon X
+		JButton btnDong = new JButton("  Đóng") {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(getModel().isRollover() ? new Color(0xE5ECF6) : Color.WHITE);
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+				g2.setColor(BORDER); g2.setStroke(new BasicStroke(1f));
+				g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+				g2.setColor(TEXT_MID);
+				g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = 20, cy = getHeight()/2;
+				g2.drawLine(cx-4, cy-4, cx+4, cy+4);
+				g2.drawLine(cx+4, cy-4, cx-4, cy+4);
+				g2.dispose(); super.paintComponent(g);
+			}
+		};
+		btnDong.setFont(F_LABEL); btnDong.setForeground(TEXT_MID);
+		btnDong.setOpaque(false); btnDong.setContentAreaFilled(false);
+		btnDong.setBorderPainted(false); btnDong.setFocusPainted(false);
+		btnDong.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		btnDong.setPreferredSize(new Dimension(90, 36));
 
 		btnIn.addActionListener(e -> {
@@ -507,13 +632,28 @@ public class TAB_ThanhToanLapHD extends JPanel {
 
 			ResultSet rs = daoHD.getDanhSachHoaDon(tenKH, maNV, ts1, ts2);
 			int count = 0;
+			int homNay = 0;
+			double tongTien = 0;
+			String ngayHN = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
 			while (rs != null && rs.next()) {
-				modelHD.addRow(new Object[] { rs.getString("maHD"), sdf.format(rs.getTimestamp("ngayLap")),
+				String ngayLap = sdf.format(rs.getTimestamp("ngayLap"));
+				double tt = rs.getDouble("tongTien");
+				modelHD.addRow(new Object[] { rs.getString("maHD"), ngayLap,
 						orDef(rs.getString("tenKH"), "Khách lẻ"), orDef(rs.getString("tenNV"), "-"),
-						df.format(rs.getDouble("tongTien")) });
+						df.format(tt) });
 				count++;
+				tongTien += tt;
+				if (ngayLap.startsWith(ngayHN)) homNay++;
 			}
 			lblTongHD.setText(String.valueOf(count));
+			lblHomNay.setText(String.valueOf(homNay));
+			// Dinh dang tong doanh thu
+			if (tongTien >= 1_000_000_000)
+				lblTongTien.setText(String.format("%.1fB", tongTien / 1_000_000_000));
+			else if (tongTien >= 1_000_000)
+				lblTongTien.setText(String.format("%.1fM", tongTien / 1_000_000));
+			else
+				lblTongTien.setText(df.format(tongTien));
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -556,19 +696,22 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		cbMonth.setSelectedIndex(Calendar.getInstance().get(Calendar.MONTH));
 		cbMonth.setFont(F_CELL);
 
-		JSpinner spYear = new JSpinner(
-				new SpinnerNumberModel(Calendar.getInstance().get(Calendar.YEAR), 2000, 2100, 1));
-		spYear.setFont(F_CELL);
-		((JSpinner.DefaultEditor) spYear.getEditor()).getTextField().setColumns(5);
+		int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+		Integer[] yearOptions = new Integer[10];
+		for (int i = 0; i < 10; i++) yearOptions[i] = currentYear - 9 + i;
+		JComboBox<Integer> cbYear = new JComboBox<>(yearOptions);
+		cbYear.setSelectedItem(currentYear);
+		cbYear.setFont(F_CELL);
+		cbYear.setPreferredSize(new Dimension(85, 34));
 
 		JPanel form = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 16));
 		form.setBackground(BG_CARD);
 		form.add(makeLabel("Tháng:"));
 		form.add(cbMonth);
 		form.add(makeLabel("Năm:"));
-		form.add(spYear);
+		form.add(cbYear);
 
-		JButton btnOk = makeBtn("📊 Xuất Excel", BtnStyle.SUCCESS);
+		JButton btnOk = makeBtn("Xuất Excel", BtnStyle.SUCCESS);
 		JButton btnHuy = makeBtn("Hủy", BtnStyle.SECONDARY);
 		btnOk.setPreferredSize(new Dimension(100, 34));
 		btnHuy.setPreferredSize(new Dimension(80, 34));
@@ -582,7 +725,7 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		btnHuy.addActionListener(e -> dlg.dispose());
 		btnOk.addActionListener(e -> {
 			int m = cbMonth.getSelectedIndex() + 1;
-			int y = (Integer) spYear.getValue();
+			int y = (Integer) cbYear.getSelectedItem();
 			dlg.dispose();
 			inDanhSachTheoThang(m, y);
 		});
@@ -1247,7 +1390,60 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		t.setFont(new Font("Segoe UI", Font.BOLD, 12));
 		v.setForeground(accent);
 		v.setFont(new Font("Segoe UI", Font.BOLD, 26));
-		p.add(t, BorderLayout.NORTH);
+
+		// Icon receipt / hoa don / doanh thu theo loai the
+		JLabel ico = new JLabel() {
+			@Override protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 25));
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+				g2.setColor(accent);
+				g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = getWidth()/2, cy = getHeight()/2;
+				if (title.contains("TỔNG HÓA")) {
+					// Icon receipt
+					g2.drawRoundRect(cx-8, cy-9, 16, 15, 2, 2);
+					g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+					g2.drawLine(cx-5, cy-6, cx+5, cy-6);
+					g2.drawLine(cx-5, cy-2, cx+5, cy-2);
+					g2.drawLine(cx-5, cy+2, cx+2, cy+2);
+					int[] rx = {cx-8, cx-5, cx-2, cx+1, cx+4, cx+8};
+					int[] ry = {cy+6, cy+9, cy+6, cy+9, cy+6, cy+9};
+					g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+					g2.drawPolyline(rx, ry, rx.length);
+				} else if (title.contains("HÔM NAY")) {
+					// Icon mat troi / ngay hom nay
+					g2.drawOval(cx-5, cy-5, 10, 10);
+					g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+					g2.drawLine(cx, cy-9, cx, cy-7);
+					g2.drawLine(cx, cy+7, cx, cy+9);
+					g2.drawLine(cx-9, cy, cx-7, cy);
+					g2.drawLine(cx+7, cy, cx+9, cy);
+					g2.drawLine(cx-7, cy-7, cx-5, cy-5);
+					g2.drawLine(cx+5, cy-5, cx+7, cy-7);
+					g2.drawLine(cx-7, cy+7, cx-5, cy+5);
+					g2.drawLine(cx+5, cy+5, cx+7, cy+7);
+				} else {
+					// Icon dong tien / doanh thu
+					g2.drawOval(cx-8, cy-6, 16, 12);
+					g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+					g2.drawLine(cx, cy-9, cx, cy-6);
+					g2.drawLine(cx, cy+6, cx, cy+9);
+					g2.drawArc(cx-5, cy-3, 10, 6, 0, 180);
+				}
+				g2.dispose();
+			}
+		};
+		ico.setPreferredSize(new Dimension(38, 38));
+		ico.setOpaque(false);
+
+		JPanel topRow = new JPanel(new BorderLayout());
+		topRow.setOpaque(false);
+		topRow.add(t, BorderLayout.WEST);
+		topRow.add(ico, BorderLayout.EAST);
+
+		p.add(topRow, BorderLayout.NORTH);
 		p.add(v, BorderLayout.CENTER);
 		return p;
 	}
@@ -1268,6 +1464,30 @@ public class TAB_ThanhToanLapHD extends JPanel {
 
 	private JTextField makeTextField(int w) {
 		JTextField tf = new JTextField();
+		tf.setFont(F_CELL);
+		tf.setPreferredSize(new Dimension(w, 34));
+		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true),
+				BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+		return tf;
+	}
+
+	/** TextField có chữ mờ placeholder */
+	private JTextField makePlaceholderField(int w, String placeholder) {
+		JTextField tf = new JTextField() {
+			@Override
+			protected void paintComponent(Graphics g) {
+				super.paintComponent(g);
+				if (getText().isEmpty() && !isFocusOwner()) {
+					Graphics2D g2 = (Graphics2D) g.create();
+					g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+					g2.setColor(new Color(0xADB5BD));
+					g2.setFont(getFont().deriveFont(Font.ITALIC));
+					Insets ins = getInsets();
+					g2.drawString(placeholder, ins.left + 2, getHeight() / 2 + g2.getFontMetrics().getAscent() / 2 - 2);
+					g2.dispose();
+				}
+			}
+		};
 		tf.setFont(F_CELL);
 		tf.setPreferredSize(new Dimension(w, 34));
 		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true),
@@ -1314,38 +1534,9 @@ public class TAB_ThanhToanLapHD extends JPanel {
 	private void styleScrollBar(JScrollBar sb) {
 		sb.setUI(new BasicScrollBarUI() {
 			protected void configureScrollBarColors() {
-				thumbColor = new Color(0x5B9BD5);
-				trackColor = new Color(0xF0F5FF);
-			}
-
-			protected JButton createDecreaseButton(int o) {
-				return zBtn();
-			}
-
-			protected JButton createIncreaseButton(int o) {
-				return zBtn();
-			}
-
-			private JButton zBtn() {
-				JButton b = new JButton();
-				b.setPreferredSize(new Dimension(0, 0));
-				return b;
-			}
-
-			protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(isDragging ? new Color(0x1A5EAB) : new Color(0x5B9BD5));
-				g2.fillRoundRect(r.x + 2, r.y + 2, r.width - 4, r.height - 4, 8, 8);
-				g2.dispose();
-			}
-
-			protected void paintTrack(Graphics g, JComponent c, Rectangle r) {
-				g.setColor(new Color(0xF0F5FF));
-				g.fillRect(r.x, r.y, r.width, r.height);
+				thumbColor = new Color(0xC0D4EE);
 			}
 		});
-		sb.setPreferredSize(new Dimension(10, 10));
 	}
 
 	private static class HeaderRenderer extends DefaultTableCellRenderer {
