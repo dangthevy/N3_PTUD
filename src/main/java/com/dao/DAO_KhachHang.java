@@ -11,7 +11,7 @@ public class DAO_KhachHang {
 
 	public Vector<Vector<Object>> getAllKhachHang() {
 		Vector<Vector<Object>> data = new Vector<>();
-		String sql = "SELECT maKH, tenKH, email, sdt, cccd FROM KhachHang WHERE trangThai = 1";
+		String sql = "SELECT maKH, tenKH, email, sdt, cccd, ngayThem FROM KhachHang WHERE trangThai = 1 ORDER BY ngayThem DESC, maKH DESC";
 		try (Connection con = ConnectDB.getConnection();
 				Statement stmt = con.createStatement();
 				ResultSet rs = stmt.executeQuery(sql)) {
@@ -22,6 +22,11 @@ public class DAO_KhachHang {
 				row.add(rs.getString("email"));
 				row.add(rs.getString("sdt"));
 				row.add(rs.getString("cccd"));
+				// Dinh dang ngay dd/MM/yyyy neu co gia tri
+				Date ngay = rs.getDate("ngayThem");
+				row.add(ngay != null
+						? new java.text.SimpleDateFormat("dd/MM/yyyy").format(ngay)
+						: "");
 				data.add(row);
 			}
 		} catch (SQLException e) {
@@ -32,8 +37,9 @@ public class DAO_KhachHang {
 
 	public Vector<Vector<Object>> searchKhachHang(String keyword) {
 		Vector<Vector<Object>> data = new Vector<>();
-		String sql = "SELECT maKH, tenKH, email, sdt, cccd FROM KhachHang "
-				+ "WHERE (tenKH COLLATE Latin1_General_CI_AI LIKE ? OR sdt LIKE ?) " + "AND trangThai = 1";
+		String sql = "SELECT maKH, tenKH, email, sdt, cccd, ngayThem FROM KhachHang "
+				+ "WHERE (tenKH COLLATE Latin1_General_CI_AI LIKE ? OR sdt LIKE ?) "
+				+ "AND trangThai = 1 ORDER BY ngayThem DESC, maKH DESC";
 		try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 			String pattern = "%" + keyword + "%";
 			stmt.setString(1, pattern);
@@ -46,6 +52,10 @@ public class DAO_KhachHang {
 				row.add(rs.getString("email"));
 				row.add(rs.getString("sdt"));
 				row.add(rs.getString("cccd"));
+				Date ngay = rs.getDate("ngayThem");
+				row.add(ngay != null
+						? new java.text.SimpleDateFormat("dd/MM/yyyy").format(ngay)
+						: "");
 				data.add(row);
 			}
 		} catch (SQLException e) {
@@ -55,16 +65,17 @@ public class DAO_KhachHang {
 	}
 
 	public boolean addKhachHang(KhachHang kh) {
-		String sql = "INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email, trangThai) VALUES(?, ?, ?, ?, ?, 1)";
-		if (kh.getMaKH() == null || kh.getMaKH().isEmpty()) {
-			kh.setMaKH("KH" + (getCount() + 1));
-		}
+		String sql = "INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email, ngayThem, trangThai) "
+				   + "VALUES (?, ?, ?, ?, ?, CONVERT(date, ?, 103), 1)";
 		try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 			stmt.setString(1, kh.getMaKH());
 			stmt.setString(2, kh.getHoTen());
 			stmt.setString(3, kh.getSdt());
 			stmt.setString(4, kh.getCccd());
 			stmt.setString(5, kh.getEmail());
+			// ngayThem truyen vao dinh dang dd/MM/yyyy, dung CONVERT(date,?,103) de SQL Server hieu
+			stmt.setString(6, kh.getNgayThem() != null ? kh.getNgayThem()
+					: new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date()));
 			return stmt.executeUpdate() > 0;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -99,17 +110,32 @@ public class DAO_KhachHang {
 		return false;
 	}
 
-	private int getCount() {
-		String sql = "SELECT COUNT(*) FROM KhachHang";
+	/** Kiem tra ma KH co san dung hay chua (chua ton tai trong DB) */
+	public boolean isMaKHAvailable(String maKH) {
+		String sql = "SELECT COUNT(*) FROM KhachHang WHERE maKH = ?";
+		try (Connection con = ConnectDB.getConnection();
+				PreparedStatement ps = con.prepareStatement(sql)) {
+			ps.setString(1, maKH);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) return rs.getInt(1) == 0;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	/** Lay ma KH lon nhat hien co trong DB (ca con trang thai 0) de sinh ma tiep theo an toan */
+	public String getMaxMaKH() {
+		String sql = "SELECT TOP 1 maKH FROM KhachHang WHERE maKH LIKE 'KH%' ORDER BY maKH DESC";
 		try (Connection con = ConnectDB.getConnection();
 				Statement stmt = con.createStatement();
 				ResultSet rs = stmt.executeQuery(sql)) {
-			if (rs.next())
-				return rs.getInt(1);
-		} catch (Exception e) {
+			if (rs.next()) return rs.getString("maKH");
+		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return 0;
+		return null;
 	}
 
 	public List<KhachHang> searchBySdt(String sdt) {
