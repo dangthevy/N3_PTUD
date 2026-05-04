@@ -19,6 +19,8 @@ import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -967,7 +969,7 @@ public class TAB_KhuyenMai extends JPanel {
 
         JTextField txtGiaTri = makeField("0");
         JCheckBox chkActiveKMD = new JCheckBox("Đang áp dụng");
-        chkActiveKMD.setSelected(true);
+        chkActiveKMD.setSelected(false);
         chkActiveKMD.setBackground(BG_CARD);
         chkActiveKMD.setFont(F_CELL);
         chkActiveKMD.setForeground(TEXT_DARK);
@@ -1231,53 +1233,157 @@ public class TAB_KhuyenMai extends JPanel {
 
         JButton btnSave = makeBtn("Cập nhật", BtnStyle.PRIMARY);
         btnSave.addActionListener(e -> {
+            // ── Bước 1: Validate giá trị ─────────────────────────────────────
             double giaTri = 0;
             if (!LoaiKhuyenMai.MIEN_PHI.equals(cbLoaiKM.getSelectedItem())) {
                 String txt = txtGiaTri.getText().trim();
                 if (txt.isEmpty()) {
-                    JOptionPane.showMessageDialog(dlg, "Vui lòng nhập giá trị!");
-                    return;
+                    JOptionPane.showMessageDialog(dlg, "Vui lòng nhập giá trị!"); return;
                 }
-
                 try {
                     giaTri = Double.parseDouble(txt);
                 } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!");
-                    return;
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải là số!"); return;
                 }
-
-                if (LoaiKhuyenMai.GIAM_PHAN_TRAM.equals(cbLoaiKM.getSelectedItem()) && (giaTri > 100.0 || giaTri < 0.0)) {
-                    JOptionPane.showMessageDialog(dlg, "Giá trị phải từ 0 đến 100!");
-                    return;
+                if (LoaiKhuyenMai.GIAM_PHAN_TRAM.equals(cbLoaiKM.getSelectedItem())
+                        && (giaTri > 100.0 || giaTri < 0.0)) {
+                    JOptionPane.showMessageDialog(dlg, "Giá trị phải từ 0 đến 100!"); return;
                 }
             }
 
+            // ── Bước 2: Resolve LoaiVe / LoaiToa ─────────────────────────────
             LoaiVe lv = (LoaiVe) cbLoaiVe.getSelectedItem();
-            if (lv != null && "ALL".equals(lv.getMaLoai())) {
-                lv = null;
-            }
-
+            if (lv != null && "ALL".equals(lv.getMaLoai()))    lv = null;
             LoaiToa lt = (LoaiToa) cbLoaiToa.getSelectedItem();
-            if (lt != null && "ALL".equals(lt.getMaLoaiToa())) {
-                lt = null;
+            if (lt != null && "ALL".equals(lt.getMaLoaiToa())) lt = null;
+
+            boolean trangThaiMoi = chkActiveKMD.isSelected();
+
+            // ── Bước 2.5: Không có gì thay đổi → đóng dialog luôn ────────────
+            boolean khongCoGiThayDoi =
+                    (cbLoaiKM.getSelectedItem() == kmd.getLoaiKM())
+                            && (Math.abs(giaTri - kmd.getGiaTri()) < 0.0001)
+                            && loaiVeBang(lv, kmd.getLoaiVe())
+                            && loaiToaBang(lt, kmd.getLoaiToa())
+                            && (trangThaiMoi == kmd.isTrangThai());
+
+            if (khongCoGiThayDoi) {
+                dlg.dispose();
+                return;
+            }
+            // ── Bước 3: Phát hiện loại thay đổi ──────────────────────────────
+            // Các field khác có thay đổi không (ngoài TrangThai)?
+            boolean cacFieldKhac =
+                    (cbLoaiKM.getSelectedItem() == kmd.getLoaiKM())
+                            && (Math.abs(giaTri - kmd.getGiaTri()) < 0.0001)
+                            && loaiVeBang(lv, kmd.getLoaiVe())
+                            && loaiToaBang(lt, kmd.getLoaiToa());
+
+            boolean trangThaiCoThayDoi = (trangThaiMoi != kmd.isTrangThai());
+
+            if (cacFieldKhac && trangThaiCoThayDoi) {
+                // ════════════════════════════════════════════════════════════
+                // CASE A: Chỉ đổi TrangThai
+                // ════════════════════════════════════════════════════════════
+                if (trangThaiMoi) {
+                    // ── A1: false → true: kiểm tra unique conflict ────────
+                    String maTuyenCheck   = kmd.getTuyen()   != null ? kmd.getTuyen().getMaTuyen()     : null;
+                    String maLoaiToaCheck = kmd.getLoaiToa() != null ? kmd.getLoaiToa().getMaLoaiToa() : null;
+                    String maLoaiCheck    = kmd.getLoaiVe()  != null ? kmd.getLoaiVe().getMaLoai()     : null;
+
+                    String maConflict = daoKMD.kiemTraConKMDActive(
+                            kmd.getMaKMDetail(),
+                            selectedKM.getMaKM(),
+                            maTuyenCheck, maLoaiToaCheck, maLoaiCheck);
+
+                    if (maConflict != null) {
+                        JOptionPane.showMessageDialog(dlg,
+                                "<html>Không thể bật lại chi tiết này!<br><br>"
+                                        + "Đã có chi tiết <b>" + maConflict + "</b> cùng tổ hợp<br>"
+                                        + "(Tuyến / Loại toa / Loại vé) đang <b>Đang áp dụng</b>.<br><br>"
+                                        + "Hệ thống chỉ cho phép <b>1 chi tiết active</b> cho mỗi tổ hợp.<br>"
+                                        + "Hãy dừng dòng kia trước rồi mới bật dòng này.</html>",
+                                "Xung đột trạng thái",
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    // Không conflict → update trực tiếp
+                    // Không cần kiểm tra vé vì giaTri không đổi
+                    KhuyenMaiDetail obj = buildKMDObj(kmd, lv, lt,
+                            (LoaiKhuyenMai) cbLoaiKM.getSelectedItem(), giaTri, true);
+                    if (daoKMD.updateKhuyenMaiDetail(obj)) {
+                        loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+                    }
+                } else {
+                    // ── A2: true → false: set TrangThai=0 trực tiếp ──────
+                    // Không cần kiểm tra vé — chỉ tắt, không ảnh hưởng lịch sử
+                    KhuyenMaiDetail obj = buildKMDObj(kmd, lv, lt,
+                            (LoaiKhuyenMai) cbLoaiKM.getSelectedItem(), giaTri, false);
+                    if (daoKMD.updateKhuyenMaiDetail(obj)) {
+                        loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+                    }
+                }
+                return;
             }
 
-            KhuyenMaiDetail obj = new KhuyenMaiDetail();
-            obj.setMaKMDetail(kmd.getMaKMDetail());
-            obj.setKhuyenMai(selectedKM);
-            obj.setTuyen(kmd.getTuyen());
-            // [SỬA] set LoaiVe object thay vì String
-            obj.setLoaiVe(lv);
-            obj.setLoaiToa(lt);
-            obj.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
-            obj.setGiaTri(giaTri);
-            obj.setTrangThai(chkActiveKMD.isSelected());
+            // ════════════════════════════════════════════════════════════════
+            // CASE B: Có đổi giaTri / loaiKM / loaiVe / loaiToa
+            // ════════════════════════════════════════════════════════════════
+            int luotDung = daoKMD.demLuotDungKM(kmd.getMaKMDetail());
 
-            if (daoKMD.updateKhuyenMaiDetail(obj)) { loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose(); }
-            else JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+            if (luotDung == 0) {
+                // ── B1: Chưa có vé → sửa trực tiếp ──────────────────────
+                KhuyenMaiDetail obj = buildKMDObj(kmd, lv, lt,
+                        (LoaiKhuyenMai) cbLoaiKM.getSelectedItem(), giaTri, trangThaiMoi);
+                if (daoKMD.updateKhuyenMaiDetail(obj)) {
+                    loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+                }
+            } else {
+                // ── B2: Đã có vé → deactivate cũ + insert mới ────────────
+                int choice = JOptionPane.showConfirmDialog(dlg,
+                        "<html>Chi tiết này đã được áp dụng cho "
+                                + "<b>" + luotDung + "</b> vé.<br><br>"
+                                + "Hệ thống sẽ:<br>"
+                                + "&nbsp;&nbsp;• Dừng dòng hiện tại (TrangThai = 0) để giữ lịch sử<br>"
+                                + "&nbsp;&nbsp;• Tạo dòng mới với giá trị vừa nhập (TrangThai = 1)<br><br>"
+                                + "Bạn có chắc muốn tiếp tục?</html>",
+                        "Xác nhận thay đổi",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE);
+                if (choice != JOptionPane.YES_OPTION) return;
+
+                // Deactivate dòng cũ
+                if (!daoKMD.deactivateKMDetail(kmd.getMaKMDetail())) {
+                    JOptionPane.showMessageDialog(dlg, "Lỗi khi dừng chi tiết cũ!"); return;
+                }
+
+                // Insert dòng mới, luôn TrangThai = 1
+                KhuyenMaiDetail objMoi = new KhuyenMaiDetail();
+                objMoi.setKhuyenMai(selectedKM);
+                objMoi.setTuyen(kmd.getTuyen());
+                objMoi.setLoaiVe(lv);
+                objMoi.setLoaiToa(lt);
+                objMoi.setLoaiKM((LoaiKhuyenMai) cbLoaiKM.getSelectedItem());
+                objMoi.setGiaTri(giaTri);
+                objMoi.setTrangThai(true);
+
+                if (daoKMD.insertKhuyenMaiDetail(objMoi)) {
+                    loadDataKMDetail(selectedKM.getMaKM()); dlg.dispose();
+                } else {
+                    // Rollback: reactivate dòng cũ
+                    daoKMD.reactivateKMDetail(kmd.getMaKMDetail());
+                    JOptionPane.showMessageDialog(dlg, "Lỗi khi tạo chi tiết mới! Đã hoàn tác.");
+                }
+            }
         });
 
-        JButton btnDel = makeBtn("Dừng KM", BtnStyle.DANGER);
+        JButton btnDel = makeBtn("Xóa KM", BtnStyle.DANGER);
         btnDel.addActionListener(e -> { dlg.dispose(); deleteKMDetail(); });
 
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 12));
@@ -1290,6 +1396,41 @@ public class TAB_KhuyenMai extends JPanel {
         dlg.setMinimumSize(new Dimension(400, dlg.getHeight()));
         dlg.setLocationRelativeTo(this);
         dlg.setVisible(true);
+    }
+
+    /**
+     * So sánh 2 LoaiVe: cả 2 null thì bằng nhau, ngược lại so theo mã.
+     */
+    private boolean loaiVeBang(LoaiVe a, LoaiVe b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.getMaLoai().equals(b.getMaLoai());
+    }
+
+    /**
+     * So sánh 2 LoaiToa: cả 2 null thì bằng nhau, ngược lại so theo mã.
+     */
+    private boolean loaiToaBang(LoaiToa a, LoaiToa b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.getMaLoaiToa().equals(b.getMaLoaiToa());
+    }
+
+    /**
+     * Build KhuyenMaiDetail object để update (giữ nguyên maKMDetail và tuyen từ kmd gốc).
+     */
+    private KhuyenMaiDetail buildKMDObj(KhuyenMaiDetail kmdGoc, LoaiVe lv, LoaiToa lt,
+                                        LoaiKhuyenMai loaiKM, double giaTri, boolean trangThai) {
+        KhuyenMaiDetail obj = new KhuyenMaiDetail();
+        obj.setMaKMDetail(kmdGoc.getMaKMDetail());
+        obj.setKhuyenMai(selectedKM);
+        obj.setTuyen(kmdGoc.getTuyen());
+        obj.setLoaiVe(lv);
+        obj.setLoaiToa(lt);
+        obj.setLoaiKM(loaiKM);
+        obj.setGiaTri(giaTri);
+        obj.setTrangThai(trangThai);
+        return obj;
     }
 
     /** Renderer checkbox cho JList tuyến */

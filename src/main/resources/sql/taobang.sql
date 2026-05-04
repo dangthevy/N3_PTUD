@@ -195,13 +195,15 @@ CREATE TABLE KhuyenMaiDetail (
     maLoaiToa VARCHAR(10) NULL, -- NULL = Tất cả Loại Toa
     MaLoai VARCHAR(10) NULL, -- NULL = Tất cả Loại vé
     An BIT DEFAULT 0,
-    CONSTRAINT UQ_KMDetail UNIQUE (MaKM, MaTuyen, maLoaiToa, MaLoai),
     FOREIGN KEY (MaKM) REFERENCES KhuyenMai(MaKM) ON DELETE CASCADE,
     FOREIGN KEY (MaTuyen) REFERENCES Tuyen(maTuyen),
     FOREIGN KEY (MaLoai) REFERENCES LoaiVe(MaLoai),
     FOREIGN KEY (maLoaiToa) REFERENCES LoaiToa(maLoaiToa)
 );
 
+CREATE UNIQUE INDEX UX_KMDetail_Active
+    ON KhuyenMaiDetail (MaKM, MaTuyen, maLoaiToa, MaLoai)
+    WHERE TrangThai = 1 AND An = 0;
 -- =============================================
 -- 7. GIAO DỊCH (HÓA ĐƠN & VÉ)
 -- =============================================
