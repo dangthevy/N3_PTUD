@@ -597,7 +597,9 @@ public class Step2_ChonChoNgoi extends JPanel {
 		}
 
 		private JPanel drawSleeperHorizontal(int soHang, int soCot) {
-			int khoang = Math.max(1, (soHang * soCot) / 4);
+			int khoang = Math.max(1, soHang);
+			int soTang = soCot / 2;
+			
 			JPanel outer = new JPanel(new BorderLayout(8, 0));
 			outer.setBackground(new Color(0xFAFCFF));
 			outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
@@ -609,34 +611,69 @@ public class Step2_ChonChoNgoi extends JPanel {
 			capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
 			capB.setForeground(new Color(0x7F8C8D));
 
+			// --- CỘT NHÃN HIỂN THỊ TẦNG (CHỈ XUẤT HIỆN 1 LẦN BÊN TRÁI) ---
+			JPanel pnlTangLabels = new JPanel(new BorderLayout(0, 2));
+			pnlTangLabels.setOpaque(false);
+			pnlTangLabels.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 5)); 
+
+			JLabel placeholder = new JLabel(" ");
+			placeholder.setFont(new Font("Segoe UI", Font.PLAIN, 10)); 
+			pnlTangLabels.add(placeholder, BorderLayout.NORTH);
+
+			JPanel gridTang = new JPanel(new GridLayout(soTang, 1, 2, 2));
+			gridTang.setOpaque(false);
+			for (int tang = soTang - 1; tang >= 0; tang--) {
+				JLabel lblTang = new JLabel("Tầng " + (tang + 1));
+				lblTang.setFont(new Font("Segoe UI", Font.BOLD, 10));
+				lblTang.setForeground(new Color(0x95A5A6));
+				lblTang.setHorizontalAlignment(SwingConstants.RIGHT);
+				gridTang.add(lblTang);
+			}
+			pnlTangLabels.add(gridTang, BorderLayout.CENTER);
+			// --------------------------------------------------------------
+
 			JPanel gridBody = new JPanel(new GridLayout(1, khoang, 4, 0));
 			gridBody.setOpaque(false);
-			int idx = 1;
+			
+			int idx = 1; 
+			
 			for (int k = 1; k <= khoang; k++) {
 				JPanel kp = new JPanel(new BorderLayout(0, 2));
 				kp.setBackground(new Color(0xF0F4FA));
 				kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
-						BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+					BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+				
 				JLabel lbl = new JLabel("Khoang " + k, SwingConstants.CENTER);
 				lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 				lbl.setForeground(new Color(0x7F8C8D));
 				kp.add(lbl, BorderLayout.NORTH);
-				JPanel grid = new JPanel(new GridLayout(2, 2, 2, 2));
+				
+				JPanel grid = new JPanel(new GridLayout(soTang, 2, 2, 2));
 				grid.setOpaque(false);
-				addSeatToGrid(grid, String.valueOf(idx + 2));
-				addSeatToGrid(grid, String.valueOf(idx + 3));
-				addSeatToGrid(grid, String.valueOf(idx));
-				addSeatToGrid(grid, String.valueOf(idx + 1));
-				idx += 4;
+				
+				for (int tang = soTang - 1; tang >= 0; tang--) {
+					addSeatToGrid(grid, String.valueOf(idx + 2 * tang));
+					addSeatToGrid(grid, String.valueOf(idx + 2 * tang + 1));
+				}
+				
+				idx += soCot; 
 				kp.add(grid, BorderLayout.CENTER);
 				gridBody.add(kp);
 			}
-			JPanel wrapper = new JPanel(new GridBagLayout());
+			
+			JPanel wrapper = new JPanel(new BorderLayout()); 
 			wrapper.setOpaque(false);
-			wrapper.add(gridBody);
+			wrapper.add(pnlTangLabels, BorderLayout.WEST);
+			wrapper.add(gridBody, BorderLayout.CENTER);
+			
+			JPanel centerAlignWrapper = new JPanel(new GridBagLayout());
+			centerAlignWrapper.setOpaque(false);
+			centerAlignWrapper.add(wrapper);
+
 			outer.add(capA, BorderLayout.WEST);
-			outer.add(wrapper, BorderLayout.CENTER);
+			outer.add(centerAlignWrapper, BorderLayout.CENTER);
 			outer.add(capB, BorderLayout.EAST);
+			
 			return outer;
 		}
 

@@ -30,11 +30,10 @@ public class Form_LoaiToa extends JDialog {
 
 	public Form_LoaiToa(Frame parent, String title) {
 		super(parent, title, true);
-		setSize(500, 580); // Tăng form lên một chút vì các ô nhập liệu đã được làm to ra
+		setSize(500, 580); 
 		setLocationRelativeTo(parent);
 		getContentPane().setBackground(Color.WHITE);
 
-		// Đồng bộ Padding chuẩn của Form_Toa
 		JPanel pnlMain = new JPanel(new BorderLayout(15, 20));
 		pnlMain.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
 		pnlMain.setBackground(Color.WHITE);
@@ -59,7 +58,7 @@ public class Form_LoaiToa extends JDialog {
 		txtSucChua.setBackground(new Color(0xF4F7FB));
 		
 		cbKieu = new JComboBox<>(new String[] { "GHE", "GIUONG" });
-		cbKieu.setPreferredSize(new Dimension(0, 38)); // Đồng bộ chiều cao cb như Form Toa
+		cbKieu.setPreferredSize(new Dimension(0, 38)); 
 		cbKieu.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 		cbKieu.setBackground(Color.WHITE);
 
@@ -80,14 +79,13 @@ public class Form_LoaiToa extends JDialog {
 		int y = 0;
 		addRow(pnlForm, "Mã loại (*):", txtMa, lblErrMa, y++, gc);
 		addRow(pnlForm, "Tên loại toa (*):", txtTen, lblErrTen, y++, gc);
-		addRow(pnlForm, "Số hàng ghế (*):", txtHang, lblErrHang, y++, gc);
-		addRow(pnlForm, "Số cột ghế (*):", txtCot, lblErrCot, y++, gc);
+		addRow(pnlForm, "Số hàng (Khoang) (*):", txtHang, lblErrHang, y++, gc);
+		addRow(pnlForm, "Số cột (Giường) (*):", txtCot, lblErrCot, y++, gc);
 		addRow(pnlForm, "Kiểu hiển thị:", cbKieu, null, y++, gc);
 		addRow(pnlForm, "Tổng sức chứa:", txtSucChua, null, y++, gc);
 
 		pnlMain.add(pnlForm, BorderLayout.CENTER);
 
-		// Đồng bộ Nút bấm y hệt Form Toa
 		JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
 		pnlBottom.setOpaque(false);
 		JButton btnCancel = createButton("Hủy Bỏ", new Color(108, 122, 137));
@@ -102,10 +100,11 @@ public class Form_LoaiToa extends JDialog {
 		pnlMain.add(pnlBottom, BorderLayout.SOUTH);
 		add(pnlMain);
 
-		addLiveValidationListener(txtMa, lblErrMa);
-		addLiveValidationListener(txtTen, lblErrTen);
-		addLiveValidationListener(txtHang, lblErrHang);
-		addLiveValidationListener(txtCot, lblErrCot);
+		// Áp dụng lắng nghe thay đổi thời gian thực
+		addLiveValidationListener(txtMa);
+		addLiveValidationListener(txtTen);
+		addLiveValidationListener(txtHang);
+		addLiveValidationListener(txtCot);
 		cbKieu.addActionListener(e -> checkSaveButtonState());
 	}
 
@@ -115,7 +114,7 @@ public class Form_LoaiToa extends JDialog {
 		gc.weightx = 0.35;
 		JLabel lbl = new JLabel(l);
 		lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-		lbl.setForeground(TEXT_DARK); // Đồng bộ màu label
+		lbl.setForeground(TEXT_DARK); 
 		p.add(lbl, gc);
 		gc.gridx = 1;
 		gc.weightx = 0.65;
@@ -124,12 +123,12 @@ public class Form_LoaiToa extends JDialog {
 		if (err != null) {
 			gc.gridy = y * 2 + 1;
 			gc.gridx = 1;
-			gc.insets = new Insets(0, 5, 10, 5); // Đồng bộ khoảng cách lỗi
+			gc.insets = new Insets(0, 5, 10, 5); 
 			p.add(err, gc);
 			gc.insets = new Insets(5, 5, 0, 5);
 		} else {
 			gc.gridy = y * 2 + 1;
-			p.add(Box.createVerticalStrut(12), gc); // Đồng bộ khoảng cách dòng
+			p.add(Box.createVerticalStrut(12), gc); 
 		}
 	}
 
@@ -144,40 +143,99 @@ public class Form_LoaiToa extends JDialog {
 		checkSaveButtonState();
 	}
 
-	// ================== REAL-TIME VALIDATION ==================
+	// ================== REAL-TIME VALIDATION (ĐÃ FIX UX) ==================
 	private void checkSaveButtonState() {
 		boolean isValid = true;
 
+		// 1. Validate Mã Toa
 		String ma = txtMa.getText().trim();
+		if (ma.isEmpty()) {
+			lblErrMa.setText(" "); // Không chửi khi rỗng, chỉ khóa nút lưu
+			isValid = false;
+		} else if (!ma.matches("^G_[a-zA-Z0-9]+$")) {
+			lblErrMa.setText("Mã loại bắt đầu G_ theo sau chỉ được chứa chữ và số");
+			isValid = false;
+		} else if (ma.length() > 10) {
+			lblErrMa.setText("Mã loại tối đa 10 ký tự");
+			isValid = false;
+		} else {
+			lblErrMa.setText(" ");
+		}
+
+		// 2. Validate Tên Toa
 		String ten = txtTen.getText().trim();
-		if (ma.isEmpty() || ten.isEmpty())
+		if (ten.isEmpty()) {
+			lblErrTen.setText(" "); // Không chửi khi rỗng
 			isValid = false;
-
-		int currentHang = -1, currentCot = -1;
-		try {
-			currentHang = Integer.parseInt(txtHang.getText().trim());
-			if (currentHang <= 0)
-				isValid = false;
-		} catch (Exception e) {
-			isValid = false;
+		} else {
+			lblErrTen.setText(" ");
 		}
 
-		try {
-			currentCot = Integer.parseInt(txtCot.getText().trim());
-			if (currentCot <= 0)
-				isValid = false;
-		} catch (Exception e) {
+		// 3. Validate Số Hàng
+		String hangStr = txtHang.getText().trim();
+		if (hangStr.isEmpty()) {
+			lblErrHang.setText(" ");
 			isValid = false;
+		} else {
+			try {
+				int currentHang = Integer.parseInt(hangStr);
+				if (currentHang <= 0) {
+					lblErrHang.setText("Số hàng phải lớn hơn 0");
+					isValid = false;
+				} else if (currentHang > 20) { 
+					lblErrHang.setText("Số hàng không được vượt quá 20");
+					isValid = false;
+				} else {
+					lblErrHang.setText(" ");
+				}
+			} catch (Exception e) {
+				lblErrHang.setText("Số hàng phải là một số nguyên");
+				isValid = false;
+			}
 		}
 
+		// 4. Validate Số Cột
+		String cotStr = txtCot.getText().trim();
+		if (cotStr.isEmpty()) {
+			lblErrCot.setText(" ");
+			isValid = false;
+		} else {
+			int currentCot = -1;
+			String kieu = cbKieu.getSelectedItem().toString();
+			try {
+				currentCot = Integer.parseInt(cotStr);
+				
+				if (kieu.equals("GHE")) {
+					if (currentCot != 4) {
+						lblErrCot.setText("Toa Ghế ngồi: Số cột bắt buộc là 4");
+						isValid = false;
+					} else {
+						lblErrCot.setText(" ");
+					}
+				} else if (kieu.equals("GIUONG")) {
+					if (currentCot != 4 && currentCot != 6) {
+						lblErrCot.setText("Toa Giường nằm: Khoang chỉ có 4 hoặc 6 giường");
+						isValid = false;
+					} else {
+						lblErrCot.setText(" ");
+					}
+				}
+			} catch (Exception e) {
+				lblErrCot.setText("Số cột phải là số nguyên hợp lệ");
+				isValid = false;
+			}
+		}
+
+		// 5. Kiểm tra sự thay đổi dữ liệu (Dirty Check)
 		boolean isChanged = true;
 		if (isEditMode) {
 			String curKieu = cbKieu.getSelectedItem().toString();
-			if (ma.equals(origMa) && ten.equals(origTen) && currentHang == origHang && currentCot == origCot
-					&& curKieu.equals(origKieu)) {
+			if (ma.equals(origMa) && ten.equals(origTen) && hangStr.equals(String.valueOf(origHang)) 
+					&& cotStr.equals(String.valueOf(origCot)) && curKieu.equals(origKieu)) {
 				isChanged = false;
 			}
 		}
+		
 		btnSave.setEnabled(isValid && isChanged);
 	}
 
@@ -224,7 +282,7 @@ public class Form_LoaiToa extends JDialog {
 	// --- ĐỒNG BỘ UI HELPERS TỪ FORM TOA ---
 	private JTextField createTextField() {
 		JTextField tf = new JTextField();
-		tf.setPreferredSize(new Dimension(0, 38)); // Chiều cao 38 giống form Toa
+		tf.setPreferredSize(new Dimension(0, 38)); 
 		tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 		tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), new EmptyBorder(0, 10, 0, 10)));
 		return tf;
@@ -233,7 +291,7 @@ public class Form_LoaiToa extends JDialog {
 	private JLabel createErrorLabel() {
 		JLabel lbl = new JLabel(" ");
 		lbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-		lbl.setForeground(DANGER); // Màu đỏ chuẩn
+		lbl.setForeground(DANGER); 
 		return lbl;
 	}
 
@@ -253,7 +311,7 @@ public class Form_LoaiToa extends JDialog {
 				super.paintComponent(g);
 			}
 		};
-		b.setPreferredSize(new Dimension(130, 40)); // Nút to ra: 130x40
+		b.setPreferredSize(new Dimension(130, 40)); 
 		b.setForeground(Color.WHITE);
 		b.setFont(new Font("Segoe UI", Font.BOLD, 14));
 		b.setContentAreaFilled(false);
@@ -262,22 +320,11 @@ public class Form_LoaiToa extends JDialog {
 		return b;
 	}
 
-	private void addLiveValidationListener(JTextField tf, JLabel lbl) {
+	private void addLiveValidationListener(JTextField tf) {
 		tf.getDocument().addDocumentListener(new DocumentListener() {
-			public void insertUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
-			}
-
-			public void removeUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
-			}
-
-			public void changedUpdate(DocumentEvent e) {
-				lbl.setText(" ");
-				checkSaveButtonState();
-			}
+			public void insertUpdate(DocumentEvent e) { checkSaveButtonState(); }
+			public void removeUpdate(DocumentEvent e) { checkSaveButtonState(); }
+			public void changedUpdate(DocumentEvent e) { checkSaveButtonState(); }
 		});
 	}
 
