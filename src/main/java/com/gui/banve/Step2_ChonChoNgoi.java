@@ -163,7 +163,6 @@ public class Step2_ChonChoNgoi extends JPanel {
 			pnlLegend.add(legendItem(new Color(0xE74C3C), "Đã đặt"));
 			pnlLegend.add(legendItem(new Color(0xF39C12), "Đang chọn"));
 			pnlLegend.add(legendItem(Color.GRAY, "Bảo trì"));
-			pnlGheHeader.add(pnlLegend, BorderLayout.EAST);
 			pnlGheWrapper.add(pnlGheHeader, BorderLayout.NORTH);
 
 			pnlTrainBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 4));
@@ -187,6 +186,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 			mapScroll.getViewport().setBackground(Color.WHITE);
 			pnlSeatArea.add(lblToaNameInfo, BorderLayout.NORTH);
 			pnlSeatArea.add(mapScroll, BorderLayout.CENTER);
+			pnlSeatArea.add(pnlLegend, BorderLayout.SOUTH);
 
 			JPanel pnlMapWrapper = new JPanel(new BorderLayout(0, 2));
 			pnlMapWrapper.setOpaque(false);
@@ -597,7 +597,9 @@ public class Step2_ChonChoNgoi extends JPanel {
 		}
 
 		private JPanel drawSleeperHorizontal(int soHang, int soCot) {
-			int khoang = Math.max(1, (soHang * soCot) / 4);
+			int khoang = Math.max(1, soHang);
+			int soTang = soCot / 2;
+			
 			JPanel outer = new JPanel(new BorderLayout(8, 0));
 			outer.setBackground(new Color(0xFAFCFF));
 			outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
@@ -609,34 +611,69 @@ public class Step2_ChonChoNgoi extends JPanel {
 			capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
 			capB.setForeground(new Color(0x7F8C8D));
 
+			// --- CỘT NHÃN HIỂN THỊ TẦNG (CHỈ XUẤT HIỆN 1 LẦN BÊN TRÁI) ---
+			JPanel pnlTangLabels = new JPanel(new BorderLayout(0, 2));
+			pnlTangLabels.setOpaque(false);
+			pnlTangLabels.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 5)); 
+
+			JLabel placeholder = new JLabel(" ");
+			placeholder.setFont(new Font("Segoe UI", Font.PLAIN, 10)); 
+			pnlTangLabels.add(placeholder, BorderLayout.NORTH);
+
+			JPanel gridTang = new JPanel(new GridLayout(soTang, 1, 2, 2));
+			gridTang.setOpaque(false);
+			for (int tang = soTang - 1; tang >= 0; tang--) {
+				JLabel lblTang = new JLabel("Tầng " + (tang + 1));
+				lblTang.setFont(new Font("Segoe UI", Font.BOLD, 10));
+				lblTang.setForeground(new Color(0x95A5A6));
+				lblTang.setHorizontalAlignment(SwingConstants.RIGHT);
+				gridTang.add(lblTang);
+			}
+			pnlTangLabels.add(gridTang, BorderLayout.CENTER);
+			// --------------------------------------------------------------
+
 			JPanel gridBody = new JPanel(new GridLayout(1, khoang, 4, 0));
 			gridBody.setOpaque(false);
-			int idx = 1;
+			
+			int idx = 1; 
+			
 			for (int k = 1; k <= khoang; k++) {
 				JPanel kp = new JPanel(new BorderLayout(0, 2));
 				kp.setBackground(new Color(0xF0F4FA));
 				kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
-						BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+					BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+				
 				JLabel lbl = new JLabel("Khoang " + k, SwingConstants.CENTER);
 				lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 				lbl.setForeground(new Color(0x7F8C8D));
 				kp.add(lbl, BorderLayout.NORTH);
-				JPanel grid = new JPanel(new GridLayout(2, 2, 2, 2));
+				
+				JPanel grid = new JPanel(new GridLayout(soTang, 2, 2, 2));
 				grid.setOpaque(false);
-				addSeatToGrid(grid, String.valueOf(idx + 2));
-				addSeatToGrid(grid, String.valueOf(idx + 3));
-				addSeatToGrid(grid, String.valueOf(idx));
-				addSeatToGrid(grid, String.valueOf(idx + 1));
-				idx += 4;
+				
+				for (int tang = soTang - 1; tang >= 0; tang--) {
+					addSeatToGrid(grid, String.valueOf(idx + 2 * tang));
+					addSeatToGrid(grid, String.valueOf(idx + 2 * tang + 1));
+				}
+				
+				idx += soCot; 
 				kp.add(grid, BorderLayout.CENTER);
 				gridBody.add(kp);
 			}
-			JPanel wrapper = new JPanel(new GridBagLayout());
+			
+			JPanel wrapper = new JPanel(new BorderLayout()); 
 			wrapper.setOpaque(false);
-			wrapper.add(gridBody);
+			wrapper.add(pnlTangLabels, BorderLayout.WEST);
+			wrapper.add(gridBody, BorderLayout.CENTER);
+			
+			JPanel centerAlignWrapper = new JPanel(new GridBagLayout());
+			centerAlignWrapper.setOpaque(false);
+			centerAlignWrapper.add(wrapper);
+
 			outer.add(capA, BorderLayout.WEST);
-			outer.add(wrapper, BorderLayout.CENTER);
+			outer.add(centerAlignWrapper, BorderLayout.CENTER);
 			outer.add(capB, BorderLayout.EAST);
+			
 			return outer;
 		}
 
@@ -695,13 +732,16 @@ public class Step2_ChonChoNgoi extends JPanel {
 			g2.drawString(tgDi, 50, 42);
 			g2.drawString(tgDen, 50, 55);
 			g2.setFont(new Font("Segoe UI", Font.PLAIN, 9));
-			g2.setColor(Color.GRAY);
-			g2.drawString("SL chỗ đặt", 10, 75);
-			g2.drawString("SL chỗ trống", 55, 75);
-			g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
-			g2.setColor(Color.BLACK);
-			g2.drawString(slDat, 20, 95);
-			g2.drawString(slTrong, 75, 95);
+		    g2.setColor(Color.GRAY);
+		    // Rút gọn chữ và đẩy khoảng cách 2 cột ra xa nhau
+		    g2.drawString("SL Đặt", 15, 75);
+		    g2.drawString("SL Trống", 70, 75);
+		    
+		    g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		    g2.setColor(Color.BLACK);
+		    // Căn lại vị trí con số cho cân đối ngay dưới tiêu đề
+		    g2.drawString(slDat, 22, 95);
+		    g2.drawString(slTrong, 78, 95);
 			g2.setColor(mainColor);
 			g2.fillOval(20, h, 16, 16);
 			g2.fillOval(w - 36, h, 16, 16);
@@ -753,12 +793,12 @@ public class Step2_ChonChoNgoi extends JPanel {
 				g2.fillRect(w, y + h - 6, 4, 2);
 			g2.setColor(isSelected ? new Color(241, 196, 15) : carColor);
 			if (isLocomotive) {
-				int[] px = { 0, w - 10, w, w, 0 };
-				int[] py = { y, y, y + 10, y + h, y + h };
-				g2.fillPolygon(px, py, 5);
-				g2.setColor(Color.WHITE);
-				g2.fillRect(w - 18, y + 3, 6, 8);
-				g2.fillRect(w - 10, y + 5, 4, 6);
+			    int[] px = { 10, w, w, 0, 0 };
+			    int[] py = { y, y, y + h, y + h, y + 10 };
+			    g2.fillPolygon(px, py, 5);
+			    g2.setColor(Color.WHITE);
+			    g2.fillRect(12, y + 3, 6, 8);
+			    g2.fillRect(6, y + 5, 4, 6);
 			} else {
 				g2.fillRoundRect(0, y, w, h, 6, 6);
 				g2.setColor(Color.WHITE);
