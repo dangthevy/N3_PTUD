@@ -112,15 +112,10 @@ public class GUI_General extends JPanel {
 		boolean isQuanLy = (nv.getChucVu() == ChucVu.QUANLY);
 		boolean canAccessMain = (nv.getChucVu() == ChucVu.NHANVIEN || isAdmin);
 		boolean canAccessAdminTools = (isQuanLy || isAdmin);
-		boolean managementFirst = isQuanLy && !isAdmin;
 
-		if (managementFirst) {
-			addManagementSection(sidebar, canAccessAdminTools);
-			addMainSection(sidebar, canAccessMain);
-		} else {
-			addMainSection(sidebar, canAccessMain);
-			addManagementSection(sidebar, canAccessAdminTools);
-		}
+		// Always keep Main section first so Dashboard is pinned at top.
+		addMainSection(sidebar, canAccessMain);
+		addManagementSection(sidebar, canAccessAdminTools);
 		addReportSection(sidebar, canAccessAdminTools);
 
 		sidebar.add(Box.createVerticalGlue());

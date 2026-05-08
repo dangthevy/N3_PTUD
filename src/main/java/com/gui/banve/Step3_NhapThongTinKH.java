@@ -231,7 +231,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 		txtPaxEmail = makePlainField("Ví dụ: abc@gmail.com");
 		applyEmailOnly(txtPaxEmail);
 
-		cbLoaiVe = new JComboBox<>(new String[] { "Người lớn", "Trẻ em", "Sinh viên", "Người cao tuổi" });
+		cbLoaiVe = new JComboBox<>(new String[] { "Người lớn", "Trẻ em", "Sinh viên" });
 		cbLoaiVe.setFont(UITheme.FONT_LABEL);
 
 		lblPaxSdtError = makeErrorLabel();
@@ -554,7 +554,9 @@ public class Step3_NhapThongTinKH extends JPanel {
 			confirmedBooker.setEmail(email);
 			kh_dao.updateKhachHang(confirmedBooker);
 		} else {
-			confirmedBooker = new KhachHang("", hoTen, sdt, cccd, email);
+			String newMa = generateSafeMaKH();
+			String ngayThem = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
+			confirmedBooker = new KhachHang(newMa, hoTen, sdt, cccd, email, ngayThem);
 			kh_dao.addKhachHang(confirmedBooker);
 		}
 
@@ -683,8 +685,21 @@ public class Step3_NhapThongTinKH extends JPanel {
 		seatMap.put("cccd", cccd);
 		seatMap.put("email", email);
 
-		String tenLoaiVe = cbLoaiVe.getSelectedItem().toString();
-		String maLoaiVe = tenLoaiVe.equals("Người lớn") ? "LV01" : (tenLoaiVe.equals("Trẻ em") ? "LV02" : "LV03");
+		Object selectedLoaiVe = cbLoaiVe.getSelectedItem();
+		String tenLoaiVe = selectedLoaiVe != null ? selectedLoaiVe.toString() : "Người lớn";
+		String maLoaiVe;
+		switch (tenLoaiVe) {
+		case "Trẻ em":
+			maLoaiVe = "LV02";
+			break;
+		case "Sinh viên":
+			maLoaiVe = "LV03";
+			break;
+		case "Người lớn":
+		default:
+			maLoaiVe = "LV01";
+			break;
+		}
 		seatMap.put("loaiVe", tenLoaiVe);
 		seatMap.put("maLoaiVe", maLoaiVe);
 
@@ -705,6 +720,26 @@ public class Step3_NhapThongTinKH extends JPanel {
 		mainTab.setNextButtonEnabled(isAllPassengersFilled());
 	}
 
+	/**
+	 * Sinh ma KH an toan: lay MAX tu DB, +1, neu INSERT bi trung (2 nguoi dat cung luc)
+	 * thi tu dong tang len tiep cho den khi thanh cong.
+	 */
+	private String generateSafeMaKH() {
+		String maxMa = kh_dao.getMaxMaKH();
+		int next = 1;
+		if (maxMa != null && maxMa.toUpperCase().startsWith("KH")) {
+			try { next = Integer.parseInt(maxMa.substring(2)) + 1; }
+			catch (NumberFormatException ignored) {}
+		}
+		// Thu toi da 10 lan de tranh vo han loop
+		for (int attempt = 0; attempt < 10; attempt++) {
+			String candidate = String.format("KH%08d", next + attempt);
+			if (kh_dao.isMaKHAvailable(candidate)) return candidate;
+		}
+		// Fallback: dung timestamp de dam bao duy nhat tuyet doi
+		return "KH" + System.currentTimeMillis();
+	}
+
 	private String savePassengerToDB(String hoTen, String sdt, String cccd, String email) {
 		if (!sdt.isEmpty() && sdt.length() == 10) {
 			List<KhachHang> existing = kh_dao.searchBySdt(sdt);
@@ -717,7 +752,9 @@ public class Step3_NhapThongTinKH extends JPanel {
 				return kh.getMaKH();
 			}
 		}
-		KhachHang kh = new KhachHang("", hoTen, sdt, cccd, email);
+		String newMa = generateSafeMaKH();
+		String ngayThem = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
+		KhachHang kh = new KhachHang(newMa, hoTen, sdt, cccd, email, ngayThem);
 		kh_dao.addKhachHang(kh);
 		return kh.getMaKH();
 	}

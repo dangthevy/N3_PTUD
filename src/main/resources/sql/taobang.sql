@@ -193,13 +193,15 @@ CREATE TABLE KhuyenMaiDetail (
     maLoaiToa VARCHAR(10) NULL, -- NULL = Tất cả Loại Toa
     MaLoai VARCHAR(10) NULL, -- NULL = Tất cả Loại vé
     An BIT DEFAULT 0,
-    CONSTRAINT UQ_KMDetail UNIQUE (MaKM, MaTuyen, maLoaiToa, MaLoai),
     FOREIGN KEY (MaKM) REFERENCES KhuyenMai(MaKM) ON DELETE CASCADE,
     FOREIGN KEY (MaTuyen) REFERENCES Tuyen(maTuyen),
     FOREIGN KEY (MaLoai) REFERENCES LoaiVe(MaLoai),
     FOREIGN KEY (maLoaiToa) REFERENCES LoaiToa(maLoaiToa)
 );
 
+CREATE UNIQUE INDEX UX_KMDetail_Active
+    ON KhuyenMaiDetail (MaKM, MaTuyen, maLoaiToa, MaLoai)
+    WHERE TrangThai = 1 AND An = 0;
 -- =============================================
 -- 7. GIAO DỊCH (HÓA ĐƠN & VÉ)
 -- =============================================
@@ -255,36 +257,36 @@ GO
 -- =========================================================================
 
 INSERT INTO Ga (maGa, tenGa, diaChi, tinhThanh, trangThai) VALUES
-('GA01', N'Ga Sài Gòn',     N'1 Nguyễn Thông, Phường 9, Quận 3',                   N'TP. Hồ Chí Minh',   1),
-('GA02', N'Ga Phủ Lý',      N'Quốc lộ 1A, Hai Bà Trưng, TP. Phủ Lý',               N'Hà Nam',             1),
-('GA03', N'Ga Nam Định',    N'Trần Đăng Ninh, TP. Nam Định',                        N'Nam Định',           1),
+('GA01', N'Ga Sài Gòn',     N'1 Nguyễn Thông, Phường 9, Quận 3',                    N'TP. Hồ Chí Minh',   1),
+('GA02', N'Ga Phủ Lý',      N'Quốc lộ 1A, Hai Bà Trưng, TP. Phủ Lý',                N'Hà Nam',             1),
+('GA03', N'Ga Nam Định',    N'Trần Đăng Ninh, TP. Nam Định',                         N'Nam Định',           1),
 ('GA04', N'Ga Ninh Bình',   N'1 Ngõ 41 Hoàng Hoa Thám, Thanh Bình, TP. Ninh Bình', N'Ninh Bình',         1),
 ('GA05', N'Ga Thanh Hóa',   N'19 Dương Đình Nghệ, Tân Sơn, TP. Thanh Hóa',         N'Thanh Hóa',         1),
-('GA06', N'Ga Vinh',        N'Số 1 Lê Ninh, Quán Bàu, TP. Vinh',                   N'Nghệ An',           1),
-('GA07', N'Ga Yên Trung',   N'Thị trấn Đức Thọ, Huyện Đức Thọ',                    N'Hà Tĩnh',           1),
-('GA08', N'Ga Đồng Hới',    N'Tiểu khu 4, Phường Nam Lý, TP. Đồng Hới',            N'Quảng Bình',        1),
-('GA09', N'Ga Đông Hà',     N'2 Lê Thánh Tôn, Phường 1, TP. Đông Hà',              N'Quảng Trị',         1),
-('GA10', N'Ga Huế',         N'2 Bùi Thị Xuân, Phường Đúc, TP. Huế',                N'Thừa Thiên Huế',    1),
-('GA11', N'Ga Đà Nẵng',     N'791 Hải Phòng, Tam Thuận, Thanh Khê',                N'Đà Nẵng',           1),
-('GA12', N'Ga Tam Kỳ',      N'Đường Nguyễn Hoàng, An Xuân, TP. Tam Kỳ',            N'Quảng Nam',         1),
+('GA06', N'Ga Vinh',        N'Số 1 Lê Ninh, Quán Bàu, TP. Vinh',                    N'Nghệ An',           1),
+('GA07', N'Ga Yên Trung',   N'Thị trấn Đức Thọ, Huyện Đức Thọ',                     N'Hà Tĩnh',           1),
+('GA08', N'Ga Đồng Hới',    N'Tiểu khu 4, Phường Nam Lý, TP. Đồng Hới',             N'Quảng Bình',        1),
+('GA09', N'Ga Đông Hà',     N'2 Lê Thánh Tôn, Phường 1, TP. Đông Hà',               N'Quảng Trị',         1),
+('GA10', N'Ga Huế',         N'2 Bùi Thị Xuân, Phường Đúc, TP. Huế',                 N'Thừa Thiên Huế',    1),
+('GA11', N'Ga Đà Nẵng',     N'791 Hải Phòng, Tam Thuận, Thanh Khê',                 N'Đà Nẵng',           1),
+('GA12', N'Ga Tam Kỳ',      N'Đường Nguyễn Hoàng, An Xuân, TP. Tam Kỳ',             N'Quảng Nam',         1),
 ('GA13', N'Ga Quảng Ngãi',  N'204 Nguyễn Trãi, Nghĩa Lộ, TP. Quảng Ngãi',         N'Quảng Ngãi',        1),
-('GA14', N'Ga Diêu Trì',    N'Thị trấn Diêu Trì, Huyện Tuy Phước',                 N'Bình Định',         1),
-('GA15', N'Ga Quy Nhơn',    N'Lê Hồng Phong, Phường Lê Lợi, TP. Quy Nhơn',        N'Bình Định',         1),
-('GA16', N'Ga Tuy Hòa',     N'149 Lê Trung Kiên, Phường 2, TP. Tuy Hòa',           N'Phú Yên',           1),
-('GA17', N'Ga Nha Trang',   N'17 Thái Nguyên, Phước Tân, TP. Nha Trang',           N'Khánh Hòa',         1),
+('GA14', N'Ga Diêu Trì',    N'Thị trấn Diêu Trì, Huyện Tuy Phước',                  N'Bình Định',         1),
+('GA15', N'Ga Quy Nhơn',    N'Lê Hồng Phong, Phường Lê Lợi, TP. Quy Nhơn',         N'Bình Định',         1),
+('GA16', N'Ga Tuy Hòa',     N'149 Lê Trung Kiên, Phường 2, TP. Tuy Hòa',            N'Phú Yên',           1),
+('GA17', N'Ga Nha Trang',   N'17 Thái Nguyên, Phước Tân, TP. Nha Trang',            N'Khánh Hòa',         1),
 ('GA18', N'Ga Tháp Chàm',   N'Phan Đình Phùng, Đô Vinh, TP. Phan Rang - Tháp Chàm',N'Ninh Thuận',       1),
-('GA19', N'Ga Bình Thuận',  N'Xã Mương Mán, Huyện Hàm Thuận Nam',                  N'Bình Thuận',        1),
-('GA20', N'Ga Phan Thiết',  N'1 Lê Duẩn, Phong Nẫm, TP. Phan Thiết',              N'Bình Thuận',        1),
-('GA21', N'Ga Long Khánh',  N'Trần Phú, Xuân An, TP. Long Khánh',                  N'Đồng Nai',          1),
+('GA19', N'Ga Bình Thuận',  N'Xã Mương Mán, Huyện Hàm Thuận Nam',                   N'Bình Thuận',        1),
+('GA20', N'Ga Phan Thiết',  N'1 Lê Duẩn, Phong Nẫm, TP. Phan Thiết',               N'Bình Thuận',        1),
+('GA21', N'Ga Long Khánh',  N'Trần Phú, Xuân An, TP. Long Khánh',                   N'Đồng Nai',          1),
 ('GA22', N'Ga Biên Hòa',    N'Quảng trường Ga Biên Hòa, Trung Dũng, TP. Biên Hòa',N'Đồng Nai',          1),
-('GA23', N'Ga Hà Nội',      N'120 Lê Duẩn, Cửa Nam, Hoàn Kiếm',                    N'Hà Nội',             1),
-('GA24', N'Ga Lào Cai',     N'Tổ 15A, Phường Phố Mới, TP. Lào Cai',                N'Lào Cai',           1),
-('GA25', N'Ga Yên Bái',     N'218 Trần Hưng Đạo, Hồng Hà, TP. Yên Bái',           N'Yên Bái',           1),
-('GA26', N'Ga Hải Phòng',   N'75 Lương Khánh Thiện, Cầu Đất, Ngô Quyền',          N'Hải Phòng',         1),
-('GA27', N'Ga Lạng Sơn',    N'Lê Lợi, Phường Vĩnh Trại, TP. Lạng Sơn',            N'Lạng Sơn',          1),
-('GA28', N'Ga Thái Nguyên', N'Quang Trung, Quang Trung, TP. Thái Nguyên',          N'Thái Nguyên',       1),
-('GA29', N'Ga Bắc Giang',   N'Xương Giang, TP. Bắc Giang',                          N'Bắc Giang',         1),
-('GA30', N'Ga Diễn Châu',   N'Khối 4, Thị trấn Diễn Châu, Huyện Diễn Châu',       N'Nghệ An',           1);
+('GA23', N'Ga Hà Nội',      N'120 Lê Duẩn, Cửa Nam, Hoàn Kiếm',                     N'Hà Nội',             1),
+('GA24', N'Ga Lào Cai',     N'Tổ 15A, Phường Phố Mới, TP. Lào Cai',                 N'Lào Cai',           1),
+('GA25', N'Ga Yên Bái',     N'218 Trần Hưng Đạo, Hồng Hà, TP. Yên Bái',            N'Yên Bái',           1),
+('GA26', N'Ga Hải Phòng',   N'75 Lương Khánh Thiện, Cầu Đất, Ngô Quyền',           N'Hải Phòng',         1),
+('GA27', N'Ga Lạng Sơn',    N'Lê Lợi, Phường Vĩnh Trại, TP. Lạng Sơn',             N'Lạng Sơn',          1),
+('GA28', N'Ga Thái Nguyên', N'Quang Trung, Quang Trung, TP. Thái Nguyên',           N'Thái Nguyên',       1),
+('GA29', N'Ga Bắc Giang',   N'Xương Giang, TP. Bắc Giang',                           N'Bắc Giang',         1),
+('GA30', N'Ga Diễn Châu',   N'Khối 4, Thị trấn Diễn Châu, Huyện Diễn Châu',        N'Nghệ An',           1);
 
 -- Cấu hình Khuôn Mẫu Loại Toa
 INSERT INTO LoaiToa VALUES
@@ -514,13 +516,13 @@ GO
 -- KHUYẾN MÃI & DETAIL
 -- =============================================
 INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
-(N'Khuyến mãi hè 2026',           '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
-(N'Ưu đãi Sinh viên',             '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
-(N'Ưu đãi vé trẻ em',             '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
-(N'Flash Sale Cuối Tuần',         '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
+(N'Khuyến mãi hè 2026',            '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
+(N'Ưu đãi Sinh viên',              '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
+(N'Ưu đãi vé trẻ em',              '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
+(N'Flash Sale Cuối Tuần',          '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
 (N'Khuyến mãi Tết Nguyên Đán 2026','2026-02-01','2026-02-28', 1, N'Ưu đãi dịp Tết cho các tuyến phổ biến'),
 (N'Ưu đãi Giỗ Tổ Hùng Vương 2026','2026-04-01','2026-04-10', 1, N'Khuyến mãi dịp lễ đầu tháng 4'),
-(N'Khuyến mãi 30/4 - 1/5',        '2026-04-25','2026-05-05', 1, N'Ưu đãi dịp lễ 30/4 và 1/5'),
+(N'Khuyến mãi 30/4 - 1/5',         '2026-04-25','2026-05-05', 1, N'Ưu đãi dịp lễ 30/4 và 1/5'),
 (N'Ưu đãi Mùa Du Lịch Tháng 5',  '2026-05-01', '2026-05-31', 1, N'Khuyến mãi cho hành khách đi du lịch trong tháng 5');
 GO
 
@@ -655,35 +657,35 @@ GO
 -- BƠM 100 VÉ ĐA DẠNG (nhiều lịch trình, nhiều khách)
 -- Offset: cnt từ 37-136 để không trùng mã HD/VÉ với LT01(1-30) và LT03/04/05(31-36)
 -- =========================================================================
-DECLARE @cnt INT = 37;
+DECLARE @cnt_ve INT = 37;
 DECLARE @kh_random  VARCHAR(20);
 DECLARE @nv_random  VARCHAR(10);
 DECLARE @lt_random  VARCHAR(10);
 DECLARE @toa_random VARCHAR(25);
 DECLARE @giaVe      DECIMAL(12,0);
 
-WHILE @cnt <= 136
+WHILE @cnt_ve <= 136
 BEGIN
     -- Tăng lên VARCHAR(30) để không bị lỗi cắt chuỗi
-    DECLARE @mhd VARCHAR(30) = 'HD' + RIGHT('000000000000000' + CAST(@cnt AS VARCHAR), 15);
-    DECLARE @mve VARCHAR(30) = 'V' + RIGHT('000000000000000000' + CAST(@cnt AS VARCHAR), 18);
+    DECLARE @mhd_random VARCHAR(30) = 'HD' + RIGHT('000000000000000' + CAST(@cnt_ve AS VARCHAR), 15);
+    DECLARE @mve_random VARCHAR(30) = 'V' + RIGHT('000000000000000000' + CAST(@cnt_ve AS VARCHAR), 18);
 
-    SET @nv_random = CASE WHEN @cnt % 2 = 1 THEN 'NV0004' ELSE 'NV0005' END;
+    SET @nv_random = CASE WHEN @cnt_ve % 2 = 1 THEN 'NV0004' ELSE 'NV0005' END;
 
     DECLARE @random_kh_num INT = (ABS(CHECKSUM(NEWID())) % 30) + 1;
     SET @kh_random = 'KH' + RIGHT('00000000' + CAST(@random_kh_num AS VARCHAR), 8);
 
     -- ... (Giữ nguyên logic CASE WHEN lịch trình và IF ELSE giá vé của bạn) ...
     SET @lt_random = CASE
-        WHEN @cnt % 6 = 1 THEN 'LT03'
-        WHEN @cnt % 6 = 2 THEN 'LT04'
-        WHEN @cnt % 6 = 3 THEN 'LT05'
-        WHEN @cnt % 6 = 4 THEN 'LT06'
-        WHEN @cnt % 6 = 5 THEN 'LT09'
+        WHEN @cnt_ve % 6 = 1 THEN 'LT03'
+        WHEN @cnt_ve % 6 = 2 THEN 'LT04'
+        WHEN @cnt_ve % 6 = 3 THEN 'LT05'
+        WHEN @cnt_ve % 6 = 4 THEN 'LT06'
+        WHEN @cnt_ve % 6 = 5 THEN 'LT09'
         ELSE 'LT12'
     END;
 
-    IF (@cnt % 2 = 0)
+    IF (@cnt_ve % 2 = 0)
     BEGIN
         SET @toa_random = 'TOA0001'; SET @giaVe = 500000;
     END
@@ -692,26 +694,39 @@ BEGIN
         SET @toa_random = 'TOA0005'; SET @giaVe = 800000;
     END
 
-    DECLARE @viTriGhe VARCHAR(10) = CAST((@cnt / 2) + 50 AS VARCHAR);
+    DECLARE @viTriGhe VARCHAR(10) = CAST((@cnt_ve / 2) + 50 AS VARCHAR);
 
     -- KIỂM TRA VÀ INSERT
     IF NOT EXISTS (SELECT 1 FROM GheLichTrinh WHERE maLT = @lt_random AND maToa = @toa_random AND viTri = @viTriGhe)
-    AND NOT EXISTS (SELECT 1 FROM HoaDon WHERE maHD = @mhd)
-    AND NOT EXISTS (SELECT 1 FROM Ve WHERE maVe = @mve)
+    AND NOT EXISTS (SELECT 1 FROM HoaDon WHERE maHD = @mhd_random)
+    AND NOT EXISTS (SELECT 1 FROM Ve WHERE maVe = @mve_random)
     BEGIN
         INSERT INTO GheLichTrinh (maLT, maToa, viTri, trangThai)
         VALUES (@lt_random, @toa_random, @viTriGhe, 'DADAT');
 
         INSERT INTO HoaDon (maHD, ngayLap, maNV, maKH, tongTien)
-        VALUES (@mhd, DATEADD(DAY, -(@cnt % 5), '2026-04-19'), @nv_random, @kh_random, @giaVe);
+        VALUES (@mhd_random, DATEADD(DAY, -(@cnt_ve % 5), '2026-04-19'), @nv_random, @kh_random, @giaVe);
 
         INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe)
-        VALUES (@mve, @kh_random, @lt_random, @toa_random, @viTriGhe, 'LV01', @giaVe, 'CHUASUDUNG');
+        VALUES (@mve_random, @kh_random, @lt_random, @toa_random, @viTriGhe, 'LV01', @giaVe, 'CHUASUDUNG');
 
         INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien)
-        VALUES (@mhd, @mve, @giaVe, 0, @giaVe);
+        VALUES (@mhd_random, @mve_random, @giaVe, 0, @giaVe);
     END
 
-    SET @cnt = @cnt + 1;
+    SET @cnt_ve = @cnt_ve + 1;
+END
+GO
+
+-- =========================================================================
+-- BỔ SUNG THUỘC TÍNH NGÀY THÊM CHO BẢNG KHÁCH HÀNG
+-- =========================================================================
+IF NOT EXISTS (
+  SELECT * FROM sys.columns
+  WHERE object_id = OBJECT_ID('KhachHang')
+  AND name = 'ngayThem'
+)
+BEGIN
+    ALTER TABLE KhachHang ADD ngayThem DATE NULL;
 END
 GO

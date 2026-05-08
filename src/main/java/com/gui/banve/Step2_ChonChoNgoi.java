@@ -38,7 +38,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 	private void initUI() {
 		setLayout(new BorderLayout());
 		setOpaque(false);
-		add(UIHelper.createPageTitle("CHỌN CHUYẾN & GHẾ", ""), BorderLayout.NORTH);
+		add(UIHelper.createPageTitle("ĐẶT CHỖ", ""), BorderLayout.NORTH);
 
 		JPanel pnl = new JPanel(new BorderLayout(0, 5));
 		pnl.setOpaque(false);

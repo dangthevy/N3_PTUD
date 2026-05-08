@@ -79,7 +79,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             // Mã Tàu (index 3), Mã Tuyến (index 4), Tuyến (index 5) — ẩn, dùng nội bộ
     };
     private static final String[] COLS_LT = {
-            "Mã LT", "Ngày Khởi Hành", "Giờ Đi", "Ngày Đến", "Giờ Đến", "Trạng thái"
+            "Mã LT", "Ngày đi", "Giờ Đi", "Ngày Đến", "Giờ Đến", "Trạng thái"
     };
 
     // =========================================================================
@@ -343,7 +343,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
         // Tiêu đề
         JLabel title = new JLabel("QUẢN LÝ CHUYẾN TÀU");
-        title.setFont(F_TITLE); title.setForeground(ACCENT);
+        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
 
         JPanel top = new JPanel(new BorderLayout(0, 8));
         top.setOpaque(false);
@@ -624,7 +624,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         icoLich.setPreferredSize(new Dimension(28, 28));
 
         JLabel title = new JLabel("CHI TIẾT LỊCH TRÌNH");
-        title.setFont(F_TITLE); title.setForeground(ACCENT);
+        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
 
         JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         titleRow.setOpaque(false);
@@ -1036,10 +1036,12 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         // Cập nhật lại trạng thái chuyến dựa trên tất cả LT
         String ttHienThi = tinhTrangThaiChuyen(maChuyen, dsLT);
         lblTrangThai.setText(ttHienThi);
-        if (TT_DANG.equals(ttHienThi))      lblTrangThai.setForeground(new Color(0x22C55E));
-        else if (TT_CHUA.equals(ttHienThi)) lblTrangThai.setForeground(new Color(0xF59E0B));
-        else if (TT_HUY.equals(ttHienThi))  lblTrangThai.setForeground(new Color(0xEF4444));
-        else                                 lblTrangThai.setForeground(new Color(0x6B7280));
+        switch (ttHienThi) {
+            case TT_DANG -> lblTrangThai.setForeground(new Color(0x22C55E));
+            case TT_CHUA -> lblTrangThai.setForeground(new Color(0xF59E0B));
+            case TT_HUY -> lblTrangThai.setForeground(new Color(0xEF4444));
+            case null, default -> lblTrangThai.setForeground(new Color(0x6B7280));
+        }
 
         // Info Tàu — lấy thông tin thật từ DB
         String maTauVal = modelCT.getValueAt(row, 3).toString(); // cột ẩn index 3
@@ -1613,7 +1615,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         GridBagConstraints gc = defaultGC();
         int r = 0;
         addSep(form, gc, r++, "Thêm lịch trình vào " + maChuyen, ACCENT);
-        addRow(form, gc, r++, "Ngày khởi hành *:", dpNgay);
+        addRow(form, gc, r++, "Ngày đi *:", dpNgay);
         addRow(form, gc, r++, "Giờ đi *:",          cbGio);
         addRow(form, gc, r,   "Ngày đến:", lblNgayDen);
 
@@ -1697,7 +1699,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         GridBagConstraints gc = defaultGC();
         int r = 0;
         addSep(form, gc, r++, "Cập nhật lịch trình " + maLT, ACCENT);
-        addRow(form, gc, r++, "Ngày khởi hành *:", dpNgay);
+        addRow(form, gc, r++, "Ngày đi *:", dpNgay);
         addRow(form, gc, r++, "Giờ đi *:",          cbGio);
         addRow(form, gc, r,   "Ngày đến:", lblNgayDen);
 
@@ -1886,9 +1888,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             Calendar cal = Calendar.getInstance();
             cal.setTime(dStart);
 
-            int soThanhCong = 0, soTrung = 0;
+            int soThanhCong = 0, soTrung = 0, soTauBan = 0;
             boolean dungLai = false, skipTatCa = false;
             java.util.List<String> danhSachNgay = new java.util.ArrayList<>();
+            java.util.List<String> dsNgayBoQua = new java.util.ArrayList<>();
 
             while (!cal.getTime().after(dEnd) && !dungLai) {
                 int dow = cal.get(Calendar.DAY_OF_WEEK);
@@ -1900,10 +1903,22 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 if (phaiTao) {
                     String ngayNay = new SimpleDateFormat(DATE_FMT).format(cal.getTime());
 
-                    // Kiểm tra trùng với LT khác trong cùng tàu
+                    // ── CHECK 1: Tàu có sẵn sàng không (tính thời gian khứ hồi) ──
+                    // Tàu cần: thời gian đi (thoiGianPhut) + thời gian về (thoiGianPhut) để sẵn sàng
+                    String tauBanLyDo = kiemTraTauSanSang(maTau, ngayNay, gioDi, thoiGianPhut);
+
+                    if (tauBanLyDo != null) {
+                        // Tàu chưa sẵn sàng → bỏ qua
+                        soTauBan++;
+                        dsNgayBoQua.add(ngayNay + " (" + tauBanLyDo + ")");
+                        cal.add(Calendar.DAY_OF_MONTH, 1);
+                        continue;
+                    }
+
+                    // ── CHECK 2: Trùng lịch với tàu/tuyến khác ──
                     String tenTrung = kiemTraTrungLich(maTau, ngayNay, gioDi, thoiGianPhut, null, null);
 
-                    // Kiểm tra trùng với LT khác trong cùng chuyến (nội bộ)
+                    // ── CHECK 3: Trùng nội bộ trong phiên tạo ──
                     if (tenTrung == null) {
                         tenTrung = kiemTrungNoiBoLT(maChuyen, ngayNay, gioDi, danhSachNgay);
                     }
@@ -1952,12 +1967,29 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             updateStats();
             dlg.dispose();
 
-            // Thông báo kết quả
-            String msg = soThanhCong > 0
-                    ? "Tạo thành công " + soThanhCong + " lịch trình!" + (soTrung > 0 ? "\n(Bỏ qua " + soTrung + " ngày trùng)" : "")
-                    : "Không có lịch trình nào được tạo!";
+            // Thông báo kết quả chi tiết
+            StringBuilder msg = new StringBuilder();
+            if (soThanhCong > 0) {
+                msg.append("Tạo thành công ").append(soThanhCong).append(" lịch trình!");
+            } else {
+                msg.append("Không có lịch trình nào được tạo!");
+            }
+            if (soTrung > 0) {
+                msg.append("\nBỏ qua ").append(soTrung).append(" ngày trùng lịch.");
+            }
+            if (soTauBan > 0) {
+                msg.append("\nBỏ qua ").append(soTauBan).append(" ngày tàu chưa sẵn sàng:");
+                // Hiển thị tối đa 5 ngày
+                int hienThi = Math.min(dsNgayBoQua.size(), 5);
+                for (int i = 0; i < hienThi; i++) {
+                    msg.append("\n  • ").append(dsNgayBoQua.get(i));
+                }
+                if (dsNgayBoQua.size() > 5) {
+                    msg.append("\n  ... và ").append(dsNgayBoQua.size() - 5).append(" ngày khác");
+                }
+            }
 
-            JOptionPane.showMessageDialog(this, msg,
+            JOptionPane.showMessageDialog(this, msg.toString(),
                     soThanhCong > 0 ? "Thành công" : "Không tạo được",
                     soThanhCong > 0 ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
         });
@@ -1994,6 +2026,67 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    /**
+     * Kiểm tra tàu có sẵn sàng vào ngày/giờ chỉ định không.
+     * Tàu cần thời gian: đi (thoiGianPhut) + về (thoiGianPhut) mới sẵn sàng cho chuyến tiếp.
+     *
+     * Logic: Tìm lịch trình gần nhất TRƯỚC ngày/giờ mới của cùng tàu.
+     *        Tính thời điểm tàu sẵn sàng = ngayDen (chuyến trước) + thoiGianPhut (thời gian về).
+     *        Nếu thời điểm sẵn sàng > thời điểm khởi hành mới → tàu chưa sẵn sàng.
+     *
+     * @return null nếu sẵn sàng, mô tả lý do nếu chưa sẵn sàng
+     */
+    private String kiemTraTauSanSang(String maTau, String ngayKHMoi, String gioDiMoi, int thoiGianPhut) {
+        SimpleDateFormat sdf = new SimpleDateFormat(DATE_FMT + " HH:mm");
+        java.util.Date batDauMoi;
+        try {
+            String gioDiChuan = chuanHoaGio(gioDiMoi);
+            if (gioDiChuan == null) gioDiChuan = gioDiMoi;
+            batDauMoi = sdf.parse(ngayKHMoi + " " + gioDiChuan);
+        } catch (Exception e) { return null; }
+
+        // Query: tìm lịch trình gần nhất của tàu này có ngayDen TRƯỚC hoặc chồng thời điểm mới
+        String sql = "SELECT TOP 1 lt.maLT, " +
+                "CONVERT(VARCHAR, lt.ngayKhoiHanh, 103) AS ngayKH, " +
+                "CONVERT(VARCHAR, lt.gioKhoiHanh, 108) AS gioDi, " +
+                "CASE WHEN lt.ngayDen IS NOT NULL THEN FORMAT(lt.ngayDen, 'dd/MM/yyyy HH:mm') ELSE '' END AS ngayDen, " +
+                "ct.tenChuyen " +
+                "FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
+                "WHERE ct.maTau = ? " +
+                "AND lt.ngayDen IS NOT NULL " +
+                "ORDER BY lt.ngayDen DESC";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maTau);
+            java.sql.ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                String ngayDenDb = rs.getString("ngayDen");
+                String ngayKHDb  = rs.getString("ngayKH");
+                String tenChuyen = rs.getString("tenChuyen");
+                if (ngayDenDb == null || ngayDenDb.isEmpty()) continue;
+
+                try {
+                    java.util.Date denChuyenTruoc = sdf.parse(ngayDenDb);
+
+                    // Thời điểm tàu sẵn sàng = ngày đến chuyến trước + thời gian quay về
+                    Calendar calSanSang = Calendar.getInstance();
+                    calSanSang.setTime(denChuyenTruoc);
+                    calSanSang.add(Calendar.MINUTE, thoiGianPhut); // thêm thời gian về
+                    java.util.Date thoiDiemSanSang = calSanSang.getTime();
+
+                    if (batDauMoi.before(thoiDiemSanSang)) {
+                        // Tàu chưa sẵn sàng
+                        String gioSanSang = sdf.format(thoiDiemSanSang);
+                        return "Tàu " + maTau + " đang chạy \"" + tenChuyen + "\" (đến " + ngayDenDb + ")"
+                                + ", sẵn sàng lúc " + gioSanSang;
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return null; // tàu sẵn sàng
     }
 
     /**
@@ -2468,11 +2561,25 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     }
     private void warn(String msg) { JOptionPane.showMessageDialog(this,msg,"Thông báo",JOptionPane.WARNING_MESSAGE); }
     private void styleScrollBar(JScrollBar sb) {
-        sb.setUI(new BasicScrollBarUI(){
-            @Override protected void configureScrollBarColors(){thumbColor=new Color(0xC0D4EE);trackColor=BG_PAGE;}
-            @Override protected JButton createDecreaseButton(int o){return zBtn();}
-            @Override protected JButton createIncreaseButton(int o){return zBtn();}
-            private JButton zBtn(){JButton b=new JButton();b.setPreferredSize(new Dimension(0,0));return b;}
+        sb.setPreferredSize(new Dimension(8, 0));
+        sb.setOpaque(false);
+        sb.setUI(new BasicScrollBarUI() {
+            @Override protected void configureScrollBarColors() {
+                thumbColor = new Color(0xC0D4EE);
+                trackColor = new Color(0, 0, 0, 0);
+            }
+            @Override protected void paintTrack(Graphics g, JComponent c, Rectangle r) {}
+            @Override protected void paintThumb(Graphics g, JComponent c, Rectangle r) {
+                if (r.isEmpty() || !sb.isVisible()) return;
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(thumbColor);
+                g2.fillRoundRect(r.x + 1, r.y, r.width - 2, r.height, 6, 6);
+                g2.dispose();
+            }
+            @Override protected JButton createDecreaseButton(int o) { return zBtn(); }
+            @Override protected JButton createIncreaseButton(int o) { return zBtn(); }
+            private JButton zBtn() { JButton b = new JButton(); b.setPreferredSize(new Dimension(0, 0)); return b; }
         });
     }
 

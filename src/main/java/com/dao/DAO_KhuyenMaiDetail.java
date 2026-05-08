@@ -1,5 +1,6 @@
 package com.dao;
 
+import com.connectDB.ConnectDB;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
 
@@ -26,7 +27,8 @@ public class DAO_KhuyenMaiDetail {
                 "LEFT JOIN Tuyen t ON kmd.MaTuyen = t.MaTuyen " +
                 "LEFT JOIN LoaiVe lv ON lv.MaLoai = kmd.MaLoai " +
                 "LEFT JOIN LoaiToa lt ON lt.MaLoaiToa = kmd.MaLoaiToa " +
-                "WHERE kmd.An = 0 AND kmd.maKM = ?";
+                "WHERE kmd.An = 0 AND kmd.maKM = ? " +
+                "ORDER BY kmd.TrangThai DESC, kmd.maKMDetail DESC";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKM);
             try (ResultSet rs = ps.executeQuery()) {
@@ -52,6 +54,93 @@ public class DAO_KhuyenMaiDetail {
                 }
             }
         } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+    public int demLuotDungKM(String maKMDetail) {
+        String sql = "SELECT COUNT(*) FROM ChiTiet_KhuyenMai v WHERE v.maKMDetail = ?";
+        try (java.sql.Connection c = ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, maKMDetail);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Set TrangThai = 0 cho một KhuyenMaiDetail (giữ lịch sử, không xóa).
+     */
+    public boolean deactivateKMDetail(String maKMDetail) {
+        String sql = "UPDATE KhuyenMaiDetail SET TrangThai = 0 WHERE MaKMDetail = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maKMDetail);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Reactivate một KhuyenMaiDetail (rollback khi insert mới thất bại).
+     */
+    public boolean reactivateKMDetail(String maKMDetail) {
+        String sql = "UPDATE KhuyenMaiDetail SET TrangThai = 1 WHERE MaKMDetail = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maKMDetail);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Kiểm tra xem đã có KMDetail khác cùng bộ (MaKM, MaTuyen, maLoaiToa, MaLoai)
+     * đang TrangThai = 1 và An = 0 chưa — dùng trước khi bật lại 1 dòng đã tắt.
+     *
+     * @param maKMDetailHienTai  Mã của dòng đang xét (để loại trừ chính nó)
+     * @param maKM               Mã KhuyenMai cha
+     * @param maTuyen            Mã tuyến (có thể null = tất cả)
+     * @param maLoaiToa          Mã loại toa (có thể null = tất cả)
+     * @param maLoai             Mã loại vé (có thể null = tất cả)
+     * @return tên KMDetail đang conflict, hoặc null nếu không có conflict
+     */
+    public String kiemTraConKMDActive(String maKMDetailHienTai,
+                                      String maKM,
+                                      String maTuyen,
+                                      String maLoaiToa,
+                                      String maLoai) {
+        // Xây SQL động để xử lý NULL đúng (NULL = NULL không dùng được với =)
+        StringBuilder sql = new StringBuilder(
+                "SELECT TOP 1 MaKMDetail FROM KhuyenMaiDetail " +
+                        "WHERE MaKM = ? " +
+                        "AND MaKMDetail <> ? " +
+                        "AND TrangThai = 1 AND An = 0 "
+        );
+        if (maTuyen == null)    sql.append("AND MaTuyen IS NULL ");
+        else                    sql.append("AND MaTuyen = ? ");
+        if (maLoaiToa == null)  sql.append("AND maLoaiToa IS NULL ");
+        else                    sql.append("AND maLoaiToa = ? ");
+        if (maLoai == null)     sql.append("AND MaLoai IS NULL ");
+        else                    sql.append("AND MaLoai = ? ");
+
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            ps.setString(idx++, maKM);
+            ps.setString(idx++, maKMDetailHienTai);
+            if (maTuyen   != null) ps.setString(idx++, maTuyen);
+            if (maLoaiToa != null) ps.setString(idx++, maLoaiToa);
+            if (maLoai    != null) ps.setString(idx++, maLoai);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getString("MaKMDetail");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return null;
     }
 
