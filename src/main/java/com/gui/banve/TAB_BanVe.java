@@ -19,7 +19,7 @@ public class TAB_BanVe extends JPanel {
 	private StepProgressPanel stepProgress;
 	private JButton btnBack, btnNext;
 	private int currentStep = 0;
-	private final String[] STEP_NAMES = { "Tìm kiếm", "Chọn chuyến & ghế", "Thông tin KH", "Thanh toán", "Hoàn tất" };
+	private final String[] STEP_NAMES = { "Tìm kiếm", "Đặt chỗ", "Thông tin KH", "Thanh toán", "Hoàn tất" };
 	private Timer holdTimer;
 	private int timeLeft = 900;
 

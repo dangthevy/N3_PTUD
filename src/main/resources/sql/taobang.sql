@@ -130,8 +130,6 @@ CREATE TABLE GiaHeader (
     moTa NVARCHAR(255),
     ngayApDung DATE,
     ngayKetThuc DATE,
-    maLT VARCHAR(15),
-    FOREIGN KEY (maLT) REFERENCES LichTrinh(maLT) ON DELETE CASCADE
 );
 
 CREATE TABLE GiaDetail (
@@ -206,7 +204,7 @@ CREATE TABLE KhuyenMaiDetail (
 -- 7. GIAO DỊCH (HÓA ĐƠN & VÉ)
 -- =============================================
 CREATE TABLE HoaDon (
-    maHD VARCHAR(20) PRIMARY KEY,
+    maHD VARCHAR(30) PRIMARY KEY,
     ngayLap DATETIME DEFAULT GETDATE(),
     maNV VARCHAR(6),
     maKH VARCHAR(15),
@@ -216,7 +214,7 @@ CREATE TABLE HoaDon (
 );
 
 CREATE TABLE Ve (
-    maVe VARCHAR(20) PRIMARY KEY,
+    maVe VARCHAR(30) PRIMARY KEY,
     maKH VARCHAR(15),
     maLT VARCHAR(15),
     maToa VARCHAR(25),
@@ -231,8 +229,8 @@ CREATE TABLE Ve (
 );
 
 CREATE TABLE ChiTietHoaDon (
-    maHD VARCHAR(20),
-    maVe VARCHAR(20),
+    maHD VARCHAR(30),
+    maVe VARCHAR(30),
     tienGoc DECIMAL(12,0) DEFAULT 0,
     tienGiam DECIMAL(12,0) DEFAULT 0, -- Tiền giảm của tất cả KM áp dụng vào vé này
     thanhTien DECIMAL(12,0) DEFAULT 0,
@@ -242,8 +240,8 @@ CREATE TABLE ChiTietHoaDon (
 );
 
 CREATE TABLE ChiTiet_KhuyenMai (
-    maHD VARCHAR(20),
-    maVe VARCHAR(20),
+    maHD VARCHAR(30),
+    maVe VARCHAR(30),
     MaKMDetail VARCHAR(7),
     tienGiamCuaKM DECIMAL(12,0) DEFAULT 0, -- Tiền giảm 1 KM
     PRIMARY KEY (maHD, maVe, MaKMDetail),
@@ -426,67 +424,62 @@ INSERT INTO LichTrinh VALUES
 ('LT22',  '2026-05-05', '06:00:00', '14:00:00', 'CT03'),
 ('LT23',  '2026-05-10', '07:30:00', '20:30:00', 'CT05');
 
--- =============================================
--- BẢNG GIÁ HEADER & DETAIL
--- Cho phép maLT NULL để dùng header chung
--- =============================================
-ALTER TABLE GiaHeader ALTER COLUMN maLT VARCHAR(15) NULL;
 GO
 
-INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maLT) VALUES
-('GIA_T01_T2', N'Giá chung tuyến Bắc-Nam 2026',     N'Áp dụng tuyến T01/T02 cả năm',             '2026-01-01', '2026-12-31', NULL);
+INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc) VALUES
+('BG01', N'Giá chung tuyến Bắc-Nam 2026', N'Áp dụng tuyến T01/T02 cả năm', '2026-01-01', '2026-12-31');
 
 INSERT INTO GiaDetail (maGia, maLoaiToa, maTuyen, gia) VALUES
 
 -- ===== T01 (SG - HN) =====
-('GIA_T01_T2', 'G_CUNG', 'T01', 520000),
-('GIA_T01_T2', 'G_MEM',  'T01', 820000),
-('GIA_T01_T2', 'G_NAM',  'T01', 1250000),
+('BG01', 'G_CUNG', 'T01', 520000),
+('BG01', 'G_MEM',  'T01', 820000),
+('BG01', 'G_NAM',  'T01', 1250000),
 
 -- ===== T02 (HN - SG) =====
-('GIA_T01_T2', 'G_CUNG', 'T02', 520000),
-('GIA_T01_T2', 'G_MEM',  'T02', 820000),
-('GIA_T01_T2', 'G_NAM',  'T02', 1250000),
+('BG01', 'G_CUNG', 'T02', 520000),
+('BG01', 'G_MEM',  'T02', 820000),
+('BG01', 'G_NAM',  'T02', 1250000),
 
 -- ===== T03 / T04 (SG - Nha Trang) =====
-('GIA_T01_T2', 'G_CUNG', 'T03', 200000),
-('GIA_T01_T2', 'G_MEM',  'T03', 350000),
-('GIA_T01_T2', 'G_NAM',  'T03', 550000),
-('GIA_T01_T2', 'G_CUNG', 'T04', 200000),
-('GIA_T01_T2', 'G_MEM',  'T04', 350000),
-('GIA_T01_T2', 'G_NAM',  'T04', 550000),
+('BG01', 'G_CUNG', 'T03', 200000),
+('BG01', 'G_MEM',  'T03', 350000),
+('BG01', 'G_NAM',  'T03', 550000),
+('BG01', 'G_CUNG', 'T04', 200000),
+('BG01', 'G_MEM',  'T04', 350000),
+('BG01', 'G_NAM',  'T04', 550000),
 
 -- ===== T05 / T06 (HN - ĐN) =====
-('GIA_T01_T2', 'G_CUNG', 'T05', 280000),
-('GIA_T01_T2', 'G_MEM',  'T05', 450000),
-('GIA_T01_T2', 'G_NAM',  'T05', 700000),
-('GIA_T01_T2', 'G_CUNG', 'T06', 280000),
-('GIA_T01_T2', 'G_MEM',  'T06', 450000),
-('GIA_T01_T2', 'G_NAM',  'T06', 700000),
+('BG01', 'G_CUNG', 'T05', 280000),
+('BG01', 'G_MEM',  'T05', 450000),
+('BG01', 'G_NAM',  'T05', 700000),
+('BG01', 'G_CUNG', 'T06', 280000),
+('BG01', 'G_MEM',  'T06', 450000),
+('BG01', 'G_NAM',  'T06', 700000),
 
 -- ===== T07 / T08 (HN - Vinh) =====
-('GIA_T01_T2', 'G_CUNG', 'T07', 120000),
-('GIA_T01_T2', 'G_MEM',  'T07', 200000),
-('GIA_T01_T2', 'G_NAM',  'T07', 300000),
-('GIA_T01_T2', 'G_CUNG', 'T08', 120000),
-('GIA_T01_T2', 'G_MEM',  'T08', 200000),
-('GIA_T01_T2', 'G_NAM',  'T08', 300000),
+('BG01', 'G_CUNG', 'T07', 120000),
+('BG01', 'G_MEM',  'T07', 200000),
+('BG01', 'G_NAM',  'T07', 300000),
+('BG01', 'G_CUNG', 'T08', 120000),
+('BG01', 'G_MEM',  'T08', 200000),
+('BG01', 'G_NAM',  'T08', 300000),
 
 -- ===== T09 / T10 (HN - Huế) =====
-('GIA_T01_T2', 'G_CUNG', 'T09', 250000),
-('GIA_T01_T2', 'G_MEM',  'T09', 400000),
-('GIA_T01_T2', 'G_NAM',  'T09', 620000),
-('GIA_T01_T2', 'G_CUNG', 'T10', 250000),
-('GIA_T01_T2', 'G_MEM',  'T10', 400000),
-('GIA_T01_T2', 'G_NAM',  'T10', 620000),
+('BG01', 'G_CUNG', 'T09', 250000),
+('BG01', 'G_MEM',  'T09', 400000),
+('BG01', 'G_NAM',  'T09', 620000),
+('BG01', 'G_CUNG', 'T10', 250000),
+('BG01', 'G_MEM',  'T10', 400000),
+('BG01', 'G_NAM',  'T10', 620000),
 
 -- ===== T11 / T12 (ĐN - SG) =====
-('GIA_T01_T2', 'G_CUNG', 'T11', 360000),
-('GIA_T01_T2', 'G_MEM',  'T11', 580000),
-('GIA_T01_T2', 'G_NAM',  'T11', 880000),
-('GIA_T01_T2', 'G_CUNG', 'T12', 360000),
-('GIA_T01_T2', 'G_MEM',  'T12', 580000),
-('GIA_T01_T2', 'G_NAM',  'T12', 880000);
+('BG01', 'G_CUNG', 'T11', 360000),
+('BG01', 'G_MEM',  'T11', 580000),
+('BG01', 'G_NAM',  'T11', 880000),
+('BG01', 'G_CUNG', 'T12', 360000),
+('BG01', 'G_MEM',  'T12', 580000),
+('BG01', 'G_NAM',  'T12', 880000);
 GO
 
 -- =======================================================================
@@ -495,8 +488,8 @@ GO
 DECLARE @i INT = 1;
 WHILE @i <= 30
 BEGIN
-    DECLARE @hd VARCHAR(10)       = 'HD' + RIGHT('000' + CAST(@i AS VARCHAR(3)), 3);
-    DECLARE @ve VARCHAR(10)       = 'V' + RIGHT('000' + CAST(@i AS VARCHAR(3)), 3);
+    DECLARE @hd VARCHAR(20)       = 'HD' + RIGHT('000000000000000' + CAST(@i AS VARCHAR), 15);
+    DECLARE @ve VARCHAR(20)       = 'V'  + RIGHT('000000000000000000' + CAST(@i AS VARCHAR), 18);
     DECLARE @toa_num INT          = CASE WHEN @i % 3 = 1 THEN 1 WHEN @i % 3 = 2 THEN 2 ELSE 3 END;
     DECLARE @maToa_HD VARCHAR(25) = 'TOA' + RIGHT('0000' + CAST(@toa_num AS VARCHAR), 4);
     DECLARE @viTri VARCHAR(10)    = CAST((@i / 3) + 1 AS VARCHAR(10));
@@ -522,8 +515,8 @@ GO
 -- =============================================
 INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
 (N'Khuyến mãi hè 2026',           '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
-(N'Ưu đãi Học sinh / Sinh viên',             '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
-(N'Ưu đãi vé trẻ em dưới 12 tuổi',             '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
+(N'Ưu đãi Sinh viên',             '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
+(N'Ưu đãi vé trẻ em',             '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
 (N'Flash Sale Cuối Tuần',         '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
 (N'Khuyến mãi Tết Nguyên Đán 2026','2026-02-01','2026-02-28', 1, N'Ưu đãi dịp Tết cho các tuyến phổ biến'),
 (N'Ưu đãi Giỗ Tổ Hùng Vương 2026','2026-04-01','2026-04-10', 1, N'Khuyến mãi dịp lễ đầu tháng 4'),
@@ -532,8 +525,8 @@ INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
 GO
 
 DECLARE @KM_HE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026');
-DECLARE @KM_SV    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Học sinh / Sinh viên');
-DECLARE @KM_TE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em dưới 12 tuổi');
+DECLARE @KM_SV    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Sinh viên');
+DECLARE @KM_TE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em');
 DECLARE @KM_FS    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale Cuối Tuần');
 DECLARE @KM_TET   VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi Tết Nguyên Đán 2026');
 DECLARE @KM_GIOTO VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Giỗ Tổ Hùng Vương 2026');
@@ -635,20 +628,22 @@ GO
 
 -- =========================================================================
 -- BƠM GHẾ & VÉ CHO LT03/LT04/LT05 (6 vé – NV0004, NV0005)
+-- Offset: cnt từ 31-36 để không trùng mã HD/VÉ với block LT01 (1-30)
 -- =========================================================================
-DECLARE @cnt INT = 1;
-WHILE @cnt <= 6
+DECLARE @cnt INT = 31;
+WHILE @cnt <= 36
 BEGIN
-    DECLARE @mhd VARCHAR(20) = 'HD_SPEC_' + CAST(@cnt AS VARCHAR);
-    DECLARE @mve VARCHAR(20) = 'V_SPEC_'  + CAST(@cnt AS VARCHAR);
+    DECLARE @mhd VARCHAR(20) = 'HD' + RIGHT('000000000000000' + CAST(@cnt AS VARCHAR), 15);
+    DECLARE @mve VARCHAR(20) = 'V' + RIGHT('000000000000000000' + CAST(@cnt AS VARCHAR), 18);
     DECLARE @nv  VARCHAR(10) = CASE WHEN @cnt % 2 = 1 THEN 'NV0004' ELSE 'NV0005' END;
-    DECLARE @lt  VARCHAR(10) = CASE WHEN @cnt <= 2 THEN 'LT03' WHEN @cnt <= 4 THEN 'LT04' ELSE 'LT05' END;
+    DECLARE @lt  VARCHAR(10) = CASE WHEN @cnt <= 32 THEN 'LT03' WHEN @cnt <= 34 THEN 'LT04' ELSE 'LT05' END;
     DECLARE @kh  VARCHAR(20) = 'KH00000002';
 
-    INSERT INTO GheLichTrinh (maLT, maToa, viTri, trangThai) VALUES (@lt, 'TOA0001', CAST(@cnt + 15 AS VARCHAR), 'DADAT');
+    DECLARE @viTriLT VARCHAR(10) = CAST(@cnt - 30 AS VARCHAR); -- viTri = 1..6 (cnt=31..36)
+    INSERT INTO GheLichTrinh (maLT, maToa, viTri, trangThai) VALUES (@lt, 'TOA0001', @viTriLT, 'DADAT');
     INSERT INTO HoaDon (maHD, ngayLap, maNV, maKH, tongTien) VALUES (@mhd, GETDATE(), @nv, @kh, 500000);
     INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe)
-    VALUES (@mve, @kh, @lt, 'TOA0001', CAST(@cnt + 15 AS VARCHAR), 'LV01', 500000, 'CHUASUDUNG');
+    VALUES (@mve, @kh, @lt, 'TOA0001', @viTriLT, 'LV01', 500000, 'CHUASUDUNG');
     INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien)
     VALUES (@mhd, @mve, 500000, 0, 500000);
 
@@ -658,24 +653,27 @@ GO
 
 -- =========================================================================
 -- BƠM 100 VÉ ĐA DẠNG (nhiều lịch trình, nhiều khách)
+-- Offset: cnt từ 37-136 để không trùng mã HD/VÉ với LT01(1-30) và LT03/04/05(31-36)
 -- =========================================================================
-DECLARE @cnt INT = 1;
+DECLARE @cnt INT = 37;
 DECLARE @kh_random  VARCHAR(20);
 DECLARE @nv_random  VARCHAR(10);
 DECLARE @lt_random  VARCHAR(10);
 DECLARE @toa_random VARCHAR(25);
 DECLARE @giaVe      DECIMAL(12,0);
 
-WHILE @cnt <= 100
+WHILE @cnt <= 136
 BEGIN
-    DECLARE @mhd VARCHAR(20) = 'HD_V100_' + CAST(@cnt AS VARCHAR);
-    DECLARE @mve VARCHAR(20) = 'V_100_'   + CAST(@cnt AS VARCHAR);
+    -- Tăng lên VARCHAR(30) để không bị lỗi cắt chuỗi
+    DECLARE @mhd VARCHAR(30) = 'HD' + RIGHT('000000000000000' + CAST(@cnt AS VARCHAR), 15);
+    DECLARE @mve VARCHAR(30) = 'V' + RIGHT('000000000000000000' + CAST(@cnt AS VARCHAR), 18);
 
     SET @nv_random = CASE WHEN @cnt % 2 = 1 THEN 'NV0004' ELSE 'NV0005' END;
 
     DECLARE @random_kh_num INT = (ABS(CHECKSUM(NEWID())) % 30) + 1;
     SET @kh_random = 'KH' + RIGHT('00000000' + CAST(@random_kh_num AS VARCHAR), 8);
 
+    -- ... (Giữ nguyên logic CASE WHEN lịch trình và IF ELSE giá vé của bạn) ...
     SET @lt_random = CASE
         WHEN @cnt % 6 = 1 THEN 'LT03'
         WHEN @cnt % 6 = 2 THEN 'LT04'
@@ -687,18 +685,19 @@ BEGIN
 
     IF (@cnt % 2 = 0)
     BEGIN
-        SET @toa_random = 'TOA0001'; -- G_CUNG
-        SET @giaVe = 500000;
+        SET @toa_random = 'TOA0001'; SET @giaVe = 500000;
     END
     ELSE
     BEGIN
-        SET @toa_random = 'TOA0005'; -- G_MEM
-        SET @giaVe = 800000;
+        SET @toa_random = 'TOA0005'; SET @giaVe = 800000;
     END
 
     DECLARE @viTriGhe VARCHAR(10) = CAST((@cnt / 2) + 50 AS VARCHAR);
 
+    -- KIỂM TRA VÀ INSERT
     IF NOT EXISTS (SELECT 1 FROM GheLichTrinh WHERE maLT = @lt_random AND maToa = @toa_random AND viTri = @viTriGhe)
+    AND NOT EXISTS (SELECT 1 FROM HoaDon WHERE maHD = @mhd)
+    AND NOT EXISTS (SELECT 1 FROM Ve WHERE maVe = @mve)
     BEGIN
         INSERT INTO GheLichTrinh (maLT, maToa, viTri, trangThai)
         VALUES (@lt_random, @toa_random, @viTriGhe, 'DADAT');
@@ -715,7 +714,4 @@ BEGIN
 
     SET @cnt = @cnt + 1;
 END
-GO
-
-PRINT N'✅ Hoàn tất! Database BanVeTau đã sẵn sàng.';
 GO
