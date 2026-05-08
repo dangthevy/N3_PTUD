@@ -16,6 +16,8 @@ import java.awt.event.*;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Vector;
 
 // Apache POI cho Excel
@@ -49,7 +51,7 @@ public class TAB_QLKhachHang extends JPanel {
     private static final java.awt.Font F_CELL   = new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 13);
     private static final java.awt.Font F_DIALOG = new java.awt.Font("Segoe UI", java.awt.Font.PLAIN, 13);
 
-    private static final String[] COLS = {"Mã KH", "Tên", "Email", "SĐT", "CCCD"};
+    private static final String[] COLS = {"Mã KH", "Tên", "Email", "SĐT", "CCCD", "Ngày thêm"};
 
     private enum BtnStyle { PRIMARY, SECONDARY, DANGER, SUCCESS, EXCEL }
 
@@ -93,6 +95,18 @@ public class TAB_QLKhachHang extends JPanel {
     }
 
     // ==================== DIALOG THÊM MỚI ====================
+    /** Sinh mã KH tiếp theo: KH00000001, KH00000002, ..., KH00000010, ... */
+    private String generateNextMaKH() {
+        String maxMa = kh_dao.getMaxMaKH(); // VD: "KH00000007" hoặc null
+        int nextNum = 1;
+        if (maxMa != null && maxMa.toUpperCase().startsWith("KH")) {
+            try {
+                nextNum = Integer.parseInt(maxMa.substring(2)) + 1;
+            } catch (NumberFormatException ignored) {}
+        }
+        return String.format("KH%08d", nextNum);
+    }
+
     private void openAddDialog() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "THÊM KHÁCH HÀNG MỚI", true);
         dialog.setLayout(new BorderLayout());
@@ -102,6 +116,15 @@ public class TAB_QLKhachHang extends JPanel {
         JTextField txtSdt         = makeDialogField(22);
         JTextField txtCccd        = makeDialogField(22);
         JTextField txtEmailPrefix = makeDialogField(16);
+
+        // Ma KH tu dong sinh - chi doc
+        String autoMa = generateNextMaKH();
+        JTextField txtMaKH = makeDialogField(22);
+        txtMaKH.setText(autoMa);
+        txtMaKH.setEditable(false);
+        txtMaKH.setBackground(new Color(0xEEF4FF));
+        txtMaKH.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+        txtMaKH.setForeground(ACCENT);
 
         txtTen.addKeyListener(new KeyAdapter() {
             public void keyTyped(KeyEvent e) {
@@ -145,6 +168,8 @@ public class TAB_QLKhachHang extends JPanel {
         g.fill = GridBagConstraints.HORIZONTAL; g.weightx = 1; g.gridx = 0;
 
         int r = 0;
+        g.gridy = r++; formPanel.add(makeFieldLabel("Mã khách hàng (tự động)"), g);
+        g.gridy = r++; formPanel.add(txtMaKH, g);
         g.gridy = r++; formPanel.add(makeFieldLabel("Tên khách hàng *"), g);
         g.gridy = r++; formPanel.add(txtTen, g);
         g.gridy = r++; formPanel.add(errTen, g);
@@ -203,7 +228,8 @@ public class TAB_QLKhachHang extends JPanel {
                 JOptionPane.showMessageDialog(dialog, "SĐT hoặc CCCD đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            if (kh_dao.addKhachHang(new KhachHang(null, ten, sdt, cccd, email))) {
+            String ngayThem = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            if (kh_dao.addKhachHang(new KhachHang(autoMa, ten, sdt, cccd, email, ngayThem))) {
                 JOptionPane.showMessageDialog(dialog, "Thêm thành công!");
                 dialog.dispose();
                 loadData();
@@ -535,7 +561,7 @@ public class TAB_QLKhachHang extends JPanel {
             // ---- Row 3: Header cột ----
             Row rowHeader = sheet.createRow(3);
             rowHeader.setHeightInPoints(22);
-            String[] headers = {"STT", "Mã KH", "Tên khách hàng", "Email", "Số điện thoại", "CCCD"};
+            String[] headers = {"STT", "Mã KH", "Tên khách hàng", "Email", "Số điện thoại", "CCCD", "Ngày thêm"};
             for (int i = 0; i < headers.length; i++) {
                 Cell c = rowHeader.createCell(i);
                 c.setCellValue(headers[i]);
@@ -715,6 +741,7 @@ public class TAB_QLKhachHang extends JPanel {
         int coEmail = 0;
         for (Vector<Object> row : data) {
             tableModel.addRow(row);
+            // Email la cot index 2 (Ma, Ten, Email, SDT, CCCD, NgayThem)
             if (row.size() > 2 && row.get(2) != null && !row.get(2).toString().trim().isEmpty())
                 coEmail++;
         }
