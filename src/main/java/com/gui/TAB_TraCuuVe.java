@@ -288,6 +288,9 @@ public class TAB_TraCuuVe extends JPanel {
         g.fill = GridBagConstraints.HORIZONTAL;
         g.insets = new Insets(7, 0, 7, 10);
 
+        // Tinh thu tu toa truoc khi build fields
+        String thuTuToa = "Toa " + getThuTuToa(maLT, maToa);
+
         Object[][] fields = {
             { "Mã vé",           maVe,       false },
             { "Mã khách hàng",   maKH,       false },
@@ -298,7 +301,7 @@ public class TAB_TraCuuVe extends JPanel {
             { "Tuyến",           (gaKhoiHanh.isEmpty() ? "" : gaKhoiHanh + " → " + gaDen), false },
             { "Ngày đi/Date",    ngayDi,     false },
             { "Giờ đi/Time",     gioDi,      false },
-            { "Toa/Coach",       maToa,      false },
+            { "Toa/Coach",       thuTuToa,   false },
             { "Chỗ/Seat",        viTri,      false },
             { "Loại chỗ/Class",  tenLoaiToa.isEmpty() ? loaiVe : tenLoaiToa, true },
             { "Loại vé/Ticket",  loaiVe,     true  },
@@ -498,21 +501,22 @@ public class TAB_TraCuuVe extends JPanel {
         btnHoanVe.setEnabled(coTheHoan);
         if (!coTheHoan) btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
 
-        // Capture final cho lambda
+        // Capture final cho lambda — dung thuTuToa da tinh o tren
         final String fMaVe = maVe, fMaKH = maKH, fTenKH = tenKH;
-        final String fMaToa = maToa, fViTri = viTri, fLoaiVe = loaiVe;
+        final String fViTri = viTri, fLoaiVe = loaiVe;
         final String fTrangThai = trangThai, fGaKH = gaKhoiHanh, fGaDen = gaDen;
         final String fTenTau = tenTau, fNgayDi = ngayDi, fGioDi = gioDi;
         final String fLoaiToa = tenLoaiToa, fCccd = cccd;
         final List<DAO_Ve.KhuyenMaiInfo> fDsKM = dsKM;
         final double fGiaVeRaw = giaVeRaw;
+        final String fThuTuToa = thuTuToa;
 
         btnDong.addActionListener(e -> dialog.dispose());
         btnHoanVe.addActionListener(e -> confirmHoanVe(fMaVe, dialog));
         btnInLai.addActionListener(e ->
             inVePDF(dialog, fMaVe, fMaKH, fTenKH, fCccd, fTenTau,
                     fGaKH, fGaDen, fNgayDi, fGioDi,
-                    fMaToa, fViTri, fLoaiToa, fLoaiVe, fGiaVeRaw, fDsKM, fTrangThai));
+                    fThuTuToa, fViTri, fLoaiToa, fLoaiVe, fGiaVeRaw, fDsKM, fTrangThai));
 
         pFooter.add(btnHoanVe);
         pFooter.add(btnInLai);
@@ -574,6 +578,27 @@ public class TAB_TraCuuVe extends JPanel {
      * Tạo file PDF boarding pass theo layout VR Sài Gòn.
      * Khổ giấy A5 ngang (148 × 210 mm) để vừa 1 trang thẻ lên tàu.
      */
+    /**
+     * Lay thu tu cua toa trong doan tau dua tren maToa.
+     * Vi maToa la UNIQUE trong ChiTietTau (1 toa chi thuoc 1 tau),
+     * chi can query thang theo maToa la du — khong can join LichTrinh.
+     */
+    private String getThuTuToa(String maLT, String maToa) {
+        if (maToa == null || maToa.isEmpty()) return maToa;
+        String sql = "SELECT thuTu FROM ChiTietTau WHERE maToa = ?";
+        try (Connection conn = com.connectDB.ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maToa);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return String.valueOf(rs.getInt("thuTu"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maToa; // fallback
+    }
+
     private void buildBoardingPassPDF(File dest,
             String maVe, String maKH, String tenKH, String cccd,
             String tenTau, String gaKhoiHanh, String gaDen,
@@ -704,8 +729,7 @@ public class TAB_TraCuuVe extends JPanel {
             { "Tàu / Train:",          tenTau.isEmpty()      ? "N/A" : tenTau      },
             { "Ngày đi / Date:",        ngayDi.isEmpty()      ? "N/A" : ngayDi      },
             { "Giờ đi / Time:",         gioDi.isEmpty()       ? "N/A" : gioDi       },
-            { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri                    },
-            { "Loại chỗ / Class:",      loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
+            { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri                    },            { "Loại chỗ / Class:",      loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
             { "Loại vé / Ticket:",      loaiVe.isEmpty()      ? "N/A" : loaiVe      },
             { "Họ tên / Name:",         tenKH.isEmpty()       ? "xxxxxxxx" : tenKH  },
             { "",                       ""                                           },
@@ -848,7 +872,7 @@ public class TAB_TraCuuVe extends JPanel {
         // ============================================================
         drawCenteredText(canvas, fontBold, 7.5f,
             maVe + "   |   " + tenTau + "   |   " + ngayDi + "   " + gioDi
-            + "   |   Toa " + maToa + "  Ghế " + viTri,
+            + "   |   " + maToa + "  Ghế " + viTri,
             GRAY, margin, pageW, y);
         y -= 11;
 
