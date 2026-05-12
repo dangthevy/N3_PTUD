@@ -112,10 +112,11 @@ public class GUI_General extends JPanel {
 		boolean isQuanLy = (nv.getChucVu() == ChucVu.QUANLY);
 		boolean canAccessMain = (nv.getChucVu() == ChucVu.NHANVIEN || isAdmin);
 		boolean canAccessAdminTools = (isQuanLy || isAdmin);
+		boolean canAccessKhachHang = (nv.getChucVu() == ChucVu.NHANVIEN || isAdmin);
 
 		// Always keep Main section first so Dashboard is pinned at top.
 		addMainSection(sidebar, canAccessMain);
-		addManagementSection(sidebar, canAccessAdminTools);
+		addManagementSection(sidebar, canAccessAdminTools, canAccessKhachHang);
 		addReportSection(sidebar, canAccessAdminTools);
 
 		sidebar.add(Box.createVerticalGlue());
@@ -135,17 +136,19 @@ public class GUI_General extends JPanel {
 		}
 	}
 
-	private void addManagementSection(JPanel sidebar, boolean canAccessAdminTools) {
-		if (!canAccessAdminTools) {
+	private void addManagementSection(JPanel sidebar, boolean canAccessAdminTools, boolean canAccessKhachHang) {
+		if (!canAccessAdminTools && !canAccessKhachHang) {
 			return;
 		}
 		sidebar.add(createSideTitle("QUẢN LÝ HỆ THỐNG"));
-		addTabButton(sidebar, "Quản lý Đoàn Tàu", tab_qlDoanTau, true);
-		addDropdownMenu(sidebar, "Lịch trình & Giá", new String[] { "Ga", "Tuyến", "Lịch trình & Chuyến", "Bảng Giá" },
-				new JPanel[] { tab_Ga, tab_Tuyen, tab_LichTrinh_ChuyenTau, tab_Gia }, true);
-		addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, true);
-		addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, true);
-		addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, true);
+		addTabButton(sidebar, "Quản lý Đoàn Tàu", tab_qlDoanTau, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Ga", tab_Ga, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Tuyến", tab_Tuyen, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Lịch trình & Chuyển tàu", tab_LichTrinh_ChuyenTau, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Bảng giá", tab_Gia, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
+		addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, canAccessKhachHang);
+		addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, canAccessAdminTools);
 		sidebar.add(Box.createVerticalStrut(10));
 	}
 

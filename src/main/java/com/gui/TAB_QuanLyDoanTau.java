@@ -327,12 +327,16 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		titleRow.add(lblMapTitle);
 		titleRow.add(lblSeatStats);
 
-		JPanel legend = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+		// Căn giữa chú thích và thêm viền đệm phía trên
+		JPanel legend = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 0));
 		legend.setOpaque(false);
-		legend.add(legendItem(new Color(0x2ECC71), "Đang hoạt động")); // Xanh lá
-		legend.add(legendItem(Color.GRAY, "Bảo trì")); // Xám
+		legend.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+		// --- CẬP NHẬT MÀU MỚI: Xám nhạt (Sẵn sàng) và Xám đậm (Bảo trì) ---
+		legend.add(legendItem(new Color(0xE9EDF2), new Color(0xD1D9E0), "Sẵn sàng"));
+		legend.add(legendItem(new Color(0x95A5A6), new Color(0x7F8C8D), "Bảo trì"));
 		hdrMap.add(titleRow, BorderLayout.WEST);
-		//hdrMap.add(legend, BorderLayout.EAST);
+		// hdrMap.add(legend, BorderLayout.EAST);
 
 		pnlTrainBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 8));
 		pnlTrainBar.setBackground(Color.WHITE);
@@ -466,23 +470,43 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		String viTri = String.valueOf(num);
 		boolean isBaoTri = maintenanceSeats.contains(viTri);
 
-		JButton b = new JButton(viTri);
+		// Tạo nút với UI Custom giống ModernSeatButton ở Step 2
+		JButton b = new JButton(viTri) {
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+				// Màu sắc chuẩn Modern UI
+				Color bg = isBaoTri ? new Color(0x95A5A6) : new Color(0xE9EDF2);
+				Color border = isBaoTri ? new Color(0x95A5A6).darker() : new Color(0xD1D9E0);
+				Color text = isBaoTri ? Color.WHITE : new Color(0x5A6A7D);
+
+				// Vẽ nền và viền bo góc 6px
+				g2.setColor(bg);
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+				g2.setColor(border);
+				g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 6, 6);
+
+				// Vẽ text
+				g2.setColor(text);
+				FontMetrics fm = g2.getFontMetrics();
+				int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+				int ty = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+				g2.drawString(getText(), tx, ty);
+				g2.dispose();
+			}
+		};
+
 		b.setPreferredSize(new Dimension(32, 28));
-		b.setFont(new Font("Segoe UI", Font.BOLD, 10)); // Giảm nhẹ font
-		b.setMargin(new Insets(0, 0, 0, 0));
+		b.setFont(new Font("Segoe UI", Font.BOLD, 12));
+		b.setContentAreaFilled(false);
+		b.setBorderPainted(false);
 		b.setFocusPainted(false);
 		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		b.setToolTipText("Ghế số " + num + (isBaoTri ? " - ĐANG BẢO TRÌ" : " - SẴN SÀNG"));
 
-		Color C_TRONG = new Color(0x2ECC71); // Xanh lá
-		Color C_BAOTRI = Color.GRAY; // Xám
-
-		b.setBackground(isBaoTri ? C_BAOTRI : C_TRONG);
-		b.setForeground(Color.WHITE);
-		b.setOpaque(true);
-		b.setBorder(BorderFactory.createLineBorder((isBaoTri ? C_BAOTRI : C_TRONG).darker(), 1));
-		b.setToolTipText("Ghế số " + num + (isBaoTri ? " - ĐANG BẢO TRÌ" : " - HOẠT ĐỘNG"));
-
-		// LOGIC HIDDEN VALIDATION KHI CLICK
+		// LOGIC XỬ LÝ NGUYÊN BẢN
 		b.addActionListener(e -> {
 			if (isBaoTri) {
 				int ans = JOptionPane.showConfirmDialog(this, "Mở khóa bảo trì cho ghế số " + num + "?", "Mở khóa ghế",
@@ -511,12 +535,13 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	}
 
 	private JPanel drawSeaterHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
-		JPanel outer = new JPanel(new BorderLayout(8, 0)); // Giảm padding
-		outer.setBackground(new Color(0xFAFCFF));
-		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
-				new EmptyBorder(4, 4, 4, 4))); // Ép nhỏ viền
+		JPanel outer = new JPanel(new BorderLayout(8, 0));
+		outer.setBackground(Color.WHITE);
+		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xE2EAF4), 1, true),
+				new EmptyBorder(10, 10, 10, 10)));
+
 		JLabel capA = new JLabel(" ĐẦU TÀU ");
-		capA.setFont(new Font("Segoe UI", Font.BOLD, 11)); // Nhỏ font chữ đầu đuôi
+		capA.setFont(new Font("Segoe UI", Font.BOLD, 11));
 		capA.setForeground(new Color(0x7F8C8D));
 		JLabel capB = new JLabel(" CUỐI TÀU");
 		capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -525,14 +550,16 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		int uiRows = soCot;
 		int uiCols = soHang;
 		int halfRows = Math.max(1, uiRows / 2);
-		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 2, 2));
+
+		// Khoảng cách giữa các ghế là 5px
+		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 5, 5));
 		gridBody.setOpaque(false);
 
 		for (int r = 0; r < uiRows + 1; r++) {
 			if (r == halfRows) {
 				for (int c = 0; c < uiCols; c++) {
 					JPanel aisle = new JPanel();
-					aisle.setBackground(new Color(0xDDE6F5));
+					aisle.setBackground(new Color(0xDDE6F5)); // Màu lối đi
 					gridBody.add(aisle);
 				}
 			} else {
@@ -543,6 +570,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 				}
 			}
 		}
+
 		JPanel wrapper = new JPanel(new GridBagLayout());
 		wrapper.setOpaque(false);
 		wrapper.add(gridBody);
@@ -553,13 +581,14 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	}
 
 	private JPanel drawSleeperHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
-		int khoang = Math.max(1, soHang); 
+		int khoang = Math.max(1, soHang);
 		int soTang = soCot / 2;
-		
-		JPanel outer = new JPanel(new BorderLayout(8, 0)); 
-		outer.setBackground(new Color(0xFAFCFF));
-		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(160, 174, 192), 1, true),
-				new EmptyBorder(4, 4, 4, 4))); 
+
+		JPanel outer = new JPanel(new BorderLayout(8, 0));
+		outer.setBackground(Color.WHITE);
+		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xE2EAF4), 1, true),
+				new EmptyBorder(10, 10, 10, 10)));
+
 		JLabel capA = new JLabel(" ĐẦU TÀU ");
 		capA.setFont(new Font("Segoe UI", Font.BOLD, 11));
 		capA.setForeground(new Color(0x7F8C8D));
@@ -567,64 +596,52 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
 		capB.setForeground(new Color(0x7F8C8D));
 
-		// --- CỘT NHÃN HIỂN THỊ TẦNG (CHỈ XUẤT HIỆN 1 LẦN BÊN TRÁI) ---
-		JPanel pnlTangLabels = new JPanel(new BorderLayout(0, 2));
+		// --- CỘT NHÃN HIỂN THỊ TẦNG LÀM GIỐNG STEP 2 ---
+		JPanel pnlTangLabels = new JPanel(new GridLayout(soTang, 1, 2, 2));
 		pnlTangLabels.setOpaque(false);
-		// Đệm 3px trên/dưới để bù trừ cho viền của khoang, giúp chữ canh thẳng tắp với giường
-		pnlTangLabels.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 5)); 
-
-		JLabel placeholder = new JLabel(" ");
-		placeholder.setFont(new Font("Segoe UI", Font.PLAIN, 10)); // Canh bằng chiều cao với chữ "Khoang X"
-		pnlTangLabels.add(placeholder, BorderLayout.NORTH);
-
-		JPanel gridTang = new JPanel(new GridLayout(soTang, 1, 2, 2)); 
-		gridTang.setOpaque(false);
+		pnlTangLabels.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 5));
 		for (int tang = soTang - 1; tang >= 0; tang--) {
-			JLabel lblTang = new JLabel("Tầng " + (tang + 1));
+			JLabel lblTang = new JLabel("Tầng " + (tang + 1), SwingConstants.RIGHT);
 			lblTang.setFont(new Font("Segoe UI", Font.BOLD, 10));
-			lblTang.setForeground(new Color(0x95A5A6));
-			lblTang.setHorizontalAlignment(SwingConstants.RIGHT);
-			gridTang.add(lblTang);
+			lblTang.setForeground(new Color(0x5A6A7D));
+			pnlTangLabels.add(lblTang);
 		}
-		pnlTangLabels.add(gridTang, BorderLayout.CENTER);
-		// --------------------------------------------------------------
 
-		JPanel gridBody = new JPanel(new GridLayout(1, khoang, 4, 0)); 
+		// Khoảng cách giữa các khoang tăng lên 8px
+		JPanel gridBody = new JPanel(new GridLayout(1, khoang, 8, 0));
 		gridBody.setOpaque(false);
-		
-		int idx = 1; 
-		
+
+		int idx = 1;
 		for (int k = 1; k <= khoang; k++) {
 			JPanel kp = new JPanel(new BorderLayout(0, 2));
-			kp.setBackground(new Color(0xF0F4FA));
+			kp.setBackground(new Color(0xF0F4FA)); // Nền xám nhạt cho khoang
 			kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
-					new EmptyBorder(2, 2, 2, 2))); 
-			
+					new EmptyBorder(5, 5, 5, 5)));
+
 			JLabel lbl = new JLabel("Khoang " + k, SwingConstants.CENTER);
-			lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10)); 
+			lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 			lbl.setForeground(new Color(0x7F8C8D));
 			kp.add(lbl, BorderLayout.NORTH);
 
-			// Lưới bên trong khoang chỉ còn 2 cột để chứa giường
-			JPanel grid = new JPanel(new GridLayout(soTang, 2, 2, 2)); 
+			// Khoảng cách giường nằm là 4x4px
+			JPanel grid = new JPanel(new GridLayout(soTang, 2, 4, 4));
 			grid.setOpaque(false);
-			
+
 			for (int tang = soTang - 1; tang >= 0; tang--) {
 				grid.add(seatBtn(idx + 2 * tang, maintenanceSeats, maToa));
 				grid.add(seatBtn(idx + 2 * tang + 1, maintenanceSeats, maToa));
 			}
-			
-			idx += soCot; 
+
+			idx += soCot;
 			kp.add(grid, BorderLayout.CENTER);
 			gridBody.add(kp);
 		}
-		
-		// Gói Lưới giường và Cột nhãn Tầng lại với nhau
-		JPanel wrapper = new JPanel(new BorderLayout()); 
+
+		JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setOpaque(false);
 		wrapper.add(pnlTangLabels, BorderLayout.WEST);
 		wrapper.add(gridBody, BorderLayout.CENTER);
-		
+
 		JPanel centerAlignWrapper = new JPanel(new GridBagLayout());
 		centerAlignWrapper.setOpaque(false);
 		centerAlignWrapper.add(wrapper);
@@ -632,7 +649,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		outer.add(capA, BorderLayout.WEST);
 		outer.add(centerAlignWrapper, BorderLayout.CENTER);
 		outer.add(capB, BorderLayout.EAST);
-		
+
 		return outer;
 	}
 
@@ -711,17 +728,19 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	}
 
 	private void doDoiChoToa(int delta) {
-		if (!checkTauHoatDong()) return;
+		if (!checkTauHoatDong())
+			return;
 
 		int row = tblToa.getSelectedRow();
 		if (row < 0) {
 			JOptionPane.showMessageDialog(this, "Chọn một toa để di chuyển!", "Thông báo", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
-		
+
 		int newRow = row + delta;
 		// Kiểm tra nếu chạm nóc (lên quá dòng 1) hoặc chạm đáy (xuống quá dòng cuối)
-		if (newRow < 0 || newRow >= modToa.getRowCount()) return;
+		if (newRow < 0 || newRow >= modToa.getRowCount())
+			return;
 
 		// 1. Lấy mã của 2 toa cần đổi chỗ
 		String maA = modToa.getValueAt(row, 1).toString();
@@ -732,7 +751,8 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 		if (isSuccess) {
 			// 3. HOÁN ĐỔI TRỰC TIẾP TRÊN GIAO DIỆN (Không cần load lại Database)
-			// Chúng ta sẽ lặp qua các cột để đổi chữ (Bỏ qua cột 0 vì cột 0 là số thứ tự 1,2,3... phải giữ nguyên)
+			// Chúng ta sẽ lặp qua các cột để đổi chữ (Bỏ qua cột 0 vì cột 0 là số thứ tự
+			// 1,2,3... phải giữ nguyên)
 			for (int col = 1; col < modToa.getColumnCount(); col++) {
 				Object temp = modToa.getValueAt(row, col);
 				modToa.setValueAt(modToa.getValueAt(newRow, col), row, col);
@@ -741,11 +761,12 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 			// 4. Bám đuôi bôi đen theo toa vừa di chuyển
 			tblToa.setRowSelectionInterval(newRow, newRow);
-			
+
 			// 5. Cập nhật lại hình ảnh đoàn tàu nhỏ bên dưới
 			refreshTrainBar();
 		} else {
-			JOptionPane.showMessageDialog(this, "Lỗi khi đổi chỗ dưới Cơ sở dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Lỗi khi đổi chỗ dưới Cơ sở dữ liệu!", "Lỗi",
+					JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
@@ -784,9 +805,12 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			if (defNam == null && lt.getTenLoaiToa().toLowerCase().contains("nằm"))
 				defNam = w;
 		}
-		if (defCung == null) defCung = wrapperList.get(0);
-		if (defMem == null) defMem = wrapperList.get(0);
-		if (defNam == null) defNam = wrapperList.get(0);
+		if (defCung == null)
+			defCung = wrapperList.get(0);
+		if (defMem == null)
+			defMem = wrapperList.get(0);
+		if (defNam == null)
+			defNam = wrapperList.get(0);
 
 		// Khởi tạo Dialog với giao diện nền trắng giống Tab Nhân Viên
 		JDialog d = new JDialog(JOptionPane.getFrameForComponent(this), "Cấu hình Toa Tự Động", true);
@@ -815,26 +839,29 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 		for (int i = 0; i < soToaCanSinh; i++) {
 			int thuTuToa = soToaHienTai + i + 1;
-			
+
 			// Label font giống Form Nhân viên
 			JLabel lblToa = new JLabel("Toa nối thứ " + thuTuToa + ": ");
 			lblToa.setFont(new Font("Segoe UI", Font.BOLD, 13));
-			lblToa.setForeground(new Color(0x5A6A7D)); 
+			lblToa.setForeground(new Color(0x5A6A7D));
 
 			JComboBox<LoaiToaWrapper> cb = new JComboBox<>();
-			for (LoaiToaWrapper w : wrapperList) cb.addItem(w);
-			
-			if (i < p1) cb.setSelectedItem(defCung);
-			else if (i < p1 + p2) cb.setSelectedItem(defMem);
-			else cb.setSelectedItem(defNam);
-			
+			for (LoaiToaWrapper w : wrapperList)
+				cb.addItem(w);
+
+			if (i < p1)
+				cb.setSelectedItem(defCung);
+			else if (i < p1 + p2)
+				cb.setSelectedItem(defMem);
+			else
+				cb.setSelectedItem(defNam);
+
 			// Style cho ComboBox khớp chuẩn UI
 			cb.setPreferredSize(new Dimension(0, 36));
 			cb.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 			cb.setBackground(new Color(0xF8FAFD));
 			cb.setForeground(new Color(0x1E2B3C));
-			cb.setBorder(BorderFactory.createCompoundBorder(
-					new LineBorder(new Color(0xE2EAF4), 1, true),
+			cb.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xE2EAF4), 1, true),
 					BorderFactory.createEmptyBorder(0, 4, 0, 4)));
 
 			// Tuỳ chỉnh giao diện danh sách xổ xuống của ComboBox
@@ -843,21 +870,25 @@ public class TAB_QuanLyDoanTau extends JPanel {
 				lbl.setOpaque(true);
 				lbl.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 				if (isSelected) {
-					lbl.setBackground(new Color(0xDDEEFF)); 
+					lbl.setBackground(new Color(0xDDEEFF));
 				} else {
-					lbl.setBackground(index % 2 == 0 ? Color.WHITE : new Color(0xF7FAFF)); 
+					lbl.setBackground(index % 2 == 0 ? Color.WHITE : new Color(0xF7FAFF));
 				}
 				return lbl;
 			});
 
 			combos[i] = cb;
-			
-			gc.gridx = 0; gc.gridy = i;
-			gc.weightx = 0.2; gc.gridwidth = 1;
+
+			gc.gridx = 0;
+			gc.gridy = i;
+			gc.weightx = 0.2;
+			gc.gridwidth = 1;
 			form.add(lblToa, gc);
 
-			gc.gridx = 1; gc.gridy = i;
-			gc.weightx = 0.8; gc.gridwidth = 1;
+			gc.gridx = 1;
+			gc.gridy = i;
+			gc.weightx = 0.8;
+			gc.gridwidth = 1;
 			form.add(cb, gc);
 		}
 
@@ -873,7 +904,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JButton btnXacNhan = makeBtn("Xác nhận Sinh Toa", ACCENT);
 		btnXacNhan.setPreferredSize(new Dimension(160, 38));
 		btnXacNhan.setFont(new Font("Segoe UI", Font.BOLD, 14));
-		
+
 		JButton btnHuy = makeBtn("Hủy Bỏ", new Color(149, 165, 166));
 		btnHuy.setPreferredSize(new Dimension(120, 38));
 		btnHuy.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -911,7 +942,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		d.add(pnlHeader, BorderLayout.NORTH);
 		d.add(scroll, BorderLayout.CENTER);
 		d.add(bottom, BorderLayout.SOUTH);
-		
+
 		d.pack();
 		int height = Math.min(600, d.getHeight() + 40); // Tính toán độ cao linh hoạt
 		d.setSize(550, height);
@@ -1000,16 +1031,19 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		}
 	}
 
-	private JPanel legendItem(Color color, String label) {
-		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+	private JPanel legendItem(Color bg, Color border, String label) {
+		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
 		p.setOpaque(false);
 		JLabel ic = new JLabel("  ");
-		ic.setBackground(color);
+		ic.setBackground(bg);
 		ic.setOpaque(true);
-		ic.setPreferredSize(new Dimension(10, 10)); // Thu nhỏ icon legend
+		ic.setPreferredSize(new Dimension(12, 12));
+		if (border != null) {
+			ic.setBorder(BorderFactory.createLineBorder(border, 1));
+		}
 		JLabel tx = new JLabel(label);
-		tx.setFont(new Font("Segoe UI", Font.PLAIN, 11)); // Thu nhỏ text legend
-		tx.setForeground(C_GRAY);
+		tx.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+		tx.setForeground(new Color(0x5A6A7D)); // Chữ màu xám đen đồng bộ UI
 		p.add(ic);
 		p.add(tx);
 		return p;
@@ -1136,12 +1170,12 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			// Vẽ Thân
 			g2.setColor(isSelected ? new Color(241, 196, 15) : carColor);
 			if (isLocomotive) {
-			    int[] px = { 10, w, w, 0, 0 };
-			    int[] py = { y, y, y + h, y + h, y + 10 };
-			    g2.fillPolygon(px, py, 5);
-			    g2.setColor(Color.WHITE);
-			    g2.fillRect(12, y + 3, 6, 8);
-			    g2.fillRect(6, y + 5, 4, 6);
+				int[] px = { 10, w, w, 0, 0 };
+				int[] py = { y, y, y + h, y + h, y + 10 };
+				g2.fillPolygon(px, py, 5);
+				g2.setColor(Color.WHITE);
+				g2.fillRect(12, y + 3, 6, 8);
+				g2.fillRect(6, y + 5, 4, 6);
 			} else {
 				g2.fillRoundRect(0, y, w, h, 6, 6);
 				g2.setColor(Color.WHITE);
