@@ -39,6 +39,10 @@ public class TAB_Dashboard extends JPanel {
 	private static final Color TEXT_DARK = new Color(0x0F172A);
 	private static final Color TEXT_MID = new Color(0x64748B);
 	private static final Color BORDER = new Color(0xE2E8F0);
+	
+	// Màu sắc cho bảng đồng bộ
+	private static final Color TABLE_HEADER_BG = new Color(0x1A5EAB);
+    private static final Color TABLE_SELECTION_BG = new Color(0xE8F0FB);
 
 	// Màu sắc cho bảng đồng bộ
 	private static final Color TABLE_HEADER_BG = new Color(0x1A5EAB);
@@ -79,7 +83,7 @@ public class TAB_Dashboard extends JPanel {
 	// Hàm tự động làm mới giao diện và dữ liệu
 	public void refreshData() {
 		this.removeAll(); // Xóa sạch giao diện hiện tại
-
+		
 		initHeader();
 
 		if (this.role.equalsIgnoreCase("QuanLy") || this.role.equalsIgnoreCase("Quản lý")
@@ -88,7 +92,7 @@ public class TAB_Dashboard extends JPanel {
 		} else {
 			initStaffView();
 		}
-
+		
 		this.revalidate();
 		this.repaint();
 	}
@@ -264,11 +268,11 @@ public class TAB_Dashboard extends JPanel {
 
 		String[] cols = { "Giờ đi", "Tên Chuyến", "Tuyến" };
 		DefaultTableModel mod = new DefaultTableModel(cols, 0) {
-			@Override
-			public boolean isCellEditable(int row, int column) {
-				return false;
-			}
-		};
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
 		try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
 			ResultSet rs = st.executeQuery(
 					"SELECT gioKhoiHanh, tenChuyen, tenTuyen FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen JOIN Tuyen t ON ct.maTuyen = t.maTuyen WHERE CAST(ngayKhoiHanh AS DATE) = CAST(GETDATE() AS DATE) ORDER BY gioKhoiHanh ASC");
@@ -285,27 +289,27 @@ public class TAB_Dashboard extends JPanel {
 
 		// Đồng bộ giao diện Bảng
 		JTable table = new JTable(mod);
-		table.setRowHeight(40);
+		table.setRowHeight(40); 
 		table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-		table.setSelectionBackground(TABLE_SELECTION_BG);
-		table.setSelectionForeground(TEXT_DARK);
-		table.setShowVerticalLines(false);
-		table.setIntercellSpacing(new Dimension(0, 1));
-		table.setRowMargin(0);
+        table.setSelectionBackground(TABLE_SELECTION_BG);
+        table.setSelectionForeground(TEXT_DARK);
+        table.setShowVerticalLines(false); 
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setRowMargin(0);
 
 		table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-		table.getTableHeader().setBackground(TABLE_HEADER_BG);
+		table.getTableHeader().setBackground(TABLE_HEADER_BG); 
 		table.getTableHeader().setForeground(Color.WHITE);
 		table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+        for(int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+        }
 
-		DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-		centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-		for(int i = 0; i < table.getColumnCount(); i++) {
-			table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
-		}
-
-		JScrollPane scrollPane = new JScrollPane(table);
-		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
 		pnlSchedule.add(lblTbl, BorderLayout.NORTH);
 		pnlSchedule.add(scrollPane, BorderLayout.CENTER);
 
@@ -351,9 +355,9 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setRangeGridlinePaint(BORDER);
 
-		// Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
-		NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
-		yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+        // Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
+        NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+        yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
 
 		LineAndShapeRenderer renderer = new LineAndShapeRenderer();
 		renderer.setSeriesPaint(0, C_BLUE_FG);
@@ -396,7 +400,7 @@ public class TAB_Dashboard extends JPanel {
 			chart.getLegend().setFrame(org.jfree.chart.block.BlockBorder.NONE);
 			chart.getLegend().setBackgroundPaint(Color.WHITE);
 			chart.getLegend().setItemFont(new Font("Segoe UI", Font.PLAIN, 13));
-			chart.getLegend().setPosition(org.jfree.chart.ui.RectangleEdge.BOTTOM);
+            chart.getLegend().setPosition(org.jfree.chart.ui.RectangleEdge.BOTTOM);
 		}
 
 		PiePlot plot = (PiePlot) chart.getPlot();
@@ -404,10 +408,10 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setShadowPaint(null);
 		plot.setLabelGenerator(null);
-
-		// Ép biểu đồ thành hình tròn tuyệt đối, giảm khoảng cách lề
-		plot.setCircular(true);
-		plot.setInteriorGap(0.04);
+        
+        // Ép biểu đồ thành hình tròn tuyệt đối, giảm khoảng cách lề
+        plot.setCircular(true);
+        plot.setInteriorGap(0.04);
 
 		for (Object key : dataset.getKeys()) {
 			String label = key.toString().toLowerCase();
@@ -466,9 +470,9 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setRangeGridlinePaint(BORDER);
 
-		// Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
-		NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
-		yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+        // Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
+        NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+        yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
 
 		BarRenderer renderer = (BarRenderer) plot.getRenderer();
 		renderer.setBarPainter(new StandardBarPainter());
@@ -480,11 +484,11 @@ public class TAB_Dashboard extends JPanel {
 
 	// ================= GIAO DIỆN HELPERS =================
 	private JPanel createModernStatCard(String title, String value, Color bgColor, Color iconColor, String iconTxt,
-	                                    String trend, boolean isUp, String tooltip) {
+			String trend, boolean isUp, String tooltip) {
 		JPanel p = new JPanel(new BorderLayout(0, 10));
 		p.setBackground(BG_CARD);
 		p.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(18, 18, 18, 18)));
-		p.setToolTipText(tooltip); // Set Tooltip giải thích ý nghĩa
+        p.setToolTipText(tooltip); // Set Tooltip giải thích ý nghĩa
 
 		JPanel pnlTop = new JPanel(new BorderLayout());
 		pnlTop.setOpaque(false);
