@@ -4,6 +4,7 @@ import com.connectDB.ConnectDB;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PiePlot;
 import org.jfree.chart.plot.PlotOrientation;
@@ -16,6 +17,7 @@ import org.jfree.data.general.DefaultPieDataset;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
@@ -38,6 +40,10 @@ public class TAB_Dashboard extends JPanel {
 	private static final Color TEXT_MID = new Color(0x64748B);
 	private static final Color BORDER = new Color(0xE2E8F0);
 
+	// Màu sắc cho bảng đồng bộ
+	private static final Color TABLE_HEADER_BG = new Color(0x1A5EAB);
+	private static final Color TABLE_SELECTION_BG = new Color(0xE8F0FB);
+
 	// Bảng màu Pastel
 	private static final Color C_BLUE_BG = new Color(239, 246, 255);
 	private static final Color C_BLUE_FG = new Color(59, 130, 246);
@@ -59,6 +65,21 @@ public class TAB_Dashboard extends JPanel {
 		setBackground(BG_PAGE);
 		setBorder(new EmptyBorder(25, 30, 25, 30));
 
+		// Gọi hàm vẽ giao diện lần đầu tiên
+		refreshData();
+
+		// [VÁ LỖI CẬP NHẬT REALTIME]: Dùng HierarchyListener để bắt chính xác lúc Component hiển thị
+		this.addHierarchyListener(e -> {
+			if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+				refreshData(); // Xóa giao diện cũ, truy vấn DB lấy số mới và vẽ lại
+			}
+		});
+	}
+
+	// Hàm tự động làm mới giao diện và dữ liệu
+	public void refreshData() {
+		this.removeAll(); // Xóa sạch giao diện hiện tại
+
 		initHeader();
 
 		if (this.role.equalsIgnoreCase("QuanLy") || this.role.equalsIgnoreCase("Quản lý")
@@ -67,13 +88,16 @@ public class TAB_Dashboard extends JPanel {
 		} else {
 			initStaffView();
 		}
+
+		this.revalidate();
+		this.repaint();
 	}
 
 	private void initHeader() {
 		JPanel pnlHeader = new JPanel(new GridLayout(2, 1, 0, 5));
 		pnlHeader.setOpaque(false);
 
-		JLabel lblTitle = new JLabel("Dashboard (" + role + ")");
+		JLabel lblTitle = new JLabel("Dashboard");
 		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 30));
 		lblTitle.setForeground(TEXT_DARK);
 
@@ -88,53 +112,75 @@ public class TAB_Dashboard extends JPanel {
 	}
 
 	// =====================================================================
+	// HÀM TÍNH TOÁN % TĂNG TRƯỞNG THỰC TẾ
+	// =====================================================================
+	private String calculateTrend(double today, double yesterday) {
+		if (yesterday == 0) {
+			return today > 0 ? "+100%" : "0%";
+		}
+		double percent = ((today - yesterday) / yesterday) * 100;
+		if (percent > 0) return String.format("+%.1f%%", percent);
+		if (percent < 0) return String.format("%.1f%%", percent);
+		return "0%";
+	}
+
+	// =====================================================================
 	// MÀN HÌNH QUẢN LÝ
 	// =====================================================================
 	private void initManagerView() {
 		JPanel pnlMain = new JPanel(new BorderLayout(0, 20));
 		pnlMain.setOpaque(false);
 
-		// 1. THẺ KPI
 		JPanel pnlStats = new JPanel(new GridLayout(1, 4, 20, 0));
 		pnlStats.setOpaque(false);
 
-		double tongDoanhThu = 0;
-		int tongVe = 0, tauHoatDong = 0;
-		double tiLeLapDay = 0;
+		double dtToday = 0, dtYesterday = 0;
+		int veToday = 0, veYesterday = 0;
+		int tauHoatDong = 0, khachHang = 0;
 
 		try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
-			ResultSet rs1 = st.executeQuery(
-					"SELECT ISNULL(SUM(tongTien), 0) FROM HoaDon WHERE CAST(ngayLap AS DATE) = CAST(GETDATE() AS DATE)");
-			if (rs1.next())
-				tongDoanhThu = rs1.getDouble(1);
+			ResultSet rs;
 
-			ResultSet rs2 = st.executeQuery(
-					"SELECT COUNT(v.maVe) FROM Ve v JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe JOIN HoaDon hd ON cthd.maHD = hd.maHD WHERE CAST(hd.ngayLap AS DATE) = CAST(GETDATE() AS DATE) AND v.trangThaiVe NOT IN ('DA_HUY', 'TRA_VE')");
-			if (rs2.next())
-				tongVe = rs2.getInt(1);
+			// 1. Doanh thu hôm nay & Hôm qua
+			rs = st.executeQuery("SELECT ISNULL(SUM(tongTien), 0) FROM HoaDon WHERE CAST(ngayLap AS DATE) = CAST(GETDATE() AS DATE)");
+			if (rs.next()) dtToday = rs.getDouble(1); rs.close();
 
-			ResultSet rs3 = st.executeQuery("SELECT COUNT(*) FROM Tau WHERE trangThai = 'HOATDONG'");
-			if (rs3.next())
-				tauHoatDong = rs3.getInt(1);
+			rs = st.executeQuery("SELECT ISNULL(SUM(tongTien), 0) FROM HoaDon WHERE CAST(ngayLap AS DATE) = CAST(DATEADD(day, -1, GETDATE()) AS DATE)");
+			if (rs.next()) dtYesterday = rs.getDouble(1); rs.close();
 
-			ResultSet rs4 = st.executeQuery(
-					"SELECT ISNULL(CAST((SELECT COUNT(*) FROM GheLichTrinh WHERE trangThai='DADAT') AS FLOAT) / NULLIF((SELECT COUNT(*) FROM GheLichTrinh), 0) * 100, 0)");
-			if (rs4.next())
-				tiLeLapDay = rs4.getDouble(1);
+			// 2. Vé bán hôm nay & Hôm qua
+			String sqlVe = "SELECT COUNT(v.maVe) FROM Ve v JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe JOIN HoaDon hd ON cthd.maHD = hd.maHD WHERE CAST(hd.ngayLap AS DATE) = CAST(%s AS DATE) AND v.trangThaiVe NOT IN ('DA_HUY', 'TRA_VE')";
+			rs = st.executeQuery(String.format(sqlVe, "GETDATE()"));
+			if (rs.next()) veToday = rs.getInt(1); rs.close();
+
+			rs = st.executeQuery(String.format(sqlVe, "DATEADD(day, -1, GETDATE())"));
+			if (rs.next()) veYesterday = rs.getInt(1); rs.close();
+
+			// 3. Tàu hoạt động
+			rs = st.executeQuery("SELECT COUNT(*) FROM Tau WHERE trangThai = 'HOATDONG'");
+			if (rs.next()) tauHoatDong = rs.getInt(1); rs.close();
+
+			// 4. Tổng Khách Hàng
+			rs = st.executeQuery("SELECT COUNT(*) FROM KhachHang");
+			if (rs.next()) khachHang = rs.getInt(1); rs.close();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
-		pnlStats.add(createModernStatCard("Doanh thu hôm nay", df.format(tongDoanhThu), C_BLUE_BG, C_BLUE_FG, "VND",
-				"+12.3%", true));
-		pnlStats.add(createModernStatCard("Vé đã bán hôm nay", numDf.format(tongVe), C_GREEN_BG, C_GREEN_FG, "VE",
-				"+8.7%", true));
-		pnlStats.add(createModernStatCard("Chuyến tàu đang chạy", numDf.format(tauHoatDong), C_PURPLE_BG, C_PURPLE_FG,
-				"TAU", "0%", true));
-		pnlStats.add(createModernStatCard("Tỉ lệ lấp đầy TB", String.format("%.1f%%", tiLeLapDay), C_ORANGE_BG,
-				C_ORANGE_FG, "KH", "-2.1%", false));
+		String trendDt = calculateTrend(dtToday, dtYesterday);
+		String trendVe = calculateTrend(veToday, veYesterday);
 
-		// 2. BIỂU ĐỒ
+		pnlStats.add(createModernStatCard("Doanh thu hôm nay", df.format(dtToday), C_BLUE_BG, C_BLUE_FG, "VND",
+				trendDt, dtToday >= dtYesterday, "So sánh doanh thu với ngày hôm qua."));
+		pnlStats.add(createModernStatCard("Vé bán hôm nay", numDf.format(veToday), C_GREEN_BG, C_GREEN_FG, "VÉ",
+				trendVe, veToday >= veYesterday, "So sánh lượng vé bán ra thành công với ngày hôm qua."));
+		pnlStats.add(createModernStatCard("Tàu hoạt động", numDf.format(tauHoatDong), C_PURPLE_BG, C_PURPLE_FG,
+				"TÀU", "Hiện tại", true, "Số lượng đoàn tàu đang ở trạng thái Hoạt Động."));
+		pnlStats.add(createModernStatCard("Khách hàng", numDf.format(khachHang), C_ORANGE_BG,
+				C_ORANGE_FG, "KH", "Hiện tại", true, "Tổng số lượng khách hàng đã lưu trong hệ thống từ trước đến nay."));
+
+		// BIỂU ĐỒ
 		JPanel pnlCharts = new JPanel(new GridLayout(2, 1, 20, 20));
 		pnlCharts.setOpaque(false);
 
@@ -145,7 +191,7 @@ public class TAB_Dashboard extends JPanel {
 		pnlLineChart.setPreferredSize(new Dimension(0, 300));
 
 		JPanel pnlPieChart = createChartCard(createSeatTypePieChart());
-		pnlPieChart.setPreferredSize(new Dimension(400, 300));
+		pnlPieChart.setPreferredSize(new Dimension(300, 300));
 
 		pnlTopCharts.add(pnlLineChart, BorderLayout.CENTER);
 		pnlTopCharts.add(pnlPieChart, BorderLayout.EAST);
@@ -172,35 +218,41 @@ public class TAB_Dashboard extends JPanel {
 		JPanel pnlStats = new JPanel(new GridLayout(1, 3, 20, 0));
 		pnlStats.setOpaque(false);
 
-		int veHomNay = 0, tauHoatDong = 0, khachHang = 0;
+		int veToday = 0, veYesterday = 0, tauHoatDong = 0, khachHang = 0;
 		try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
-			ResultSet rs1 = st.executeQuery(
-					"SELECT COUNT(v.maVe) FROM Ve v JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe JOIN HoaDon hd ON cthd.maHD = hd.maHD WHERE CAST(hd.ngayLap AS DATE) = CAST(GETDATE() AS DATE) AND v.trangThaiVe NOT IN ('DA_HUY', 'TRA_VE')");
-			if (rs1.next())
-				veHomNay = rs1.getInt(1);
+			ResultSet rs;
 
-			ResultSet rs2 = st.executeQuery("SELECT COUNT(*) FROM Tau WHERE trangThai = 'HOATDONG'");
-			if (rs2.next())
-				tauHoatDong = rs2.getInt(1);
+			// Vé bán hôm nay & Hôm qua
+			String sqlVe = "SELECT COUNT(v.maVe) FROM Ve v JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe JOIN HoaDon hd ON cthd.maHD = hd.maHD WHERE CAST(hd.ngayLap AS DATE) = CAST(%s AS DATE) AND v.trangThaiVe NOT IN ('DA_HUY', 'TRA_VE')";
+			rs = st.executeQuery(String.format(sqlVe, "GETDATE()"));
+			if (rs.next()) veToday = rs.getInt(1); rs.close();
 
-			ResultSet rs3 = st.executeQuery("SELECT COUNT(*) FROM KhachHang");
-			if (rs3.next())
-				khachHang = rs3.getInt(1);
+			rs = st.executeQuery(String.format(sqlVe, "DATEADD(day, -1, GETDATE())"));
+			if (rs.next()) veYesterday = rs.getInt(1); rs.close();
+
+			rs = st.executeQuery("SELECT COUNT(*) FROM Tau WHERE trangThai = 'HOATDONG'");
+			if (rs.next()) tauHoatDong = rs.getInt(1); rs.close();
+
+			rs = st.executeQuery("SELECT COUNT(*) FROM KhachHang");
+			if (rs.next()) khachHang = rs.getInt(1); rs.close();
 		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
-		pnlStats.add(createModernStatCard("Vé bán hôm nay", numDf.format(veHomNay), C_GREEN_BG, C_GREEN_FG, "VE",
-				"+5.2%", true));
-		pnlStats.add(createModernStatCard("Chuyến tàu đang chạy", numDf.format(tauHoatDong), C_PURPLE_BG, C_PURPLE_FG,
-				"TAU", " 0% ", true));
-		pnlStats.add(createModernStatCard("Tổng lượng Khách hàng", numDf.format(khachHang), C_ORANGE_BG, C_ORANGE_FG,
-				"KH", "+1.2%", true));
+		String trendVe = calculateTrend(veToday, veYesterday);
+
+		pnlStats.add(createModernStatCard("Vé bán hôm nay", numDf.format(veToday), C_GREEN_BG, C_GREEN_FG, "VÉ",
+				trendVe, veToday >= veYesterday, "So sánh lượng vé bán ra thành công với ngày hôm qua."));
+		pnlStats.add(createModernStatCard("Tàu hoạt động", numDf.format(tauHoatDong), C_PURPLE_BG, C_PURPLE_FG,
+				"TÀU", "Hiện tại", true, "Số lượng đoàn tàu đang ở trạng thái Hoạt Động."));
+		pnlStats.add(createModernStatCard("Khách hàng", numDf.format(khachHang), C_ORANGE_BG, C_ORANGE_FG,
+				"KH", "Hiện tại", true, "Tổng số lượng khách hàng đã lưu trong hệ thống từ trước đến nay."));
 
 		JPanel pnlContent = new JPanel(new BorderLayout(20, 0));
 		pnlContent.setOpaque(false);
 
 		JPanel pnlPie = createChartCard(createSeatTypePieChart());
-		pnlPie.setPreferredSize(new Dimension(400, 0));
+		pnlPie.setPreferredSize(new Dimension(450, 0));
 
 		JPanel pnlSchedule = new JPanel(new BorderLayout());
 		pnlSchedule.setBackground(BG_CARD);
@@ -211,7 +263,12 @@ public class TAB_Dashboard extends JPanel {
 		lblTbl.setBorder(new EmptyBorder(0, 0, 15, 0));
 
 		String[] cols = { "Giờ đi", "Tên Chuyến", "Tuyến" };
-		DefaultTableModel mod = new DefaultTableModel(cols, 0);
+		DefaultTableModel mod = new DefaultTableModel(cols, 0) {
+			@Override
+			public boolean isCellEditable(int row, int column) {
+				return false;
+			}
+		};
 		try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {
 			ResultSet rs = st.executeQuery(
 					"SELECT gioKhoiHanh, tenChuyen, tenTuyen FROM LichTrinh lt JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen JOIN Tuyen t ON ct.maTuyen = t.maTuyen WHERE CAST(ngayKhoiHanh AS DATE) = CAST(GETDATE() AS DATE) ORDER BY gioKhoiHanh ASC");
@@ -226,16 +283,31 @@ public class TAB_Dashboard extends JPanel {
 		} catch (Exception e) {
 		}
 
+		// Đồng bộ giao diện Bảng
 		JTable table = new JTable(mod);
 		table.setRowHeight(40);
 		table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-		table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-		table.getTableHeader().setBackground(C_BLUE_BG);
-		table.getTableHeader().setForeground(TEXT_DARK);
-		table.setEnabled(false);
+		table.setSelectionBackground(TABLE_SELECTION_BG);
+		table.setSelectionForeground(TEXT_DARK);
+		table.setShowVerticalLines(false);
+		table.setIntercellSpacing(new Dimension(0, 1));
+		table.setRowMargin(0);
 
+		table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+		table.getTableHeader().setBackground(TABLE_HEADER_BG);
+		table.getTableHeader().setForeground(Color.WHITE);
+		table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+
+		DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+		centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+		for(int i = 0; i < table.getColumnCount(); i++) {
+			table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+		}
+
+		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
 		pnlSchedule.add(lblTbl, BorderLayout.NORTH);
-		pnlSchedule.add(new JScrollPane(table), BorderLayout.CENTER);
+		pnlSchedule.add(scrollPane, BorderLayout.CENTER);
 
 		pnlContent.add(pnlPie, BorderLayout.WEST);
 		pnlContent.add(pnlSchedule, BorderLayout.CENTER);
@@ -279,6 +351,10 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setRangeGridlinePaint(BORDER);
 
+		// Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
+		NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+		yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+
 		LineAndShapeRenderer renderer = new LineAndShapeRenderer();
 		renderer.setSeriesPaint(0, C_BLUE_FG);
 		renderer.setSeriesStroke(0, new BasicStroke(3.0f));
@@ -311,14 +387,16 @@ public class TAB_Dashboard extends JPanel {
 			dataset.setValue("Giường nằm K6", 14);
 		}
 
-		JFreeChart chart = ChartFactory.createPieChart("Cơ cấu Vé bán ra (30 ngày)", dataset, true, true, false);
+		JFreeChart chart = ChartFactory.createPieChart("Loại vé bán ra (30 ngày)", dataset, true, true, false);
 		chart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
 		chart.getTitle().setHorizontalAlignment(org.jfree.chart.ui.HorizontalAlignment.LEFT);
 
+		// Xử lý Legend: Đưa xuống dưới đáy để không ép biểu đồ bị méo
 		if (chart.getLegend() != null) {
 			chart.getLegend().setFrame(org.jfree.chart.block.BlockBorder.NONE);
 			chart.getLegend().setBackgroundPaint(Color.WHITE);
 			chart.getLegend().setItemFont(new Font("Segoe UI", Font.PLAIN, 13));
+			chart.getLegend().setPosition(org.jfree.chart.ui.RectangleEdge.BOTTOM);
 		}
 
 		PiePlot plot = (PiePlot) chart.getPlot();
@@ -327,7 +405,10 @@ public class TAB_Dashboard extends JPanel {
 		plot.setShadowPaint(null);
 		plot.setLabelGenerator(null);
 
-		// [VÁ LỖI MÀU SẮC]: Quét động qua các key thực tế từ Database để tô màu
+		// Ép biểu đồ thành hình tròn tuyệt đối, giảm khoảng cách lề
+		plot.setCircular(true);
+		plot.setInteriorGap(0.04);
+
 		for (Object key : dataset.getKeys()) {
 			String label = key.toString().toLowerCase();
 			if (label.contains("cứng")) {
@@ -385,6 +466,10 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setRangeGridlinePaint(BORDER);
 
+		// Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
+		NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+		yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+
 		BarRenderer renderer = (BarRenderer) plot.getRenderer();
 		renderer.setBarPainter(new StandardBarPainter());
 		renderer.setSeriesPaint(0, C_BLUE_FG);
@@ -395,10 +480,11 @@ public class TAB_Dashboard extends JPanel {
 
 	// ================= GIAO DIỆN HELPERS =================
 	private JPanel createModernStatCard(String title, String value, Color bgColor, Color iconColor, String iconTxt,
-			String trend, boolean isUp) {
+	                                    String trend, boolean isUp, String tooltip) {
 		JPanel p = new JPanel(new BorderLayout(0, 10));
 		p.setBackground(BG_CARD);
 		p.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(18, 18, 18, 18)));
+		p.setToolTipText(tooltip); // Set Tooltip giải thích ý nghĩa
 
 		JPanel pnlTop = new JPanel(new BorderLayout());
 		pnlTop.setOpaque(false);

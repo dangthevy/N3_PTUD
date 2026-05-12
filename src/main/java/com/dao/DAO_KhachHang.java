@@ -13,8 +13,8 @@ public class DAO_KhachHang {
 		Vector<Vector<Object>> data = new Vector<>();
 		String sql = "SELECT maKH, tenKH, email, sdt, cccd, ngayThem FROM KhachHang WHERE trangThai = 1 ORDER BY ngayThem DESC, maKH DESC";
 		try (Connection con = ConnectDB.getConnection();
-				Statement stmt = con.createStatement();
-				ResultSet rs = stmt.executeQuery(sql)) {
+		     Statement stmt = con.createStatement();
+		     ResultSet rs = stmt.executeQuery(sql)) {
 			while (rs.next()) {
 				Vector<Object> row = new Vector<>();
 				row.add(rs.getString("maKH"));
@@ -66,7 +66,7 @@ public class DAO_KhachHang {
 
 	public boolean addKhachHang(KhachHang kh) {
 		String sql = "INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email, ngayThem, trangThai) "
-				   + "VALUES (?, ?, ?, ?, ?, CONVERT(date, ?, 103), 1)";
+				+ "VALUES (?, ?, ?, ?, ?, CONVERT(date, ?, 103), 1)";
 		try (Connection con = ConnectDB.getConnection(); PreparedStatement stmt = con.prepareStatement(sql)) {
 			stmt.setString(1, kh.getMaKH());
 			stmt.setString(2, kh.getHoTen());
@@ -114,7 +114,7 @@ public class DAO_KhachHang {
 	public boolean isMaKHAvailable(String maKH) {
 		String sql = "SELECT COUNT(*) FROM KhachHang WHERE maKH = ?";
 		try (Connection con = ConnectDB.getConnection();
-				PreparedStatement ps = con.prepareStatement(sql)) {
+		     PreparedStatement ps = con.prepareStatement(sql)) {
 			ps.setString(1, maKH);
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) return rs.getInt(1) == 0;
@@ -129,8 +129,8 @@ public class DAO_KhachHang {
 	public String getMaxMaKH() {
 		String sql = "SELECT TOP 1 maKH FROM KhachHang WHERE maKH LIKE 'KH%' ORDER BY maKH DESC";
 		try (Connection con = ConnectDB.getConnection();
-				Statement stmt = con.createStatement();
-				ResultSet rs = stmt.executeQuery(sql)) {
+		     Statement stmt = con.createStatement();
+		     ResultSet rs = stmt.executeQuery(sql)) {
 			if (rs.next()) return rs.getString("maKH");
 		} catch (SQLException e) {
 			e.printStackTrace();

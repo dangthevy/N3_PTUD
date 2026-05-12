@@ -689,16 +689,16 @@ public class Step3_NhapThongTinKH extends JPanel {
 		String tenLoaiVe = selectedLoaiVe != null ? selectedLoaiVe.toString() : "Người lớn";
 		String maLoaiVe;
 		switch (tenLoaiVe) {
-		case "Trẻ em":
-			maLoaiVe = "LV02";
-			break;
-		case "Sinh viên":
-			maLoaiVe = "LV03";
-			break;
-		case "Người lớn":
-		default:
-			maLoaiVe = "LV01";
-			break;
+			case "Trẻ em":
+				maLoaiVe = "LV02";
+				break;
+			case "Sinh viên":
+				maLoaiVe = "LV03";
+				break;
+			case "Người lớn":
+			default:
+				maLoaiVe = "LV01";
+				break;
 		}
 		seatMap.put("loaiVe", tenLoaiVe);
 		seatMap.put("maLoaiVe", maLoaiVe);

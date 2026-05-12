@@ -20,8 +20,6 @@ public class TAB_BanVe extends JPanel {
 	private JButton btnBack, btnNext;
 	private int currentStep = 0;
 	private final String[] STEP_NAMES = { "Tìm kiếm", "Đặt chỗ", "Thông tin KH", "Thanh toán", "Hoàn tất" };
-	private Timer holdTimer;
-	private int timeLeft = 900;
 
 	// === DỮ LIỆU DÙNG CHUNG ===
 	private DAO_BanVe daoBanVe = new DAO_BanVe();
@@ -87,8 +85,6 @@ public class TAB_BanVe extends JPanel {
 
 		btnNext.addActionListener(e -> nextStep());
 		btnBack.addActionListener(e -> prevStep());
-
-		setupTimer();
 	}
 
 	// === GETTERS & SETTERS CHO CÁC STEP SỬ DỤNG ===
@@ -166,9 +162,6 @@ public class TAB_BanVe extends JPanel {
 		// [QUAN TRỌNG]: Giải phóng ghế đang giữ dưới Database trước khi reset
 		updateSeatsStatusDB("TRONG", "GIUCHO");
 
-		if (holdTimer != null)
-			holdTimer.stop();
-
 		currentStep = 0;
 		selectedSeatsData.clear();
 		passengerDataMap.clear();
@@ -243,13 +236,6 @@ public class TAB_BanVe extends JPanel {
 			}
 
 			switchCard();
-
-			// Nếu vừa bước vào Step 3 (Nhập thông tin), bắt đầu đếm ngược giữ chỗ
-			if (currentStep == 2) {
-				timeLeft = 900; // 15 Phút
-				if (holdTimer != null)
-					holdTimer.restart();
-			}
 		}
 	}
 
@@ -282,26 +268,6 @@ public class TAB_BanVe extends JPanel {
 			// Màn hình Thanh toán và Thành công không dùng nút Tiếp tục chung này nữa
 			btnNext.setVisible(false);
 		}
-	}
-
-	private void setupTimer() {
-		holdTimer = new Timer(1000, e -> {
-			if (timeLeft > 0) {
-				timeLeft--;
-				int min = timeLeft / 60;
-				int sec = timeLeft % 60;
-				try {
-					step3.updateTimerDisplay(String.format("Thời gian giữ chỗ: %02d:%02d", min, sec));
-				} catch (Exception ex) {
-				}
-			} else {
-				holdTimer.stop();
-				JOptionPane.showMessageDialog(this,
-						"Đã hết thời gian giữ chỗ. Vé đã được tự động hủy, vui lòng đặt lại từ đầu!", "Hết giờ",
-						JOptionPane.WARNING_MESSAGE);
-				resetProcess();
-			}
-		});
 	}
 
 	// =========================================================================
