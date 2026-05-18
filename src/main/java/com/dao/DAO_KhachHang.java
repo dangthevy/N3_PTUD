@@ -141,7 +141,7 @@ public class DAO_KhachHang {
 	public List<KhachHang> searchBySdt(String sdt) {
 		List<KhachHang> result = new ArrayList<>();
 		String sql = "SELECT TOP 5 maKH, tenKH, sdt, cccd, email " + "FROM KhachHang "
-				+ "WHERE sdt LIKE ? AND trangThai = 1 " + "ORDER BY tenKH";
+				+ "WHERE sdt LIKE ? AND trangThai = 1 " + "ORDER BY ngayThem ASC, maKH ASC";
 		try (Connection con = ConnectDB.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
 			ps.setString(1, "%" + sdt + "%");
 			ResultSet rs = ps.executeQuery();

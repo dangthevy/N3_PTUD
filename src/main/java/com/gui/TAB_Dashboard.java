@@ -39,14 +39,10 @@ public class TAB_Dashboard extends JPanel {
 	private static final Color TEXT_DARK = new Color(0x0F172A);
 	private static final Color TEXT_MID = new Color(0x64748B);
 	private static final Color BORDER = new Color(0xE2E8F0);
-	
-	// Màu sắc cho bảng đồng bộ
-	private static final Color TABLE_HEADER_BG = new Color(0x1A5EAB);
-    private static final Color TABLE_SELECTION_BG = new Color(0xE8F0FB);
 
 	// Màu sắc cho bảng đồng bộ
 	private static final Color TABLE_HEADER_BG = new Color(0x1A5EAB);
-	private static final Color TABLE_SELECTION_BG = new Color(0xE8F0FB);
+    private static final Color TABLE_SELECTION_BG = new Color(0xE8F0FB);
 
 	// Bảng màu Pastel
 	private static final Color C_BLUE_BG = new Color(239, 246, 255);
@@ -83,7 +79,7 @@ public class TAB_Dashboard extends JPanel {
 	// Hàm tự động làm mới giao diện và dữ liệu
 	public void refreshData() {
 		this.removeAll(); // Xóa sạch giao diện hiện tại
-		
+
 		initHeader();
 
 		if (this.role.equalsIgnoreCase("QuanLy") || this.role.equalsIgnoreCase("Quản lý")
@@ -92,7 +88,7 @@ public class TAB_Dashboard extends JPanel {
 		} else {
 			initStaffView();
 		}
-		
+
 		this.revalidate();
 		this.repaint();
 	}
@@ -289,19 +285,19 @@ public class TAB_Dashboard extends JPanel {
 
 		// Đồng bộ giao diện Bảng
 		JTable table = new JTable(mod);
-		table.setRowHeight(40); 
+		table.setRowHeight(40);
 		table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         table.setSelectionBackground(TABLE_SELECTION_BG);
         table.setSelectionForeground(TEXT_DARK);
-        table.setShowVerticalLines(false); 
+        table.setShowVerticalLines(false);
         table.setIntercellSpacing(new Dimension(0, 1));
         table.setRowMargin(0);
 
 		table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-		table.getTableHeader().setBackground(TABLE_HEADER_BG); 
+		table.getTableHeader().setBackground(TABLE_HEADER_BG);
 		table.getTableHeader().setForeground(Color.WHITE);
 		table.getTableHeader().setPreferredSize(new Dimension(0, 40));
-        
+
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         for(int i = 0; i < table.getColumnCount(); i++) {
@@ -408,7 +404,7 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setShadowPaint(null);
 		plot.setLabelGenerator(null);
-        
+
         // Ép biểu đồ thành hình tròn tuyệt đối, giảm khoảng cách lề
         plot.setCircular(true);
         plot.setInteriorGap(0.04);

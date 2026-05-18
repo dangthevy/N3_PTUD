@@ -272,6 +272,19 @@ public class Step4_ThanhToan extends JPanel {
 				passenger.setHoTen("Khách vãng lai");
 			}
 
+			String mapHoTen = map.get("hoTen");
+			String mapSdt = map.get("sdt");
+			String mapCccd = map.get("cccd");
+			String mapEmail = map.get("email");
+			if (!isBlank(mapHoTen))
+				passenger.setHoTen(mapHoTen);
+			if (!isBlank(mapSdt))
+				passenger.setSdt(mapSdt);
+			if (!isBlank(mapCccd))
+				passenger.setCccd(mapCccd);
+			if (!isBlank(mapEmail))
+				passenger.setEmail(mapEmail);
+
 			LichTrinh lichTrinh = daoLT.getLichTrinhByMa(maLT);
 			Toa toa = daoToa.getToaById(maToa);
 			LoaiVe loaiVe = allLoaiVe.stream().filter(lv -> lv.getMaLoai().equals(maLoaiVe)).findFirst().orElse(null);
@@ -602,18 +615,18 @@ public class Step4_ThanhToan extends JPanel {
 		bottom.setOpaque(false);
 
 		Tuyen tuyenVe = (ve.getLichTrinh() != null) ? getTuyenByMaChuyen(ve.getLichTrinh().getMaChuyen()) : null;
-        LocalDate ngayKhoiHanh = ve.getLichTrinh().getNgayKhoiHanh();
+		LocalDate ngayKhoiHanh = ve.getLichTrinh().getNgayKhoiHanh();
 
-        Date ngayKhoiHanhDate = Date.from(
-                ngayKhoiHanh.atStartOfDay(ZoneId.systemDefault()).toInstant()
-        );
+		Date ngayKhoiHanhDate = Date.from(
+				ngayKhoiHanh.atStartOfDay(ZoneId.systemDefault()).toInstant()
+		);
 
-        List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(
-                ngayKhoiHanhDate,
-                ve.getLoaiVe(),
-                ve.getToa() != null ? ve.getToa().getLoaiToa() : null,
-                tuyenVe
-        );
+		List<KhuyenMaiDetail> dsKMD = daoKMD.getKhuyenMaiDetailKhaDung(
+				ngayKhoiHanhDate,
+				ve.getLoaiVe(),
+				ve.getToa() != null ? ve.getToa().getLoaiToa() : null,
+				tuyenVe
+		);
 
 		JPanel pnlChips = new JPanel(new WrapLayout(FlowLayout.LEFT, 4, 4));
 		pnlChips.setOpaque(false);
@@ -795,7 +808,7 @@ public class Step4_ThanhToan extends JPanel {
 	}
 
 	private JPanel makeReceiptPriceLine(String label, String price, boolean strikePrice, Color priceColor,
-			boolean boldPrice) {
+	                                    boolean boldPrice) {
 		JPanel line = new JPanel(new BorderLayout(4, 0));
 		line.setOpaque(false);
 		line.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
@@ -863,15 +876,15 @@ public class Step4_ThanhToan extends JPanel {
 			// 1. INSERT VÀO BẢNG HOADON (Dùng currentMaHD đồng bộ với Mã Vé)
 			String sqlHD = "INSERT INTO HoaDon (maHD, maNV, maKH, tongTien) VALUES (?, ?, ?, ?)";
 			try (PreparedStatement psHD = conn.prepareStatement(sqlHD)) {
-			    psHD.setString(1, this.currentMaHD);
-			    psHD.setString(2, nv.getMaNV());
-			    if (isBlank(kh.getMaKH())) {
-			    	psHD.setNull(3, Types.VARCHAR);
-			    } else {
-			    	psHD.setString(3, kh.getMaKH());
-			    }
-			    psHD.setLong(4, tongTienCuoiCung);
-			    psHD.executeUpdate();
+				psHD.setString(1, this.currentMaHD);
+				psHD.setString(2, nv.getMaNV());
+				if (isBlank(kh.getMaKH())) {
+					psHD.setNull(3, Types.VARCHAR);
+				} else {
+					psHD.setString(3, kh.getMaKH());
+				}
+				psHD.setLong(4, tongTienCuoiCung);
+				psHD.executeUpdate();
 			}
 			// LOOP TỪNG VÉ
 			String sqlVe = "INSERT INTO Ve (maVe, maKH, maLT, maToa, viTriGhe, maLoaiVe, giaVe, trangThaiVe) VALUES (?, ?, ?, ?, ?, ?, ?, 'CHUASUDUNG')";
@@ -882,10 +895,10 @@ public class Step4_ThanhToan extends JPanel {
 					+ "INSERT INTO GheLichTrinh(maLT, maToa, viTri, trangThai) VALUES (?, ?, ?, 'TRONG')";
 
 			try (PreparedStatement psVe = conn.prepareStatement(sqlVe);
-					PreparedStatement psCTHD = conn.prepareStatement(sqlCTHD);
-					PreparedStatement psCTKM = conn.prepareStatement(sqlCTKM);
-					PreparedStatement psCho = conn.prepareStatement(sqlChoNgoi);
-					PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe)) {
+			     PreparedStatement psCTHD = conn.prepareStatement(sqlCTHD);
+			     PreparedStatement psCTKM = conn.prepareStatement(sqlCTKM);
+			     PreparedStatement psCho = conn.prepareStatement(sqlChoNgoi);
+			     PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe)) {
 
 				for (VeEntry entry : dsVe) {
 					// Lấy mã vé đã sinh đồng nhất trên UI

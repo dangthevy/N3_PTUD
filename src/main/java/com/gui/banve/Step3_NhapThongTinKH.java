@@ -23,7 +23,6 @@ public class Step3_NhapThongTinKH extends JPanel {
 	private final TAB_BanVe mainTab;
 	private final DAO_KhachHang kh_dao = new DAO_KhachHang();
 
-	private JLabel lblTimer;
 
 	// BOOKER
 	private JTextField txtBkSdt, txtBkHoTen, txtBkCccd, txtBkEmail;
@@ -61,22 +60,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 	}
 
 	private void initComponents() {
-		// Header
-		JPanel pnlHeader = new JPanel(new BorderLayout());
-		pnlHeader.setBackground(UITheme.PRIMARY);
-		pnlHeader.setBorder(new EmptyBorder(12, 20, 12, 20));
-
-		JLabel lblTitle = new JLabel("THÔNG TIN HÀNH KHÁCH");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-		lblTitle.setForeground(Color.WHITE);
-
-		lblTimer = new JLabel("Thời gian giữ chỗ: 15:00", JLabel.RIGHT);
-		lblTimer.setFont(new Font("Segoe UI", Font.BOLD, 14));
-		lblTimer.setForeground(new Color(255, 220, 100));
-
-		pnlHeader.add(lblTitle, BorderLayout.WEST);
-		pnlHeader.add(lblTimer, BorderLayout.EAST);
-		add(pnlHeader, BorderLayout.NORTH);
+        add(UIHelper.createPageTitle("THÔNG TIN KHÁCH HÀNG", ""), BorderLayout.NORTH);
 
 		// Body: 2 cột bằng nhau
 		JPanel pnlBody = new JPanel(new GridLayout(1, 2, 16, 0));
@@ -149,7 +133,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 		applyNumberOnly(txtBkSdt);
 		txtBkHoTen = makePlainField("Họ và tên");
 		applyTextOnly(txtBkHoTen);
-		txtBkCccd = makePlainField("Nhập 12 số");
+		txtBkCccd = makePlainField("Nhập 8 hoặc 12 số");
 		applyNumberOnly(txtBkCccd);
 		txtBkEmail = makePlainField("Ví dụ: abc@gmail.com");
 		applyEmailOnly(txtBkEmail);
@@ -226,7 +210,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 		applyNumberOnly(txtPaxSdt);
 		txtPaxHoTen = makePlainField("Họ và tên");
 		applyTextOnly(txtPaxHoTen);
-		txtPaxCccd = makePlainField("CCCD (12 số)");
+		txtPaxCccd = makePlainField("CCCD (8 hoặc 12 số)");
 		applyNumberOnly(txtPaxCccd);
 		txtPaxEmail = makePlainField("Ví dụ: abc@gmail.com");
 		applyEmailOnly(txtPaxEmail);
@@ -414,6 +398,41 @@ public class Step3_NhapThongTinKH extends JPanel {
 		return sb.toString().trim();
 	}
 
+	private boolean isBlank(String value) {
+		return value == null || value.trim().isEmpty();
+	}
+
+	private boolean isValidCccd(String cccd) {
+		return cccd != null && cccd.matches("^\\d{8}(\\d{4})?$");
+	}
+
+	private boolean isDuplicateCccdInSession(String cccd, int currentIndex) {
+		if (isBlank(cccd))
+			return false;
+		List<Map<String, String>> seats = mainTab.getSelectedSeatsData();
+		for (int i = 0; i < seats.size(); i++) {
+			if (i == currentIndex)
+				continue;
+			String other = seats.get(i).get("cccd");
+			if (cccd.equals(other))
+				return true;
+		}
+		return false;
+	}
+
+	private KhachHang findByExactSdt(String sdt) {
+		if (isBlank(sdt))
+			return null;
+		List<KhachHang> list = kh_dao.searchBySdt(sdt);
+		if (list == null)
+			return null;
+		for (KhachHang kh : list) {
+			if (sdt.equals(kh.getSdt()))
+				return kh;
+		}
+		return null;
+	}
+
 	// ============================================================
 	// HÀM VALIDATE CHO TỪNG Ô NGƯỜI ĐẶT VÉ
 	// ============================================================
@@ -449,8 +468,8 @@ public class Step3_NhapThongTinKH extends JPanel {
 			lblBkCccdError.setText("Vui lòng nhập Số CCCD");
 			return false;
 		}
-		if (!cccd.matches("^\\d{12}$")) {
-			lblBkCccdError.setText("Số CCCD phải bao gồm đúng 12 chữ số");
+		if (!isValidCccd(cccd)) {
+			lblBkCccdError.setText("Số CCCD phải gồm 8 hoặc 12 chữ số");
 			return false;
 		}
 		lblBkCccdError.setText(" ");
@@ -504,8 +523,8 @@ public class Step3_NhapThongTinKH extends JPanel {
 			lblPaxCccdError.setText("Vui lòng nhập Số CCCD");
 			return false;
 		}
-		if (!cccd.matches("^\\d{12}$")) {
-			lblPaxCccdError.setText("Số CCCD phải bao gồm đúng 12 chữ số");
+		if (!isValidCccd(cccd)) {
+			lblPaxCccdError.setText("Số CCCD phải gồm 8 hoặc 12 chữ số");
 			return false;
 		}
 		lblPaxCccdError.setText(" ");
@@ -547,17 +566,12 @@ public class Step3_NhapThongTinKH extends JPanel {
 		String cccd = txtBkCccd.getText().trim();
 		String email = txtBkEmail.getText().trim();
 
-		if (confirmedBooker != null && !confirmedBooker.getMaKH().isEmpty()) {
-			confirmedBooker.setHoTen(hoTen);
-			confirmedBooker.setSdt(sdt);
-			confirmedBooker.setCccd(cccd);
-			confirmedBooker.setEmail(email);
-			kh_dao.updateKhachHang(confirmedBooker);
-		} else {
-			String newMa = generateSafeMaKH();
-			String ngayThem = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
-			confirmedBooker = new KhachHang(newMa, hoTen, sdt, cccd, email, ngayThem);
-			kh_dao.addKhachHang(confirmedBooker);
+		String currentMa = confirmedBooker != null ? confirmedBooker.getMaKH() : null;
+		String maKH = savePassengerToDB(hoTen, sdt, cccd, email, currentMa);
+		confirmedBooker = kh_dao.getKhachHangByMa(maKH);
+		if (confirmedBooker == null) {
+			confirmedBooker = new KhachHang(maKH, hoTen, sdt, cccd, email,
+					new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date()));
 		}
 
 		// [QUAN TRỌNG]: ĐẨY DỮ LIỆU BOOKER SANG SESSION ĐỂ STEP 4 LẤY LÀM HÓA ĐƠN
@@ -674,11 +688,18 @@ public class Step3_NhapThongTinKH extends JPanel {
 		String cccd = txtPaxCccd.getText().trim();
 		String email = txtPaxEmail.getText().trim();
 
+		if (isDuplicateCccdInSession(cccd, currentIdx)) {
+			lblPaxCccdError.setText("CCCD bị trùng trong giao dịch, vui lòng kiểm tra lại");
+			return;
+		}
+
+		Map<String, String> seatMap = mainTab.getSelectedSeatsData().get(currentIdx);
+		String currentMa = seatMap.get("maKH");
+
 		// Lưu DB
-		String maKH = savePassengerToDB(hoTen, sdt, cccd, email);
+		String maKH = savePassengerToDB(hoTen, sdt, cccd, email, currentMa);
 
 		// CẬP NHẬT TẤT CẢ DỮ LIỆU VÀO GIỎ HÀNG (MAP)
-		Map<String, String> seatMap = mainTab.getSelectedSeatsData().get(currentIdx);
 		seatMap.put("maKH", maKH);
 		seatMap.put("hoTen", hoTen);
 		seatMap.put("sdt", sdt);
@@ -740,23 +761,79 @@ public class Step3_NhapThongTinKH extends JPanel {
 		return "KH" + System.currentTimeMillis();
 	}
 
-	private String savePassengerToDB(String hoTen, String sdt, String cccd, String email) {
-		if (!sdt.isEmpty() && sdt.length() == 10) {
-			List<KhachHang> existing = kh_dao.searchBySdt(sdt);
-			if (existing != null && !existing.isEmpty()) {
-				KhachHang kh = existing.get(0);
-				kh.setHoTen(hoTen);
-				kh.setCccd(cccd);
-				kh.setEmail(email);
-				kh_dao.updateKhachHang(kh);
-				return kh.getMaKH();
+	private String savePassengerToDB(String hoTen, String sdt, String cccd, String email, String currentMaKH) {
+		String ngayThem = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
+
+		// Normalize inputs for comparison
+		String normHoTen = toTitleCase(hoTen != null ? hoTen.trim() : "");
+		String normSdt = sdt != null ? sdt.trim() : "";
+		String normCccd = cccd != null ? cccd.trim() : "";
+		String normEmail = email != null ? email.trim().toLowerCase() : "";
+
+		// 1) CCCD/SĐT là khóa duy nhất trong DB, nên nếu đã tồn tại thì luôn tái sử dụng maKH
+		// để tránh lỗi UNIQUE KEY khi INSERT.
+		if (isValidCccd(normCccd)) {
+			KhachHang byCccd = kh_dao.searchByCccd(normCccd);
+			if (byCccd != null) {
+				return byCccd.getMaKH();
 			}
 		}
+
+		// 2) Nếu SĐT đã có trong DB, lấy khách hàng được lưu đầu tiên.
+		if (!normSdt.isEmpty() && normSdt.length() == 10) {
+			List<KhachHang> list = kh_dao.searchBySdt(normSdt);
+			if (list != null && !list.isEmpty()) {
+				KhachHang bySdt = list.get(0); // lấy người lưu đầu tiên
+				return bySdt.getMaKH();
+			}
+		}
+
+		// 3) Nếu đang chỉnh sửa từ một maKH có sẵn nhưng không tìm thấy bản ghi theo SĐT/CCCD,
+		// thì chỉ giữ lại maKH cũ khi thông tin không đổi; nếu thông tin đã đổi hoàn toàn
+		// và chưa đụng khóa duy nhất nào thì tạo bản ghi mới.
+		if (!isBlank(currentMaKH)) {
+			KhachHang byMa = kh_dao.getKhachHangByMa(currentMaKH);
+			if (byMa != null) {
+				String byMaHoTen = byMa.getHoTen() != null ? toTitleCase(byMa.getHoTen()) : "";
+				String byMaSdt = byMa.getSdt() != null ? byMa.getSdt().trim() : "";
+				String byMaCccd = byMa.getCccd() != null ? byMa.getCccd().trim() : "";
+				String byMaEmail = byMa.getEmail() != null ? byMa.getEmail().trim().toLowerCase() : "";
+				if (byMaHoTen.equals(normHoTen) && byMaSdt.equals(normSdt) && byMaCccd.equals(normCccd)
+						&& byMaEmail.equals(normEmail)) {
+					return byMa.getMaKH();
+				}
+
+				String newMa = generateSafeMaKH();
+				KhachHang newKh = new KhachHang(newMa, normHoTen, normSdt, normCccd, normEmail, ngayThem);
+				if (kh_dao.addKhachHang(newKh)) {
+					return newKh.getMaKH();
+				}
+				return byMa.getMaKH();
+			}
+		}
+
+		// 4) Fallback: tạo khách hàng mới khi chưa có bản ghi nào khớp
 		String newMa = generateSafeMaKH();
-		String ngayThem = new java.text.SimpleDateFormat("dd/MM/yyyy").format(new java.util.Date());
-		KhachHang kh = new KhachHang(newMa, hoTen, sdt, cccd, email, ngayThem);
-		kh_dao.addKhachHang(kh);
-		return kh.getMaKH();
+		KhachHang kh = new KhachHang(newMa, normHoTen, normSdt, normCccd, normEmail, ngayThem);
+		if (kh_dao.addKhachHang(kh)) {
+			return kh.getMaKH();
+		}
+
+		// Nếu INSERT thất bại do race condition hoặc dữ liệu đã được lưu bởi thao tác khác,
+		// thử tìm lại theo CCCD/SĐT trước khi trả về mã tạm.
+		if (isValidCccd(normCccd)) {
+			KhachHang retryByCccd = kh_dao.searchByCccd(normCccd);
+			if (retryByCccd != null) {
+				return retryByCccd.getMaKH();
+			}
+		}
+		if (!normSdt.isEmpty() && normSdt.length() == 10) {
+			List<KhachHang> retryList = kh_dao.searchBySdt(normSdt);
+			if (retryList != null && !retryList.isEmpty()) {
+				return retryList.get(0).getMaKH();
+			}
+		}
+		return !isBlank(currentMaKH) ? currentMaKH : kh.getMaKH();
 	}
 
 	private void selectCard(int idx) {
@@ -791,10 +868,6 @@ public class Step3_NhapThongTinKH extends JPanel {
 		}
 	}
 
-	public void updateTimerDisplay(String text) {
-		if (lblTimer != null)
-			lblTimer.setText(text);
-	}
 
 	public void updatePassengerForms() {
 		confirmedBooker = null;
@@ -1009,3 +1082,4 @@ public class Step3_NhapThongTinKH extends JPanel {
 		}
 	}
 }
+
