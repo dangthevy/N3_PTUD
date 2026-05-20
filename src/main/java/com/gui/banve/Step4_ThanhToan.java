@@ -7,6 +7,7 @@ import com.dao.DAO_Tuyen;
 import com.dao.DAO_KhuyenMaiDetail;
 import com.entities.*;
 import com.enums.LoaiKhuyenMai;
+import com.enums.PTThanhToan;
 import com.enums.TrangThaiVe;
 
 import javax.swing.*;
@@ -14,6 +15,14 @@ import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,6 +34,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
@@ -42,16 +53,7 @@ import com.itextpdf.text.pdf.draw.LineSeparator;
 
 public class Step4_ThanhToan extends JPanel {
 
-	// ── Enum phương thức thanh toán ──────────────────────────────────────────
-	public enum PhuongThucThanhToan {
-		TIEN_MAT("💵  Tiền mặt"), CHUYEN_KHOAN("🏦  Chuyển khoản");
-
-		public final String label;
-
-		PhuongThucThanhToan(String label) {
-			this.label = label;
-		}
-	}
+	// ...existing code...
 
 	private final TAB_BanVe mainTab;
 	private final Connection conn;
@@ -171,9 +173,21 @@ public class Step4_ThanhToan extends JPanel {
 	private JLabel lblTongTien;
 
 	// ── Phương thức thanh toán đang chọn ─────────────────────────────────────
-	private PhuongThucThanhToan phuongThuc = PhuongThucThanhToan.TIEN_MAT;
+	private PTThanhToan phuongThuc = PTThanhToan.TIEN_MAT;
 	private JToggleButton btnTienMat;
 	private JToggleButton btnChuyenKhoan;
+
+	private static final String LABEL_TIEN_MAT = "Tiền mặt";
+	private static final String LABEL_CHUYEN_KHOAN = "Chuyển khoản";
+	// TODO: thay thông tin tài khoản theo thực tế
+	private static final String VIETQR_BANK_ID = "VPBank";
+	private static final String VIETQR_ACCOUNT = "0865532649";
+	private static final String VIETQR_ACCOUNT_NAME = "DANG THE VY";
+	// Sepay: endpoint danh sách giao dịch + API key
+	private static final String PAYMENT_STATUS_ENDPOINT = "https://my.sepay.vn/userapi/transactions/list";
+	private static final String SEPAY_API_KEY = "4YLJ5RBD72H5APO6CCQH0GMITN0JTFMYPXCSZVFRIS3YOVBSMRGZEZWNGSKDNQXL";
+	private static final int PAYMENT_POLL_INTERVAL_MS = 3000;
+	private static final int PAYMENT_POLL_TIMEOUT_MS = 120000;
 
 	private static final NumberFormat FMT = NumberFormat.getNumberInstance(new Locale("vi", "VN"));
 	private static final SimpleDateFormat SDF = new SimpleDateFormat("dd/MM/yyyy");
@@ -586,7 +600,7 @@ public class Step4_ThanhToan extends JPanel {
 					: "?";
 			String gio = ve.getLichTrinh().getGioKhoiHanh() != null ? String.format("%02d:%02d",
 					ve.getLichTrinh().getGioKhoiHanh().getHour(), ve.getLichTrinh().getGioKhoiHanh().getMinute()) : "?";
-			ngayGio = ngay + "  " + gio;
+			ngayGio = ngay + " " + gio;
 		}
 
 		String tenTuyen = getTenTuyenForVe(ve);
@@ -859,22 +873,30 @@ public class Step4_ThanhToan extends JPanel {
 			return;
 		}
 
+		long tongTienCuoiCung = 0;
+		for (VeEntry e : dsVe)
+			tongTienCuoiCung += e.thanhTien();
+
 		int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận",
 				JOptionPane.YES_NO_OPTION);
 		if (confirm != JOptionPane.YES_OPTION)
 			return;
-		isProcessingPayment = true;
 
-		long tongTienCuoiCung = 0;
-		for (VeEntry e : dsVe)
-			tongTienCuoiCung += e.thanhTien();
+		isProcessingPayment = true;
+		if (phuongThuc == PTThanhToan.CHUYEN_KHOAN) {
+			boolean paid = showChuyenKhoanDialog(tongTienCuoiCung);
+			if (!paid) {
+				isProcessingPayment = false;
+				return;
+			}
+		}
 
 		try {
 			// TẮT AUTO COMMIT ĐỂ BẢO VỆ DỮ LIỆU
 			conn.setAutoCommit(false);
 
 			// 1. INSERT VÀO BẢNG HOADON (Dùng currentMaHD đồng bộ với Mã Vé)
-			String sqlHD = "INSERT INTO HoaDon (maHD, maNV, maKH, tongTien) VALUES (?, ?, ?, ?)";
+			String sqlHD = "INSERT INTO HoaDon (maHD, maNV, maKH, tongTien, phuongThucThanhToan) VALUES (?, ?, ?, ?, ?)";
 			try (PreparedStatement psHD = conn.prepareStatement(sqlHD)) {
 				psHD.setString(1, this.currentMaHD);
 				psHD.setString(2, nv.getMaNV());
@@ -884,6 +906,7 @@ public class Step4_ThanhToan extends JPanel {
 					psHD.setString(3, kh.getMaKH());
 				}
 				psHD.setLong(4, tongTienCuoiCung);
+				psHD.setString(5, phuongThuc.name());
 				psHD.executeUpdate();
 			}
 			// LOOP TỪNG VÉ
@@ -964,11 +987,9 @@ public class Step4_ThanhToan extends JPanel {
 			conn.commit();
 
 			String printNote = "";
-			if (phuongThuc == PhuongThucThanhToan.TIEN_MAT) {
-				String printPath = inHoaDonTienMat();
-				if (printPath != null && !printPath.isEmpty()) {
-					printNote = "\nĐã lưu hóa đơn: " + printPath;
-				}
+			String printPath = inHoaDonTienMat();
+			if (printPath != null && !printPath.isEmpty()) {
+				printNote = "\nĐã lưu hóa đơn: " + printPath;
 			}
 
 			JOptionPane.showMessageDialog(this,
@@ -1112,15 +1133,15 @@ public class Step4_ThanhToan extends JPanel {
 		JPanel btnRow = new JPanel(new GridLayout(1, 2, 10, 0));
 		btnRow.setOpaque(false);
 
-		btnTienMat = makePaymentBtn(PhuongThucThanhToan.TIEN_MAT, true);
-		btnChuyenKhoan = makePaymentBtn(PhuongThucThanhToan.CHUYEN_KHOAN, false);
+		btnTienMat = makePaymentBtn(PTThanhToan.TIEN_MAT, LABEL_TIEN_MAT, true);
+		btnChuyenKhoan = makePaymentBtn(PTThanhToan.CHUYEN_KHOAN, LABEL_CHUYEN_KHOAN, false);
 
 		ButtonGroup bg = new ButtonGroup();
 		bg.add(btnTienMat);
 		bg.add(btnChuyenKhoan);
 
-		btnTienMat.addActionListener(e -> phuongThuc = PhuongThucThanhToan.TIEN_MAT);
-		btnChuyenKhoan.addActionListener(e -> phuongThuc = PhuongThucThanhToan.CHUYEN_KHOAN);
+		btnTienMat.addActionListener(e -> phuongThuc = PTThanhToan.TIEN_MAT);
+		btnChuyenKhoan.addActionListener(e -> phuongThuc = PTThanhToan.CHUYEN_KHOAN);
 
 		btnRow.add(btnTienMat);
 		btnRow.add(btnChuyenKhoan);
@@ -1128,8 +1149,8 @@ public class Step4_ThanhToan extends JPanel {
 		return pnl;
 	}
 
-	private JToggleButton makePaymentBtn(PhuongThucThanhToan pt, boolean selected) {
-		JToggleButton btn = new JToggleButton(pt.label, selected) {
+	private JToggleButton makePaymentBtn(PTThanhToan pt, String label, boolean selected) {
+		JToggleButton btn = new JToggleButton(label, selected) {
 			private static final Color CLR_SEL_BG = new Color(0xEEFCF6);
 			private static final Color CLR_SEL_BD = new Color(0x00A676);
 			private static final Color CLR_IDLE_BG = Color.WHITE;
@@ -1156,6 +1177,7 @@ public class Step4_ThanhToan extends JPanel {
 				super.paintComponent(g);
 			}
 		};
+		btn.setText(label);
 		btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
 		btn.setForeground(selected ? new Color(0x00A676) : UIHelper.TEXT_MID);
 		btn.setHorizontalAlignment(SwingConstants.CENTER);
@@ -1166,6 +1188,234 @@ public class Step4_ThanhToan extends JPanel {
 		btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		btn.addItemListener(e -> btn.setForeground(btn.isSelected() ? new Color(0x00A676) : UIHelper.TEXT_MID));
 		return btn;
+	}
+
+	private boolean showChuyenKhoanDialog(long amount) {
+		JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Thanh toán chuyển khoản", true);
+		dlg.setLayout(new BorderLayout(0, 10));
+		dlg.setResizable(false);
+
+		JPanel panel = new JPanel(new BorderLayout(0, 10));
+		panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+		JPanel header = new JPanel(new GridLayout(4, 1, 0, 4));
+		header.setOpaque(false);
+		JLabel lblTitle = new JLabel("Quét QR để thanh toán");
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		JLabel lblInfo = new JLabel(
+				"Ngân hàng: " + VIETQR_BANK_ID + "  |  STK: " + VIETQR_ACCOUNT + "  |  Chủ TK: "
+							+ VIETQR_ACCOUNT_NAME);
+		lblInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+		JLabel lblAmount = new JLabel("Số tiền: " + formatTien(amount));
+		lblAmount.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+		JLabel lblStatus = new JLabel("Đang chờ xác nhận thanh toán...");
+		lblStatus.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+		lblStatus.setForeground(UIHelper.TEXT_MID);
+		header.add(lblTitle);
+		header.add(lblInfo);
+		header.add(lblAmount);
+		header.add(lblStatus);
+		panel.add(header, BorderLayout.NORTH);
+
+		ImageIcon qrIcon = buildVietQrImage(amount);
+		JLabel lblQr = new JLabel();
+		lblQr.setHorizontalAlignment(SwingConstants.CENTER);
+		lblQr.setVerticalAlignment(SwingConstants.CENTER);
+		if (qrIcon != null) {
+			lblQr.setIcon(qrIcon);
+		} else {
+			lblQr.setText("Không tải được mã QR. Vui lòng thử lại.");
+		}
+		panel.add(lblQr, BorderLayout.CENTER);
+
+		JPanel footer = new JPanel(new GridLayout(1, 1, 8, 0));
+		footer.setOpaque(false);
+		JButton btnBankError = new JButton("Lỗi ngân hàng");
+		btnBankError.setForeground(UIHelper.DANGER);
+		btnBankError.setFocusPainted(false);
+		btnBankError.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		footer.add(btnBankError);
+		panel.add(footer, BorderLayout.SOUTH);
+
+		dlg.add(panel, BorderLayout.CENTER);
+		dlg.pack();
+		dlg.setLocationRelativeTo(this);
+
+		final boolean[] paid = { false };
+		final boolean[] canceled = { false };
+		final long startAt = System.currentTimeMillis();
+
+		javax.swing.Timer pollTimer = new javax.swing.Timer(PAYMENT_POLL_INTERVAL_MS, null);
+		pollTimer.addActionListener(ev -> {
+			if (canceled[0] || paid[0]) {
+				((javax.swing.Timer) ev.getSource()).stop();
+				return;
+			}
+			long elapsed = System.currentTimeMillis() - startAt;
+			if (elapsed > PAYMENT_POLL_TIMEOUT_MS) {
+				lblStatus.setText("Hết thời gian chờ thanh toán. Vui lòng thử lại hoặc báo lỗi ngân hàng.");
+				((javax.swing.Timer) ev.getSource()).stop();
+				return;
+			}
+
+			new SwingWorker<Boolean, Void>() {
+				@Override
+				protected Boolean doInBackground() {
+					return checkPaymentStatus(currentMaHD, amount);
+				}
+
+				@Override
+				protected void done() {
+					if (canceled[0] || paid[0]) {
+						return;
+					}
+					try {
+						Boolean ok = get();
+						if (Boolean.TRUE.equals(ok)) {
+							paid[0] = true;
+							lblStatus.setText("Đã nhận thanh toán. Đang xử lý...");
+							dlg.dispose();
+						} else {
+							lblStatus.setText("Chưa ghi nhận thanh toán. Vui lòng chờ...");
+						}
+					} catch (Exception ex) {
+						lblStatus.setText("Không kiểm tra được trạng thái thanh toán. Đang thử lại...");
+					}
+				}
+			}.execute();
+		});
+
+		btnBankError.addActionListener(ev -> {
+			canceled[0] = true;
+			pollTimer.stop();
+			dlg.dispose();
+		});
+
+		dlg.addWindowListener(new java.awt.event.WindowAdapter() {
+			@Override
+			public void windowClosed(java.awt.event.WindowEvent e) {
+				pollTimer.stop();
+			}
+		});
+
+		pollTimer.setInitialDelay(0);
+		pollTimer.start();
+		dlg.setVisible(true);
+
+		return paid[0];
+	}
+
+	private boolean checkPaymentStatus(String maHD, long amount) {
+		if (isBlank(maHD)) {
+			return false;
+		}
+		HttpURLConnection http = null;
+		try {
+			String url = buildPaymentStatusUrl(maHD, amount);
+			http = (HttpURLConnection) new URL(url).openConnection();
+			http.setRequestMethod("GET");
+			http.setConnectTimeout(5000);
+			http.setReadTimeout(5000);
+			http.setRequestProperty("Authorization", "Bearer " + SEPAY_API_KEY);
+			http.setRequestProperty("Accept", "application/json");
+			int code = http.getResponseCode();
+			if (code != 200) {
+				return false;
+			}
+			String body = readResponse(http);
+			return parsePaymentStatus(body, maHD, amount);
+		} catch (Exception e) {
+			return false;
+		} finally {
+			if (http != null) {
+				http.disconnect();
+			}
+		}
+	}
+
+	private String buildPaymentStatusUrl(String maHD, long amount) {
+		// Sepay list endpoint: không cần query params để lọc
+		return PAYMENT_STATUS_ENDPOINT;
+	}
+
+	private String readResponse(HttpURLConnection http) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(http.getInputStream(), StandardCharsets.UTF_8))) {
+			StringBuilder sb = new StringBuilder();
+			String line;
+			while ((line = br.readLine()) != null) {
+				sb.append(line);
+			}
+			return sb.toString();
+		} catch (Exception e) {
+			return "";
+		}
+	}
+
+	private boolean parsePaymentStatus(String body, String maHD, long amount) {
+		if (body == null || isBlank(maHD)) {
+			return false;
+		}
+		String target = maHD.trim().toUpperCase(Locale.ROOT);
+		Matcher objMatcher = Pattern.compile("\\{[^\\{\\}]*\\}").matcher(body);
+		while (objMatcher.find()) {
+			String obj = objMatcher.group();
+			String content = extractJsonString(obj, "transaction_content");
+			Long amountIn = extractJsonLong(obj, "amount_in");
+			if (content != null && amountIn != null) {
+				if (content.toUpperCase(Locale.ROOT).contains(target) && amountIn >= amount) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private String extractJsonString(String json, String key) {
+		Pattern p = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"(.*?)\"", Pattern.CASE_INSENSITIVE);
+		Matcher m = p.matcher(json);
+		if (m.find()) {
+			return m.group(1);
+		}
+		return null;
+	}
+
+	private Long extractJsonLong(String json, String key) {
+		Pattern p = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"?(\\d+)\"?", Pattern.CASE_INSENSITIVE);
+		Matcher m = p.matcher(json);
+		if (m.find()) {
+			try {
+				return Long.parseLong(m.group(1));
+			} catch (NumberFormatException ignored) {
+				return null;
+			}
+		}
+		return null;
+	}
+
+	private ImageIcon buildVietQrImage(long amount) {
+		try {
+			String addInfo = "HD " + (currentMaHD != null ? currentMaHD : "");
+			String url = buildVietQrUrl(amount, addInfo);
+			BufferedImage img = ImageIO.read(new URL(url));
+			if (img == null) {
+				return null;
+			}
+			Image scaled = img.getScaledInstance(260, 260, Image.SCALE_SMOOTH);
+			return new ImageIcon(scaled);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private String buildVietQrUrl(long amount, String addInfo) {
+		String info = URLEncoder.encode(addInfo, StandardCharsets.UTF_8);
+		String name = URLEncoder.encode(VIETQR_ACCOUNT_NAME, StandardCharsets.UTF_8);
+		return "https://img.vietqr.io/image/" + VIETQR_BANK_ID + "-" + VIETQR_ACCOUNT
+				+ "-compact2.png?amount=" + amount + "&addInfo=" + info + "&accountName=" + name;
+	}
+
+	private String getPaymentLabel(PTThanhToan pt) {
+		return pt == PTThanhToan.CHUYEN_KHOAN ? "Chuyển khoản" : "Tiền mặt";
 	}
 
 	// =========================================================================
@@ -1480,7 +1730,7 @@ public class Step4_ThanhToan extends JPanel {
 			doc.add(new Paragraph(" ", fS));
 			addInfoLine(doc, "Họ tên người mua:", tenKH, fIL, fN);
 			addInfoLine(doc, "Hình thức thanh toán:", " "
-					+ (phuongThuc == PhuongThucThanhToan.TIEN_MAT ? "Tiền mặt" : "Chuyển khoản"), fIL, fN);
+								+ getPaymentLabel(phuongThuc), fIL, fN);
 			doc.add(new Paragraph(" ", fS));
 
 			float[] colWidths = { 28f, 95f, 115f, 35f, 25f, 85f, 90f, 85f };

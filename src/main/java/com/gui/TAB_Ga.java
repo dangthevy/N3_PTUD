@@ -202,20 +202,27 @@ public class TAB_Ga extends JPanel {
         JTextField txtTen = makeField("");
         JTextField txtDiaChi = makeField("");
         JTextField txtTinhThanh = makeField("");
+        JTextField[] requiredFields = {txtTen, txtDiaChi, txtTinhThanh};
+        String[] requiredLabels = {"Tên ga", "Địa chỉ", "Tỉnh thành"};
+        JLabel[] errorLabels = {makeErrorLabel(), makeErrorLabel(), makeErrorLabel()};
 
         int r = 0;
         addRow(form, gc, r++, "Mã Ga:", txtMa);
         addRow(form, gc, r++, "Tên Ga:", txtTen);
+        addErrorRow(form, gc, r++, errorLabels[0]);
         addRow(form, gc, r++, "Địa chỉ:", txtDiaChi);
+        addErrorRow(form, gc, r++, errorLabels[1]);
         addRow(form, gc, r++, "Tỉnh thành:", txtTinhThanh);
+        addErrorRow(form, gc, r++, errorLabels[2]);
 
         JButton btnHuy = makeBtn("Hủy", BtnStyle.SECONDARY);
         JButton btnThem = makeBtn("Thêm", BtnStyle.PRIMARY);
 
+        enableEnterFlow(requiredFields, requiredLabels, errorLabels, btnThem);
         btnHuy.addActionListener(e -> dialog.dispose());
         btnThem.addActionListener(e -> {
+            if (!validateRequiredFields(requiredFields, requiredLabels, errorLabels)) return;
             String tenMoi = txtTen.getText().trim();
-            if (tenMoi.isEmpty()) { warn("Tên ga không được để trống!"); return; }
 
             for (Ga existingGa : dsGa.getAllGa()) {
                 if (existingGa.getTenGa().equalsIgnoreCase(tenMoi)) {
@@ -238,6 +245,7 @@ public class TAB_Ga extends JPanel {
         btnPanel.setOpaque(false); btnPanel.add(btnHuy); btnPanel.add(btnThem);
         dialog.add(form, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
+        focusFieldWhenDialogOpens(dialog, txtTen, false);
         dialog.pack(); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
 
@@ -255,20 +263,27 @@ public class TAB_Ga extends JPanel {
         JTextField txtTen = makeField(""); txtTen.setText(gaHienTai.getTenGa());
         JTextField txtDiaChi = makeField(""); txtDiaChi.setText(gaHienTai.getDiaChi());
         JTextField txtTinhThanh = makeField(""); txtTinhThanh.setText(gaHienTai.getTinhThanh());
+        JTextField[] requiredFields = {txtTen, txtDiaChi, txtTinhThanh};
+        String[] requiredLabels = {"Tên ga", "Địa chỉ", "Tỉnh thành"};
+        JLabel[] errorLabels = {makeErrorLabel(), makeErrorLabel(), makeErrorLabel()};
 
         int r = 0;
         addRow(form, gc, r++, "Mã Ga:", txtMa);
         addRow(form, gc, r++, "Tên Ga:", txtTen);
+        addErrorRow(form, gc, r++, errorLabels[0]);
         addRow(form, gc, r++, "Địa chỉ:", txtDiaChi);
+        addErrorRow(form, gc, r++, errorLabels[1]);
         addRow(form, gc, r++, "Tỉnh thành:", txtTinhThanh);
+        addErrorRow(form, gc, r++, errorLabels[2]);
 
         JButton btnHuy = makeBtn("Hủy", BtnStyle.SECONDARY);
         JButton btnSua = makeBtn("Cập nhật", BtnStyle.PRIMARY);
 
+        enableEnterFlow(requiredFields, requiredLabels, errorLabels, btnSua);
         btnHuy.addActionListener(e -> dialog.dispose());
         btnSua.addActionListener(e -> {
+            if (!validateRequiredFields(requiredFields, requiredLabels, errorLabels)) return;
             String tenSua = txtTen.getText().trim();
-            if (tenSua.isEmpty()) { warn("Tên ga không được để trống!"); return; }
 
             for (Ga existingGa : dsGa.getAllGa()) {
                 if (!existingGa.getMaGa().equals(txtMa.getText()) && existingGa.getTenGa().equalsIgnoreCase(tenSua)) {
@@ -291,6 +306,7 @@ public class TAB_Ga extends JPanel {
         btnPanel.setOpaque(false); btnPanel.add(btnHuy); btnPanel.add(btnSua);
         dialog.add(form, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
+        focusFieldWhenDialogOpens(dialog, txtTen, true);
         dialog.pack(); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
 
@@ -379,6 +395,20 @@ public class TAB_Ga extends JPanel {
         gc.gridx = 1; gc.weightx = 1; field.setPreferredSize(new Dimension(260, 36)); form.add(field, gc);
     }
 
+    private void addErrorRow(JPanel form, GridBagConstraints gc, int row, JLabel errorLabel) {
+        gc.gridx = 0; gc.gridy = row; gc.weightx = 0;
+        form.add(Box.createHorizontalStrut(1), gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(errorLabel, gc);
+    }
+
+    private JLabel makeErrorLabel() {
+        JLabel lbl = new JLabel(" ");
+        lbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lbl.setForeground(BTN_RED);
+        return lbl;
+    }
+
     private JButton makeBtn(String text, BtnStyle style) {
         JButton b = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
@@ -402,6 +432,57 @@ public class TAB_Ga extends JPanel {
         JDialog d = (owner instanceof Frame) ? new JDialog((Frame)owner, title, true) : new JDialog((Dialog)owner, title, true);
         d.setLayout(new BorderLayout()); d.getContentPane().setBackground(BG_PAGE);
         d.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE); return d;
+    }
+
+    private void focusFieldWhenDialogOpens(JDialog dialog, JTextField field, boolean selectAll) {
+        dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                SwingUtilities.invokeLater(() -> {
+                    field.requestFocusInWindow();
+                    if (selectAll) field.selectAll();
+                });
+            }
+        });
+    }
+
+    private boolean validateRequiredFields(JTextField[] fields, String[] labels, JLabel[] errorLabels) {
+        boolean valid = true;
+        for (JLabel errorLabel : errorLabels) errorLabel.setText(" ");
+
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i].getText().trim().isEmpty()) {
+                errorLabels[i].setText("Vui lòng nhập " + labels[i]);
+                if (valid) {
+                    fields[i].requestFocusInWindow();
+                    fields[i].selectAll();
+                }
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
+    private void enableEnterFlow(JTextField[] fields, String[] labels, JLabel[] errorLabels, JButton submitButton) {
+        for (int i = 0; i < fields.length; i++) {
+            final int currentIndex = i;
+            fields[i].addActionListener(e -> {
+                if (fields[currentIndex].getText().trim().isEmpty()) {
+                    errorLabels[currentIndex].setText("Vui lòng nhập " + labels[currentIndex]);
+                    fields[currentIndex].requestFocusInWindow();
+                    fields[currentIndex].selectAll();
+                    return;
+                }
+
+                errorLabels[currentIndex].setText(" ");
+                if (currentIndex < fields.length - 1) {
+                    fields[currentIndex + 1].requestFocusInWindow();
+                    fields[currentIndex + 1].selectAll();
+                } else {
+                    submitButton.doClick();
+                }
+            });
+        }
     }
 
     private void styleScrollBar(JScrollBar sb) {

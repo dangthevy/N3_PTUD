@@ -211,6 +211,8 @@ CREATE TABLE HoaDon (
     maNV VARCHAR(6),
     maKH VARCHAR(15),
     tongTien DECIMAL(12,0) DEFAULT 0,
+    phuongThucThanhToan NVARCHAR(20) NOT NULL DEFAULT 'TIEN_MAT'
+        CHECK (phuongThucThanhToan IN ('TIEN_MAT','CHUYEN_KHOAN')),
     FOREIGN KEY (maNV) REFERENCES NhanVien(maNV),
     CONSTRAINT FK_HoaDon_KhachHang FOREIGN KEY (maKH) REFERENCES KhachHang(maKH)
 );
@@ -728,5 +730,28 @@ IF NOT EXISTS (
 )
 BEGIN
     ALTER TABLE KhachHang ADD ngayThem DATE NULL;
+END
+GO
+
+-- =========================================================================
+-- BỔ SUNG PHƯƠNG THỨC THANH TOÁN CHO HÓA ĐƠN
+-- =========================================================================
+IF NOT EXISTS (
+  SELECT * FROM sys.columns
+  WHERE object_id = OBJECT_ID('HoaDon')
+  AND name = 'phuongThucThanhToan'
+)
+BEGIN
+    ALTER TABLE HoaDon
+      ADD phuongThucThanhToan NVARCHAR(20) NOT NULL
+          CONSTRAINT DF_HoaDon_PTTT DEFAULT 'TIEN_MAT';
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_HoaDon_PTTT')
+BEGIN
+    ALTER TABLE HoaDon
+      ADD CONSTRAINT CK_HoaDon_PTTT
+      CHECK (phuongThucThanhToan IN ('TIEN_MAT','CHUYEN_KHOAN'));
 END
 GO

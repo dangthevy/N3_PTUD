@@ -16,12 +16,8 @@ public class GUI_General extends JPanel {
     private TAB_BanVe tab_BanVe;
     private TAB_TraCuuVe tab_TraCuuVe;
     private TAB_ThanhToanLapHD tab_ThanhToanLapHD;
-//    private TAB_Tau tab_Tau;
     private TAB_Ga tab_Ga;
     private TAB_Tuyen tab_Tuyen;
-//    private TAB_Toa tab_Toa;
-//    private TAB_Cho tab_Cho;
-//    private TAB_LoaiToa tab_LoaiToa;
     private TAB_QuanLyDoanTau tab_qlDoanTau;
     private TAB_LichTrinh_ChuyenTau tab_LichTrinh_ChuyenTau;
     private TAB_Gia tab_Gia;
@@ -58,10 +54,6 @@ public class GUI_General extends JPanel {
         tab_BanVe.setNhanVien(nv);
         tab_TraCuuVe = new TAB_TraCuuVe();
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
-//        tab_Tau = new TAB_Tau();
-//        tab_Toa = new TAB_Toa();
-//        tab_LoaiToa = new TAB_LoaiToa();
-//        tab_Cho = new TAB_Cho();
         tab_qlDoanTau = new TAB_QuanLyDoanTau();
         tab_Ga = new TAB_Ga();
         tab_Tuyen = new TAB_Tuyen();
@@ -130,7 +122,7 @@ public class GUI_General extends JPanel {
 		addTabButton(sidebar, "Tra cứu vé", tab_TraCuuVe, canAccessMain);
 		addTabButton(sidebar, "Tra cứu hóa đơn", tab_ThanhToanLapHD, canAccessMain);
 		if (sidebar.getComponentCount() > before + 1) {
-			sidebar.add(Box.createVerticalStrut(10));
+			sidebar.add(Box.createVerticalStrut(1));
 		} else {
 			sidebar.remove(before);
 		}
@@ -149,7 +141,7 @@ public class GUI_General extends JPanel {
 		addTabButton(sidebar, "Quản lý Nhân viên", tab_QLNhanVien, canAccessAdminTools);
 		addTabButton(sidebar, "Quản lý Khách hàng", tab_QLKhachHang, canAccessKhachHang);
 		addTabButton(sidebar, "Khuyến mãi", tab_KhuyenMai, canAccessAdminTools);
-		sidebar.add(Box.createVerticalStrut(10));
+		sidebar.add(Box.createVerticalStrut(1));
 	}
 
 	private void addReportSection(JPanel sidebar, boolean canAccessAdminTools) {
@@ -264,11 +256,11 @@ public class GUI_General extends JPanel {
 	}
 
 	private JLabel createSideTitle(String title) {
-		JLabel lbl = new JLabel(title);
-		lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-		lbl.setForeground(TEXT_LIGHT);
-		// Đã ép padding top về 0 để ôm sát với separator
-		lbl.setBorder(BorderFactory.createEmptyBorder(0, 20, 8, 0));
+		JLabel lbl = new JLabel("");
+		lbl.setVisible(false);
+		lbl.setPreferredSize(new Dimension(0, 0));
+		lbl.setMinimumSize(new Dimension(0, 0));
+		lbl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 0));
 		return lbl;
 	}
 
@@ -369,3 +361,4 @@ public class GUI_General extends JPanel {
 		return header;
 	}
 }
+

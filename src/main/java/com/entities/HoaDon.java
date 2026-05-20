@@ -2,6 +2,7 @@ package com.entities;
 
 import java.util.Date;
 import java.util.List;
+import com.enums.PTThanhToan;
 
 public class HoaDon {
 	private String maHD;
@@ -11,6 +12,7 @@ public class HoaDon {
 
 	// Chỉ lưu Tổng Tiền Cuối Cùng (theo cấu trúc DB mới)
 	private double tongTien;
+	private PTThanhToan phuongThucThanhToan = PTThanhToan.TIEN_MAT;
 
 	// Quan hệ 1-N: Một hóa đơn có nhiều chi tiết hóa đơn (vé)
 	private List<CTietHoaDon> danhSachChiTiet;
@@ -18,14 +20,21 @@ public class HoaDon {
 	public HoaDon() {
 		this.ngayLap = new Date(); // Gán ngay ngày hiện tại khi vừa tạo đối tượng
 		this.tongTien = 0;
+		this.phuongThucThanhToan = PTThanhToan.TIEN_MAT;
 	}
 
 	public HoaDon(String maHD, Date ngayLap, NhanVien nhanVien, KhachHang khachHang, double tongTien) {
+		this(maHD, ngayLap, nhanVien, khachHang, tongTien, PTThanhToan.TIEN_MAT);
+	}
+
+	public HoaDon(String maHD, Date ngayLap, NhanVien nhanVien, KhachHang khachHang, double tongTien,
+			PTThanhToan phuongThucThanhToan) {
 		this.maHD = maHD;
 		this.ngayLap = ngayLap;
 		this.nhanVien = nhanVien;
 		this.khachHang = khachHang;
 		this.tongTien = tongTien;
+		this.phuongThucThanhToan = phuongThucThanhToan != null ? phuongThucThanhToan : PTThanhToan.TIEN_MAT;
 	}
 
 	// Hàm tính toán logic (Business Logic) dựa theo Item-Level Discount
@@ -79,6 +88,14 @@ public class HoaDon {
 
 	public void setTongTien(double tongTien) {
 		this.tongTien = tongTien;
+	}
+
+	public PTThanhToan getPhuongThucThanhToan() {
+		return phuongThucThanhToan;
+	}
+
+	public void setPhuongThucThanhToan(PTThanhToan phuongThucThanhToan) {
+		this.phuongThucThanhToan = phuongThucThanhToan != null ? phuongThucThanhToan : PTThanhToan.TIEN_MAT;
 	}
 
 	public List<CTietHoaDon> getDanhSachChiTiet() {

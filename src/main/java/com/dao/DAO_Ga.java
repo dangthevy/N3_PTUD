@@ -39,19 +39,6 @@ public class DAO_Ga {
         return ga;
     }
 
-    public String getTenGaByMa(String maGa) {
-        String tenGa = "";
-        String sql = "SELECT tenGa FROM Ga WHERE maGa = ?";
-        try (Connection conn = ConnectDB.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maGa);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) tenGa = rs.getString("tenGa");
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
-        return tenGa;
-    }
-
     public List<Ga> timKiemGa(String tuKhoa) {
         List<Ga> dsGa = new ArrayList<>();
         // Tìm kiếm trên cả mã ga, tên ga, địa chỉ và tỉnh thành
