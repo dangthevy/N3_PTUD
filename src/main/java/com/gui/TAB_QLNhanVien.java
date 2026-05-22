@@ -5,7 +5,6 @@ import com.dao.DAO_NhanVien;
 import com.entities.NhanVien;
 import com.enums.ChucVu;
 import com.enums.TrangThaiNhanVien;
-import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
@@ -17,10 +16,13 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.Connection;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -50,6 +52,7 @@ public class TAB_QLNhanVien extends JPanel {
     private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
     private static final Font F_CELL = new Font("Segoe UI", Font.PLAIN, 13);
+    private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
 
     private enum BtnStyle { PRIMARY, SECONDARY, DANGER }
     private static final String DATE_FORMAT = "dd/MM/yyyy";
@@ -62,7 +65,7 @@ public class TAB_QLNhanVien extends JPanel {
     private JTable table;
     private DefaultTableModel tableModel;
     DAO_NhanVien daoNhanVien;
-    JDateChooser dateVaoLam;
+    DatePickerField dateVaoLam;
 
     JLabel lblTotal = new JLabel("0");
     JLabel lblActive = new JLabel("0");
@@ -713,26 +716,52 @@ public class TAB_QLNhanVien extends JPanel {
         return pf;
     }
 
-    private JButton makeTogglePasswordBtn(JPasswordField pf) {
-        JButton btn = new JButton("👁") {
-            boolean showing = false;
-            {
-                setToolTipText("Hiện/ẩn mật khẩu");
-                addActionListener(e -> {
-                    showing = !showing;
-                    pf.setEchoChar(showing ? (char) 0 : '●');
-                    setText(showing ? "🙈" : "👁");
-                    pf.repaint();
-                });
+    private JToggleButton makeTogglePasswordBtn(JPasswordField pf) {
+        JToggleButton btn = new JToggleButton() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(isSelected() ? ROW_SEL : BG_CARD);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+
+                g2.setColor(isSelected() ? ACCENT : BORDER);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+
+                g2.setColor(isSelected() ? ACCENT : TEXT_MID);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                int cx = getWidth() / 2;
+                int cy = getHeight() / 2;
+
+                if (isSelected()) {
+                    g2.drawOval(cx - 8, cy - 5, 16, 10);
+                    g2.fillOval(cx - 3, cy - 3, 6, 6);
+                } else {
+                    g2.drawArc(cx - 8, cy - 6, 16, 12, 30, 120);
+                    g2.drawArc(cx - 8, cy - 6, 16, 12, 210, 120);
+                    g2.fillOval(cx - 3, cy - 3, 6, 6);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx - 7, cy + 5, cx + 7, cy - 5);
+                }
+
+                g2.dispose();
             }
         };
-        btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
-        btn.setPreferredSize(new Dimension(38, 30));
+
+        btn.setToolTipText("Hiện/ẩn mật khẩu");
+        btn.setPreferredSize(new Dimension(46, 0));
+        btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setBackground(BG_CARD);
+        btn.addActionListener(e -> {
+            pf.setEchoChar(btn.isSelected() ? (char) 0 : '●');
+            pf.repaint();
+            btn.repaint();
+        });
+
         return btn;
     }
 
@@ -744,16 +773,18 @@ public class TAB_QLNhanVien extends JPanel {
         return panel;
     }
 
-    // [THÊM MỚI] makeStyledComboBox – đồng bộ style với makeField
-    // Nền F8FAFD, border BORDER→ACCENT_FOC khi focus, font F_CELL
+    // [SỬA] ComboBox dùng trong dialog nhân viên: khóa chiều cao và giữ tổng border/inset
+    // không đổi giữa trạng thái thường/focus để GridBagLayout không tính lại layout làm dialog bị nhảy hàng.
     private <T> JComboBox<T> makeStyledComboBox(T[] items) {
         JComboBox<T> cb = new JComboBox<>(items);
         cb.setFont(F_CELL);
         cb.setBackground(new Color(0xF8FAFD));
         cb.setForeground(TEXT_DARK);
+        cb.setPreferredSize(new Dimension(260, 34));
+        cb.setMinimumSize(new Dimension(120, 34));
         cb.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(BORDER, 1, true),
-                BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+                BorderFactory.createEmptyBorder(5, 9, 5, 9)));
 
         cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
             @Override
@@ -787,7 +818,7 @@ public class TAB_QLNhanVien extends JPanel {
                 b.setContentAreaFilled(false);
                 b.setFocusPainted(false);
                 b.setOpaque(false);
-                b.setPreferredSize(new Dimension(24, 0));
+                b.setPreferredSize(new Dimension(28, 0));
                 b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 return b;
             }
@@ -798,71 +829,23 @@ public class TAB_QLNhanVien extends JPanel {
             public void focusGained(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(ACCENT_FOC, 2, true),
-                        BorderFactory.createEmptyBorder(0, 3, 0, 3)));
+                        BorderFactory.createEmptyBorder(4, 8, 4, 8)));
             }
 
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(BORDER, 1, true),
-                        BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
             }
         });
 
         return cb;
     }
 
-    // [THÊM MỚI] makeStyledDateChooser – đồng bộ style với makeField
-    // Nền F8FAFD, border BORDER→ACCENT_FOC khi focus
-    private JDateChooser makeStyledDateChooser() {
-        JDateChooser dc = new JDateChooser();
-        dc.setDateFormatString(DATE_FORMAT);
-        dc.setFont(F_CELL);
-        dc.setBackground(new Color(0xF8FAFD));
-
-        // Style phần text bên trong
-        JTextField editor = (JTextField) dc.getDateEditor().getUiComponent();
-        editor.setFont(F_CELL);
-        editor.setForeground(TEXT_DARK);
-        editor.setBackground(new Color(0xF8FAFD));
-        editor.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 4));
-
-        // Style nút lịch (calendar button)
-        for (Component c : dc.getComponents()) {
-            if (c instanceof JButton) {
-                JButton calBtn = (JButton) c;
-                calBtn.setPreferredSize(new Dimension(30, 0));
-                calBtn.setBackground(new Color(0xF8FAFD));
-                calBtn.setForeground(TEXT_MID);
-                calBtn.setBorderPainted(false);
-                calBtn.setFocusPainted(false);
-                calBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                // Vẽ icon lịch nhỏ thay vì icon mặc định xấu
-                calBtn.setIcon(null);
-                calBtn.setText("▦");
-                calBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            }
-        }
-
-        // Outer border giống makeField
-        dc.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(BORDER, 1, true),
-                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
-
-        // Focus border – lắng nghe trên editor
-        editor.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusGained(java.awt.event.FocusEvent e) {
-                dc.setBorder(BorderFactory.createCompoundBorder(
-                        new LineBorder(ACCENT_FOC, 2, true),
-                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
-            }
-            @Override public void focusLost(java.awt.event.FocusEvent e) {
-                dc.setBorder(BorderFactory.createCompoundBorder(
-                        new LineBorder(BORDER, 1, true),
-                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
-            }
-        });
-        return dc;
+    // Date picker lấy từ dialog thêm bảng giá, bọc lại để giữ nguyên luồng gọi hiện tại
+    private DatePickerField makeStyledDateChooser() {
+        return new DatePickerField("");
     }
 
 //    private void updateTableRow(NhanVien nv) {
@@ -928,7 +911,7 @@ public class TAB_QLNhanVien extends JPanel {
             JPasswordField txtNewPassword,
             JComboBox<ChucVu> cbChucVu,
             JComboBox<TrangThaiNhanVien> cbStatus,
-            JDateChooser dateVaoLam
+            DatePickerField dateVaoLam
     ) {
         if (txtName.getText().isEmpty())
             throw new RuntimeException("Tên không được rỗng");
@@ -948,7 +931,7 @@ public class TAB_QLNhanVien extends JPanel {
 
         nv.setChucVu((ChucVu) cbChucVu.getSelectedItem());
         nv.setTrangThai((TrangThaiNhanVien) cbStatus.getSelectedItem());
-        nv.setNgayVaoLam(dateVaoLam.getDate());
+        nv.setNgayVaoLam(dateVaoLam.getDateValue());
 
         return nv;
     }
@@ -1190,6 +1173,381 @@ public class TAB_QLNhanVien extends JPanel {
             l.setFont(new Font("Segoe UI", Font.BOLD, 13));
             l.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 6));
             return l;
+        }
+    }
+
+
+    // ================= DATE PICKER =================
+    // Lấy style/behavior từ DatePickerField của TAB_Gia và bổ sung getDateValue()/setDate(Date)
+    // để giữ nguyên logic đang lưu Date vào NhanVien.
+    private class DatePickerField extends JPanel {
+        private final JTextField txt;
+        private final Calendar cal;
+        private JPanel pnlGrid;
+        private JComboBox<String> cbThang;
+        private JComboBox<Integer> cbNam;
+        private JWindow popup;
+
+        private static final String[] TEN_THANG = {
+                "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+                "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+        };
+        private static final String[] TEN_THU = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
+
+        DatePickerField(String init) {
+            setLayout(new BorderLayout());
+            setOpaque(false);
+
+            cal = Calendar.getInstance();
+            if (init != null && !init.trim().isEmpty()) {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+                    sdf.setLenient(false);
+                    cal.setTime(sdf.parse(init.trim()));
+                } catch (Exception ignored) {}
+            }
+
+            String disp = (init != null && !init.trim().isEmpty())
+                    ? init.trim()
+                    : new SimpleDateFormat(DATE_FORMAT).format(cal.getTime());
+
+            txt = new JTextField(disp);
+            txt.setFont(F_CELL);
+            txt.setForeground(TEXT_DARK);
+            txt.setBackground(new Color(0xF8FAFD));
+            txt.setEditable(false);
+            txt.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            txt.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(BORDER, 1, true),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 34)));
+
+            JLabel ico = new JLabel() {
+                private boolean hovered = false;
+                {
+                    addMouseListener(new MouseAdapter() {
+                        @Override public void mouseEntered(MouseEvent e) { hovered = true; repaint(); }
+                        @Override public void mouseExited(MouseEvent e) { hovered = false; repaint(); }
+                    });
+                }
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(hovered ? ACCENT : TEXT_MID);
+
+                    int cx = getWidth() / 2;
+                    int cy = getHeight() / 2;
+
+                    g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawRoundRect(cx - 8, cy - 7, 16, 14, 3, 3);
+                    g2.drawLine(cx - 8, cy - 3, cx + 8, cy - 3);
+
+                    g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx - 4, cy - 11, cx - 4, cy - 5);
+                    g2.drawLine(cx + 4, cy - 11, cx + 4, cy - 5);
+
+                    g2.setStroke(new BasicStroke(1f));
+                    int[] dx = {cx - 5, cx, cx + 5, cx - 5, cx};
+                    int[] dy = {cy, cy, cy, cy + 4, cy + 4};
+                    for (int i = 0; i < 5; i++) {
+                        g2.fillOval(dx[i] - 2, dy[i] - 2, 4, 4);
+                    }
+                    g2.dispose();
+                }
+            };
+            ico.setPreferredSize(new Dimension(30, 34));
+            ico.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            ico.setToolTipText("Chọn ngày");
+
+            JPanel wrap = new JPanel(new BorderLayout());
+            wrap.setOpaque(false);
+            wrap.add(txt, BorderLayout.CENTER);
+            wrap.add(ico, BorderLayout.EAST);
+            add(wrap, BorderLayout.CENTER);
+
+            MouseAdapter ma = new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) { toggle(); }
+            };
+            txt.addMouseListener(ma);
+            ico.addMouseListener(ma);
+        }
+
+        private void toggle() {
+            if (popup != null && popup.isVisible()) {
+                popup.dispose();
+                popup = null;
+                return;
+            }
+            showPop();
+        }
+
+        private void showPop() {
+            popup = new JWindow(SwingUtilities.getWindowAncestor(this));
+            popup.setLayout(new BorderLayout());
+
+            JPanel p = new JPanel(new BorderLayout(0, 8));
+            p.setBackground(BG_CARD);
+            p.setBorder(BorderFactory.createCompoundBorder(
+                    new ShadowBorder(),
+                    BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+
+            p.add(navBar(), BorderLayout.NORTH);
+
+            JSeparator sep = new JSeparator();
+            sep.setForeground(BORDER);
+            p.add(sep, BorderLayout.CENTER);
+
+            pnlGrid = new JPanel(new GridLayout(0, 7, 2, 2));
+            pnlGrid.setBackground(BG_CARD);
+            pnlGrid.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+
+            JPanel south = new JPanel(new BorderLayout());
+            south.setOpaque(false);
+            south.add(pnlGrid, BorderLayout.CENTER);
+
+            JButton btnToday = new JButton("Hôm nay") {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    if (getModel().isRollover()) {
+                        g2.setColor(new Color(0xEBF3FF));
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+                    }
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
+            btnToday.setFont(F_SMALL);
+            btnToday.setForeground(ACCENT);
+            btnToday.setContentAreaFilled(false);
+            btnToday.setBorderPainted(false);
+            btnToday.setFocusPainted(false);
+            btnToday.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            btnToday.addActionListener(e -> {
+                setDate(new Date());
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                fillGrid();
+                popup.dispose();
+                popup = null;
+            });
+
+            JPanel todayBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 4));
+            todayBar.setBackground(BG_CARD);
+            todayBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER));
+            todayBar.add(btnToday);
+            south.add(todayBar, BorderLayout.SOUTH);
+
+            p.add(south, BorderLayout.SOUTH);
+
+            fillGrid();
+            popup.add(p);
+            popup.pack();
+            popup.setSize(Math.max(240, popup.getWidth()), popup.getHeight());
+
+            Point loc = txt.getLocationOnScreen();
+            popup.setLocation(loc.x, loc.y + txt.getHeight() + 4);
+            popup.setVisible(true);
+            popup.addWindowFocusListener(new java.awt.event.WindowFocusListener() {
+                @Override public void windowGainedFocus(java.awt.event.WindowEvent e) {}
+                @Override public void windowLostFocus(java.awt.event.WindowEvent e) {
+                    if (popup != null) {
+                        popup.dispose();
+                        popup = null;
+                    }
+                }
+            });
+        }
+
+        private JPanel navBar() {
+            JPanel nav = new JPanel(new BorderLayout(6, 0));
+            nav.setBackground(BG_CARD);
+            nav.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+
+            JButton prev = navBtn("\u2039");
+            JButton next = navBtn("\u203a");
+            prev.addActionListener(e -> {
+                cal.add(Calendar.MONTH, -1);
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                fillGrid();
+            });
+            next.addActionListener(e -> {
+                cal.add(Calendar.MONTH, 1);
+                cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+                cbNam.setSelectedItem(cal.get(Calendar.YEAR));
+                fillGrid();
+            });
+
+            cbThang = new JComboBox<>(TEN_THANG);
+            cbThang.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            cbThang.setSelectedIndex(cal.get(Calendar.MONTH));
+            cbThang.setPreferredSize(new Dimension(90, 28));
+            cbThang.addActionListener(e -> {
+                cal.set(Calendar.MONTH, cbThang.getSelectedIndex());
+                fillGrid();
+            });
+
+            int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+            int selectedYear = cal.get(Calendar.YEAR);
+            int fromYear = Math.min(currentYear - 5, selectedYear - 5);
+            int toYear = Math.max(currentYear + 10, selectedYear + 10);
+            Integer[] yrs = new Integer[toYear - fromYear + 1];
+            for (int i = 0; i < yrs.length; i++) {
+                yrs[i] = fromYear + i;
+            }
+
+            cbNam = new JComboBox<>(yrs);
+            cbNam.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            cbNam.setSelectedItem(selectedYear);
+            cbNam.setPreferredSize(new Dimension(72, 28));
+            cbNam.addActionListener(e -> {
+                if (cbNam.getSelectedItem() != null) {
+                    cal.set(Calendar.YEAR, (Integer) cbNam.getSelectedItem());
+                    fillGrid();
+                }
+            });
+
+            JPanel ctr = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
+            ctr.setBackground(BG_CARD);
+            ctr.add(cbThang);
+            ctr.add(cbNam);
+
+            nav.add(prev, BorderLayout.WEST);
+            nav.add(ctr, BorderLayout.CENTER);
+            nav.add(next, BorderLayout.EAST);
+            return nav;
+        }
+
+        private void fillGrid() {
+            pnlGrid.removeAll();
+
+            for (int i = 0; i < TEN_THU.length; i++) {
+                JLabel l = new JLabel(TEN_THU[i], SwingConstants.CENTER);
+                l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                l.setPreferredSize(new Dimension(28, 22));
+                l.setForeground(i == 6 ? new Color(0xEF4444) : TEXT_MID);
+                pnlGrid.add(l);
+            }
+
+            Calendar tmp = (Calendar) cal.clone();
+            tmp.set(Calendar.DAY_OF_MONTH, 1);
+            int first = (tmp.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+
+            Calendar today = Calendar.getInstance();
+            int todayD = today.get(Calendar.DAY_OF_MONTH);
+            boolean sameMonth = today.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+                    && today.get(Calendar.YEAR) == cal.get(Calendar.YEAR);
+
+            int chosen = -1;
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+                sdf.setLenient(false);
+                Calendar c = Calendar.getInstance();
+                c.setTime(sdf.parse(txt.getText()));
+                if (c.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+                        && c.get(Calendar.YEAR) == cal.get(Calendar.YEAR)) {
+                    chosen = c.get(Calendar.DAY_OF_MONTH);
+                }
+            } catch (Exception ignored) {}
+
+            for (int i = 0; i < first; i++) {
+                pnlGrid.add(new JLabel());
+            }
+
+            int days = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+            final int selectedDay = chosen;
+            for (int d = 1; d <= days; d++) {
+                final int nd = d;
+                boolean isToday = sameMonth && d == todayD;
+                boolean isSel = d == selectedDay;
+                boolean isSun = (first + d - 1) % 7 == 6;
+
+                JButton b = new JButton(String.valueOf(d)) {
+                    @Override protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        if (isSel) {
+                            g2.setColor(ACCENT);
+                            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 8, 8);
+                        } else if (getModel().isRollover()) {
+                            g2.setColor(new Color(0xDDEEFF));
+                            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 8, 8);
+                        } else if (isToday) {
+                            g2.setColor(new Color(0xEBF5FF));
+                            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 8, 8);
+                            g2.setColor(ACCENT);
+                            g2.setStroke(new BasicStroke(1.2f));
+                            g2.drawRoundRect(2, 2, getWidth() - 5, getHeight() - 5, 8, 8);
+                        }
+                        g2.dispose();
+                        super.paintComponent(g);
+                    }
+                };
+                b.setFont(new Font("Segoe UI", isToday ? Font.BOLD : Font.PLAIN, 11));
+                b.setForeground(isSel ? Color.WHITE
+                        : isSun ? new Color(0xEF4444)
+                        : isToday ? ACCENT
+                        : TEXT_DARK);
+                b.setPreferredSize(new Dimension(28, 28));
+                b.setContentAreaFilled(false);
+                b.setBorderPainted(false);
+                b.setFocusPainted(false);
+                b.setMargin(new Insets(0, 0, 0, 0));
+                b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                b.addActionListener(e -> {
+                    cal.set(Calendar.DAY_OF_MONTH, nd);
+                    txt.setText(new SimpleDateFormat(DATE_FORMAT).format(cal.getTime()));
+                    if (popup != null) {
+                        popup.dispose();
+                        popup = null;
+                    }
+                });
+                pnlGrid.add(b);
+            }
+
+            pnlGrid.revalidate();
+            pnlGrid.repaint();
+        }
+
+        private JButton navBtn(String text) {
+            JButton b = new JButton(text);
+            b.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+            b.setForeground(ACCENT);
+            b.setContentAreaFilled(false);
+            b.setBorderPainted(false);
+            b.setFocusPainted(false);
+            b.setMargin(new Insets(0, 0, 0, 0));
+            b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            b.setPreferredSize(new Dimension(26, 26));
+            return b;
+        }
+
+        public String getDate() {
+            return txt.getText();
+        }
+
+        public Date getDateValue() {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+                sdf.setLenient(false);
+                return sdf.parse(txt.getText());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        public void setDate(Date date) {
+            if (date == null) {
+                txt.setText("");
+                return;
+            }
+            cal.setTime(date);
+            txt.setText(new SimpleDateFormat(DATE_FORMAT).format(date));
+        }
+
+        public void resetDate() {
+            cal.setTime(new Date());
+            txt.setText("");
         }
     }
 
