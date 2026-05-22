@@ -4,6 +4,7 @@ import com.connectDB.ConnectDB;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PiePlot;
@@ -459,6 +460,7 @@ public class TAB_Dashboard extends JPanel {
 		JFreeChart chart = ChartFactory.createBarChart("Doanh thu theo tuyến (30 ngày)", "", "", dataset,
 				PlotOrientation.VERTICAL, false, true, false);
 		chart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
+		chart.getTitle().setPaint(TEXT_DARK);
 		chart.getTitle().setHorizontalAlignment(org.jfree.chart.ui.HorizontalAlignment.LEFT);
 
 		CategoryPlot plot = chart.getCategoryPlot();
@@ -466,9 +468,19 @@ public class TAB_Dashboard extends JPanel {
 		plot.setOutlineVisible(false);
 		plot.setRangeGridlinePaint(BORDER);
 
-        // Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
-        NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
-        yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+		CategoryAxis xAxis = plot.getDomainAxis();
+		xAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+		xAxis.setLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+		xAxis.setTickLabelPaint(TEXT_MID);
+		xAxis.setLabelPaint(TEXT_MID);
+
+		// Ép định dạng số hiển thị cho trục Y, tránh hiển thị dạng khoa học (2E7)
+		NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+		yAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+		yAxis.setLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+		yAxis.setTickLabelPaint(TEXT_MID);
+		yAxis.setLabelPaint(TEXT_MID);
+		yAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
 
 		BarRenderer renderer = (BarRenderer) plot.getRenderer();
 		renderer.setBarPainter(new StandardBarPainter());

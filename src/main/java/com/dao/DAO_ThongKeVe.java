@@ -12,14 +12,13 @@ import java.util.List;
 
 public class DAO_ThongKeVe {
 
-    // 1. Hàm lấy dữ liệu cho 3 thẻ KPI (Tổng vé, Đã sử dụng, Hết hạn)
     public int[] getKpiData(Date tuNgay, Date denNgay) {
-        int[] kpi = new int[3]; // [0]: Tổng vé, [1]: Đã sử dụng, [2]: Hết hạn/Hủy
+        int[] kpi = new int[3];
 
         String sql = "SELECT " +
                 "COUNT(v.maVe) AS TongVe, " +
                 "SUM(CASE WHEN v.trangThaiVe = 'DASUDUNG' THEN 1 ELSE 0 END) AS DaSuDung, " +
-                "SUM(CASE WHEN v.trangThaiVe IN ('HETHAN', 'HUY') THEN 1 ELSE 0 END) AS HetHan " +
+                "SUM(CASE WHEN v.trangThaiVe IN ('HETHAN', 'HUY', 'DAHOAN') THEN 1 ELSE 0 END) AS HetHan " +
                 "FROM Ve v " +
                 "INNER JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe " +
                 "INNER JOIN HoaDon hd ON cthd.maHD = hd.maHD " +
@@ -30,7 +29,6 @@ public class DAO_ThongKeVe {
 
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-
             int paramIndex = 1;
             if (tuNgay != null) ps.setDate(paramIndex++, new java.sql.Date(tuNgay.getTime()));
             if (denNgay != null) ps.setDate(paramIndex++, new java.sql.Date(denNgay.getTime()));
@@ -43,32 +41,62 @@ public class DAO_ThongKeVe {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi truy vấn KPI Vé: " + e.getMessage());
+            System.err.println("Loi truy van KPI Ve: " + e.getMessage());
         }
+
         return kpi;
     }
 
-    // 2. Hàm lấy dữ liệu chi tiết cho Bảng và Biểu đồ tùy theo Tiêu chí
-    public List<Object[]> getChiTietThongKe(int tieuChiIndex, Date tuNgay, Date denNgay) {
-        List<Object[]> list = new ArrayList<>();
-        String sql = "";
+    public List<String> getDsTieuChi(int thongKeTheoIndex) {
+        List<String> ds = new ArrayList<>();
+        String sql;
 
-        // tieuChiIndex: 0 = Trạng thái vé, 1 = Loại vé, 2 = Tuyến đi
-        if (tieuChiIndex == 0) {
-            sql = "SELECT v.trangThaiVe AS TieuChi, COUNT(v.maVe) AS SoLuong " +
+        if (thongKeTheoIndex == 0) {
+            sql = "SELECT DISTINCT v.trangThaiVe AS TieuChi FROM Ve v ORDER BY v.trangThaiVe";
+        } else if (thongKeTheoIndex == 1) {
+            sql = "SELECT lv.tenLoai AS TieuChi FROM LoaiVe lv ORDER BY lv.tenLoai";
+        } else {
+            sql = "SELECT ty.tenTuyen AS TieuChi FROM Tuyen ty ORDER BY ty.tenTuyen";
+        }
+
+        try (Connection conn = ConnectDB.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String tieuChi = rs.getString("TieuChi");
+                if (thongKeTheoIndex == 0) {
+                    tieuChi = mapTrangThaiVeToDisplay(tieuChi);
+                }
+                if (!ds.contains(tieuChi)) {
+                    ds.add(tieuChi);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Loi truy van danh sach tieu chi Ve: " + e.getMessage());
+        }
+
+        return ds;
+    }
+
+    public List<Object[]> getChiTietThongKe(int thongKeTheoIndex, String tieuChiDaChon, Date tuNgay, Date denNgay) {
+        List<Object[]> list = new ArrayList<>();
+        String sql;
+
+        if (thongKeTheoIndex == 0) {
+            sql = "SELECT v.trangThaiVe AS TieuChi, COUNT(v.maVe) AS SoLuong, COALESCE(SUM(cthd.thanhTien), 0) AS DoanhThu " +
                     "FROM Ve v " +
                     "INNER JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe " +
                     "INNER JOIN HoaDon hd ON cthd.maHD = hd.maHD " +
                     "WHERE 1=1 ";
-        } else if (tieuChiIndex == 1) {
-            sql = "SELECT lv.tenLoai AS TieuChi, COUNT(v.maVe) AS SoLuong " +
+        } else if (thongKeTheoIndex == 1) {
+            sql = "SELECT lv.tenLoai AS TieuChi, COUNT(v.maVe) AS SoLuong, COALESCE(SUM(cthd.thanhTien), 0) AS DoanhThu " +
                     "FROM Ve v " +
                     "INNER JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe " +
                     "INNER JOIN HoaDon hd ON cthd.maHD = hd.maHD " +
                     "INNER JOIN LoaiVe lv ON v.maLoaiVe = lv.maLoai " +
                     "WHERE 1=1 ";
-        } else if (tieuChiIndex == 2) {
-            sql = "SELECT ty.tenTuyen AS TieuChi, COUNT(v.maVe) AS SoLuong " +
+        } else {
+            sql = "SELECT ty.tenTuyen AS TieuChi, COUNT(v.maVe) AS SoLuong, COALESCE(SUM(cthd.thanhTien), 0) AS DoanhThu " +
                     "FROM Ve v " +
                     "INNER JOIN ChiTietHoaDon cthd ON v.maVe = cthd.maVe " +
                     "INNER JOIN HoaDon hd ON cthd.maHD = hd.maHD " +
@@ -81,37 +109,79 @@ public class DAO_ThongKeVe {
         if (tuNgay != null) sql += " AND CAST(hd.ngayLap AS DATE) >= ? ";
         if (denNgay != null) sql += " AND CAST(hd.ngayLap AS DATE) <= ? ";
 
-        // Nhóm dữ liệu
-        if (tieuChiIndex == 0) sql += " GROUP BY v.trangThaiVe";
-        else if (tieuChiIndex == 1) sql += " GROUP BY lv.tenLoai";
-        else if (tieuChiIndex == 2) sql += " GROUP BY ty.tenTuyen";
+        boolean laDaHoanHuy = thongKeTheoIndex == 0 && "Đã hoàn/Hủy".equalsIgnoreCase(tieuChiDaChon);
+        if (laDaHoanHuy) {
+            sql += " AND v.trangThaiVe IN ('DAHOAN', 'HUY') ";
+        } else if (tieuChiDaChon != null && !tieuChiDaChon.trim().isEmpty()) {
+            if (thongKeTheoIndex == 0) {
+                sql += " AND v.trangThaiVe = ? ";
+            } else if (thongKeTheoIndex == 1) {
+                sql += " AND lv.tenLoai = ? ";
+            } else {
+                sql += " AND ty.tenTuyen = ? ";
+            }
+        }
 
-        sql += " ORDER BY SoLuong DESC"; // Sắp xếp số lượng từ cao xuống thấp
+        if (thongKeTheoIndex == 0) {
+            sql += " GROUP BY v.trangThaiVe ";
+        } else if (thongKeTheoIndex == 1) {
+            sql += " GROUP BY lv.tenLoai ";
+        } else {
+            sql += " GROUP BY ty.tenTuyen ";
+        }
+
+        sql += " ORDER BY SoLuong DESC, TieuChi ASC";
 
         try (Connection conn = ConnectDB.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-
             int paramIndex = 1;
             if (tuNgay != null) ps.setDate(paramIndex++, new java.sql.Date(tuNgay.getTime()));
             if (denNgay != null) ps.setDate(paramIndex++, new java.sql.Date(denNgay.getTime()));
+            if (!laDaHoanHuy && tieuChiDaChon != null && !tieuChiDaChon.trim().isEmpty()) {
+                if (thongKeTheoIndex == 0) {
+                    ps.setString(paramIndex++, mapTrangThaiVeToDb(tieuChiDaChon));
+                } else {
+                    ps.setString(paramIndex++, tieuChiDaChon);
+                }
+            }
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String tenTieuChi = rs.getString("TieuChi");
-
-                    // Format lại tên trạng thái nếu là tiêu chí 0
-                    if (tieuChiIndex == 0) {
-                        if ("CHUASUDUNG".equals(tenTieuChi)) tenTieuChi = "Chưa sử dụng";
-                        else if ("DASUDUNG".equals(tenTieuChi)) tenTieuChi = "Đã sử dụng";
-                        else if ("HETHAN".equals(tenTieuChi) || "HUY".equals(tenTieuChi)) tenTieuChi = "Hết hạn/Hủy";
+                    if (thongKeTheoIndex == 0) {
+                        tenTieuChi = mapTrangThaiVeToDisplay(tenTieuChi);
                     }
-
-                    list.add(new Object[]{ tenTieuChi, rs.getInt("SoLuong") });
+                    list.add(new Object[]{
+                            tenTieuChi,
+                            rs.getInt("SoLuong"),
+                            rs.getDouble("DoanhThu")
+                    });
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi truy vấn Chi tiết Vé: " + e.getMessage());
+            System.err.println("Loi truy van Chi tiet Ve: " + e.getMessage());
         }
+
         return list;
+    }
+
+    private String mapTrangThaiVeToDisplay(String trangThaiDb) {
+        if ("CHUASUDUNG".equals(trangThaiDb)) return "Chưa sử dụng";
+        if ("DASUDUNG".equals(trangThaiDb)) return "Đã sử dụng";
+        if ("HETHAN".equals(trangThaiDb)) return "Hết hạn";
+        if ("HUY".equals(trangThaiDb) || "DAHOAN".equals(trangThaiDb)) return "Đã hoàn/Hủy";
+        return trangThaiDb;
+    }
+
+    private String mapTrangThaiVeToDb(String trangThaiDisplay) {
+        if ("Chưa sử dụng".equalsIgnoreCase(trangThaiDisplay)) return "CHUASUDUNG";
+        if ("Đã sử dụng".equalsIgnoreCase(trangThaiDisplay)) return "DASUDUNG";
+        if ("Hết hạn".equalsIgnoreCase(trangThaiDisplay)) return "HETHAN";
+        if ("Đã hoàn/Hủy".equalsIgnoreCase(trangThaiDisplay) ||
+                "Hủy".equalsIgnoreCase(trangThaiDisplay) ||
+                "Đã hoàn".equalsIgnoreCase(trangThaiDisplay)) {
+            return "DAHOAN";
+        }
+        return trangThaiDisplay;
     }
 }

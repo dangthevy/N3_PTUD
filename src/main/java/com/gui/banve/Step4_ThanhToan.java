@@ -1204,7 +1204,7 @@ public class Step4_ThanhToan extends JPanel {
 		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
 		JLabel lblInfo = new JLabel(
 				"Ngân hàng: " + VIETQR_BANK_ID + "  |  STK: " + VIETQR_ACCOUNT + "  |  Chủ TK: "
-							+ VIETQR_ACCOUNT_NAME);
+						+ VIETQR_ACCOUNT_NAME);
 		lblInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
 		JLabel lblAmount = new JLabel("Số tiền: " + formatTien(amount));
 		lblAmount.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -1730,7 +1730,7 @@ public class Step4_ThanhToan extends JPanel {
 			doc.add(new Paragraph(" ", fS));
 			addInfoLine(doc, "Họ tên người mua:", tenKH, fIL, fN);
 			addInfoLine(doc, "Hình thức thanh toán:", " "
-								+ getPaymentLabel(phuongThuc), fIL, fN);
+					+ getPaymentLabel(phuongThuc), fIL, fN);
 			doc.add(new Paragraph(" ", fS));
 
 			float[] colWidths = { 28f, 95f, 115f, 35f, 25f, 85f, 90f, 85f };

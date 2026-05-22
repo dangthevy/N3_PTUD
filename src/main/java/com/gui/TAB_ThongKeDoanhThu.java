@@ -3,15 +3,27 @@ package com.gui;
 import com.dao.DAO_ThongKeDoanhThu;
 import com.formdev.flatlaf.FlatClientProperties;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.CategoryAxis;
+import org.jfree.chart.axis.CategoryLabelPositions;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.labels.CategoryItemLabelGenerator;
+import org.jfree.chart.labels.ItemLabelAnchor;
+import org.jfree.chart.labels.ItemLabelPosition;
+import org.jfree.chart.ui.TextAnchor;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
 import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.category.CategoryDataset;
 
 import java.awt.*;
 import java.awt.Color;
@@ -23,7 +35,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import javax.swing.*;
@@ -70,6 +84,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     private JTable tableTKDT;
     private DefaultTableModel tableModel;
     private DefaultCategoryDataset chartDataset;
+    private JFreeChart barChart;
     private JLabel lblTongHoaDon;
     private JLabel lblTongDoanhThu;
 
@@ -118,9 +133,13 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         filterCard.add(dcNgayKT);
 
         btnThongKe = makeBtn("Thống kê", BtnStyle.PRIMARY);
-        btnThongKe.setPreferredSize(new Dimension(105, 36));
+        btnThongKe.setPreferredSize(new Dimension(130, 36));
+        btnThongKe.setIcon(createButtonIcon(BtnStyle.PRIMARY));
+        btnThongKe.setIconTextGap(8);
         btnXuatExcel = makeBtn("Xuất Excel", BtnStyle.SUCCESS);
-        btnXuatExcel.setPreferredSize(new Dimension(105, 36));
+        btnXuatExcel.setPreferredSize(new Dimension(130, 36));
+        btnXuatExcel.setIcon(createButtonIcon(BtnStyle.SUCCESS));
+        btnXuatExcel.setIconTextGap(8);
 
         JPanel actionGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actionGroup.setOpaque(false);
@@ -142,9 +161,10 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         chartCard.setBorder(BorderFactory.createCompoundBorder(
                 new ShadowBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
+        chartCard.setPreferredSize(new Dimension(0, 420));
 
         chartDataset = new DefaultCategoryDataset();
-        JFreeChart barChart = ChartFactory.createBarChart(
+        barChart = ChartFactory.createBarChart(
                 "Biểu Đồ Doanh Thu", "Ngày", "Doanh thu (VNĐ)",
                 chartDataset, PlotOrientation.VERTICAL,
                 false, true, false);
@@ -167,8 +187,15 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         renderer.setShadowVisible(false); // Bỏ bóng mặc định của cột
         renderer.setItemMargin(0.2); // Khoảng cách giữa các cột
 
+        styleRevenueChart();
         ChartPanel jfreeChartPanel = new ChartPanel(barChart);
         jfreeChartPanel.setOpaque(false);
+        jfreeChartPanel.setMinimumDrawWidth(0);
+        jfreeChartPanel.setMinimumDrawHeight(0);
+        jfreeChartPanel.setMaximumDrawWidth(Integer.MAX_VALUE);
+        jfreeChartPanel.setMaximumDrawHeight(Integer.MAX_VALUE);
+        jfreeChartPanel.setDomainZoomable(false);
+        jfreeChartPanel.setRangeZoomable(false);
         chartCard.add(jfreeChartPanel, BorderLayout.CENTER);
 
         // --- B. BẢNG CHI TIẾT ---
@@ -194,7 +221,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         // ================= GÁN SỰ KIỆN =================
         btnThongKe.addActionListener(e -> loadDuLieuThongKe());
 
-        btnXuatExcel.addActionListener(e -> xuatFileExcel());
+        btnXuatExcel.addActionListener(e -> xuatFileExcelDongBo());
 
         cboThongKe.addActionListener(e -> {
             boolean isCustom = cboThongKe.getSelectedIndex() == 0; // index 0 là "Tùy chọn"
@@ -292,7 +319,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
                 return;
             }
             if (fromDate != null && toDate != null && toDate.before(fromDate)) {
-                JOptionPane.showMessageDialog(this, "Thời gian không hợp lệ: Ngày kết thúc phải lớn hơn hoặc bằng ngày hiện tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -316,7 +343,6 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         }
 
         DecimalFormat df = new DecimalFormat("#,###");
-        SimpleDateFormat shortSdf = new SimpleDateFormat("dd/MM");
         int tongHoaDon = 0;
         double tongDoanhThu = 0;
 
@@ -336,8 +362,16 @@ public class TAB_ThongKeDoanhThu extends JPanel {
                     formatCurrencyVnd(doanhThu)
             });
 
-            // Thêm vào Biểu đồ
-            chartDataset.addValue(doanhThu, "Doanh thu", shortSdf.format(ngay));
+        }
+
+        List<Object[]> topChartData = new ArrayList<>(listData);
+        topChartData.sort(Comparator.comparingDouble((Object[] row) -> ((Number) row[2]).doubleValue()).reversed());
+        int chartLimit = Math.min(10, topChartData.size());
+        for (int i = 0; i < chartLimit; i++) {
+            Object[] row = topChartData.get(i);
+            Date ngay = (Date) row[0];
+            double doanhThu = ((Number) row[2]).doubleValue();
+            chartDataset.addValue(doanhThu, "Doanh thu", sdf.format(ngay));
         }
 
         lblTongHoaDon.setText(df.format(tongHoaDon));
@@ -403,6 +437,217 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     }
 
     // HELPER UI CỦA HỆ THỐNG
+    private void xuatFileExcelDongBo() {
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Không có dữ liệu để xuất Excel!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Chọn vị trí lưu file Excel");
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fileChooser.setSelectedFile(new File("ThongKeDoanhThu_" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".xlsx"));
+        if (fileChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+        String filePath = fileChooser.getSelectedFile().getAbsolutePath();
+        if (!filePath.toLowerCase().endsWith(".xlsx")) filePath += ".xlsx";
+
+        final int colCount = tableModel.getColumnCount();
+        final int rowCount = tableModel.getRowCount();
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            XSSFSheet sh = wb.createSheet("Thống Kê Doanh Thu");
+            DataFormat fmt = wb.createDataFormat();
+
+            byte[] accentRgb = { 0x1A, 0x5E, (byte) 0xAB };
+            XSSFColor accentColor = new XSSFColor(accentRgb, null);
+            XSSFColor lineColor = new XSSFColor(new byte[] { (byte) 0xE2, (byte) 0xEA, (byte) 0xF4 }, null);
+            XSSFColor altRowColor = new XSSFColor(new byte[] { (byte) 0xF7, (byte) 0xFA, (byte) 0xFF }, null);
+            XSSFColor sumBgColor = new XSSFColor(new byte[] { (byte) 0xEB, (byte) 0xF3, (byte) 0xFF }, null);
+
+            CellStyle styleTitle = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fTitle = wb.createFont();
+            fTitle.setBold(true);
+            fTitle.setFontHeightInPoints((short) 14);
+            fTitle.setColor(IndexedColors.WHITE.getIndex());
+            styleTitle.setFont(fTitle);
+            styleTitle.setFillForegroundColor(accentColor);
+            styleTitle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            styleTitle.setAlignment(HorizontalAlignment.CENTER);
+            styleTitle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle styleSub = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fSub = wb.createFont();
+            fSub.setItalic(true);
+            fSub.setFontHeightInPoints((short) 10);
+            fSub.setColor(IndexedColors.WHITE.getIndex());
+            styleSub.setFont(fSub);
+            styleSub.setFillForegroundColor(accentColor);
+            styleSub.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            styleSub.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle styleHeader = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fHeader = wb.createFont();
+            fHeader.setBold(true);
+            fHeader.setFontHeightInPoints((short) 11);
+            fHeader.setColor(IndexedColors.WHITE.getIndex());
+            styleHeader.setFont(fHeader);
+            styleHeader.setFillForegroundColor(accentColor);
+            styleHeader.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            styleHeader.setAlignment(HorizontalAlignment.CENTER);
+            styleHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+            styleHeader.setBorderBottom(BorderStyle.THIN);
+            styleHeader.setBottomBorderColor(IndexedColors.WHITE.getIndex());
+
+            CellStyle styleData = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fData = wb.createFont();
+            fData.setFontHeightInPoints((short) 11);
+            styleData.setFont(fData);
+            styleData.setBorderBottom(BorderStyle.THIN);
+            ((XSSFCellStyle) styleData).setBottomBorderColor(lineColor);
+
+            CellStyle styleDataAlt = wb.createCellStyle();
+            styleDataAlt.cloneStyleFrom(styleData);
+            styleDataAlt.setFillForegroundColor(altRowColor);
+            styleDataAlt.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            CellStyle styleCenter = wb.createCellStyle();
+            styleCenter.cloneStyleFrom(styleData);
+            styleCenter.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle styleCenterAlt = wb.createCellStyle();
+            styleCenterAlt.cloneStyleFrom(styleDataAlt);
+            styleCenterAlt.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle styleMoney = wb.createCellStyle();
+            styleMoney.cloneStyleFrom(styleData);
+            styleMoney.setAlignment(HorizontalAlignment.RIGHT);
+            styleMoney.setDataFormat(fmt.getFormat("#,##0"));
+
+            CellStyle styleMoneyAlt = wb.createCellStyle();
+            styleMoneyAlt.cloneStyleFrom(styleDataAlt);
+            styleMoneyAlt.setAlignment(HorizontalAlignment.RIGHT);
+            styleMoneyAlt.setDataFormat(fmt.getFormat("#,##0"));
+
+            CellStyle styleSumLabel = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fSumLabel = wb.createFont();
+            fSumLabel.setBold(true);
+            fSumLabel.setFontHeightInPoints((short) 11);
+            styleSumLabel.setFont(fSumLabel);
+            styleSumLabel.setAlignment(HorizontalAlignment.RIGHT);
+            styleSumLabel.setFillForegroundColor(sumBgColor);
+            styleSumLabel.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            styleSumLabel.setBorderTop(BorderStyle.MEDIUM);
+
+            CellStyle styleSumMoney = wb.createCellStyle();
+            styleSumMoney.cloneStyleFrom(styleSumLabel);
+            styleSumMoney.setDataFormat(fmt.getFormat("#,##0"));
+
+            CellStyle styleFooter = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font fFooter = wb.createFont();
+            fFooter.setItalic(true);
+            fFooter.setFontHeightInPoints((short) 9);
+            fFooter.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            styleFooter.setFont(fFooter);
+            styleFooter.setAlignment(HorizontalAlignment.RIGHT);
+
+            Row rTitle = sh.createRow(0);
+            rTitle.setHeightInPoints(28);
+            Cell cTitle = rTitle.createCell(0);
+            cTitle.setCellValue("BÁO CÁO THỐNG KÊ DOANH THU");
+            cTitle.setCellStyle(styleTitle);
+            for (int c = 1; c < colCount; c++) rTitle.createCell(c).setCellStyle(styleTitle);
+            sh.addMergedRegion(new CellRangeAddress(0, 0, 0, colCount - 1));
+
+            Row rSub = sh.createRow(1);
+            rSub.setHeightInPoints(18);
+            Cell cSub = rSub.createCell(0);
+            cSub.setCellValue("Hệ Thống Bán Vé Tàu Hỏa Việt Nam");
+            cSub.setCellStyle(styleSub);
+            for (int c = 1; c < colCount; c++) rSub.createCell(c).setCellStyle(styleSub);
+            sh.addMergedRegion(new CellRangeAddress(1, 1, 0, colCount - 1));
+
+            Row rHeader = sh.createRow(2);
+            rHeader.setHeightInPoints(24);
+            for (int c = 0; c < colCount; c++) {
+                Cell cell = rHeader.createCell(c);
+                cell.setCellValue(tableModel.getColumnName(c));
+                cell.setCellStyle(styleHeader);
+            }
+
+            int tongHoaDon = 0;
+            double tongDoanhThu = 0;
+            int dataStart = 3;
+            for (int i = 0; i < rowCount; i++) {
+                Row row = sh.createRow(dataStart + i);
+                row.setHeightInPoints(20);
+                boolean alt = (i % 2 == 1);
+                CellStyle csText = alt ? styleDataAlt : styleData;
+                CellStyle csCenter = alt ? styleCenterAlt : styleCenter;
+                CellStyle csMoney = alt ? styleMoneyAlt : styleMoney;
+
+                int soHoaDon = (int) parseNumber(tableModel.getValueAt(i, 2));
+                double doanhThu = parseNumber(tableModel.getValueAt(i, 3));
+                tongHoaDon += soHoaDon;
+                tongDoanhThu += doanhThu;
+
+                Cell c0 = row.createCell(0);
+                c0.setCellValue(parseNumber(tableModel.getValueAt(i, 0)));
+                c0.setCellStyle(csCenter);
+
+                Cell c1 = row.createCell(1);
+                c1.setCellValue(String.valueOf(tableModel.getValueAt(i, 1)));
+                c1.setCellStyle(csText);
+
+                Cell c2 = row.createCell(2);
+                c2.setCellValue(soHoaDon);
+                c2.setCellStyle(csCenter);
+
+                Cell c3 = row.createCell(3);
+                c3.setCellValue(doanhThu);
+                c3.setCellStyle(csMoney);
+            }
+
+            int sumRowIdx = dataStart + rowCount;
+            Row sumRow = sh.createRow(sumRowIdx);
+            sumRow.setHeightInPoints(22);
+            for (int c = 0; c < colCount - 1; c++) {
+                Cell cell = sumRow.createCell(c);
+                cell.setCellStyle(styleSumLabel);
+            }
+            sumRow.getCell(0).setCellValue("Tổng: " + tongHoaDon + " hóa đơn");
+            sh.addMergedRegion(new CellRangeAddress(sumRowIdx, sumRowIdx, 0, colCount - 2));
+
+            Cell sumValue = sumRow.createCell(colCount - 1);
+            sumValue.setCellValue(tongDoanhThu);
+            sumValue.setCellStyle(styleSumMoney);
+
+            Row footerRow = sh.createRow(sumRowIdx + 2);
+            Cell footerCell = footerRow.createCell(0);
+            footerCell.setCellValue("Ngày xuất: " + new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date()));
+            footerCell.setCellStyle(styleFooter);
+            sh.addMergedRegion(new CellRangeAddress(sumRowIdx + 2, sumRowIdx + 2, 0, colCount - 1));
+
+            sh.setColumnWidth(0, 8 * 256);
+            sh.setColumnWidth(1, 16 * 256);
+            sh.setColumnWidth(2, 16 * 256);
+            sh.setColumnWidth(3, 22 * 256);
+            sh.createFreezePane(0, 3);
+
+            try (FileOutputStream fos = new FileOutputStream(filePath)) {
+                wb.write(fos);
+            }
+
+            int opt = JOptionPane.showConfirmDialog(this, "Xuất Excel thành công!\nMở file?", "Thành công",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            if (opt == JOptionPane.YES_OPTION && Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(new File(filePath));
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi xuất file Excel: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private JPanel makeCard(LayoutManager lm) {
         JPanel p = new JPanel(lm); p.setBackground(BG_CARD); p.setBorder(new ShadowBorder()); return p;
     }
@@ -437,6 +682,101 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         b.setPreferredSize(new Dimension(130, 36));
         b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b;
+    }
+
+    private Icon createButtonIcon(BtnStyle style) {
+        return new Icon() {
+            @Override
+            public int getIconWidth() {
+                return 14;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 14;
+            }
+
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                if (style == BtnStyle.PRIMARY) {
+                    g2.drawLine(x + 1, y + 13, x + 13, y + 13);
+                    g2.drawLine(x + 1, y + 13, x + 1, y + 1);
+                    g2.fillRoundRect(x + 3, y + 8, 2, 5, 1, 1);
+                    g2.fillRoundRect(x + 7, y + 6, 2, 7, 1, 1);
+                    g2.fillRoundRect(x + 11, y + 3, 2, 10, 1, 1);
+                } else {
+                    g2.drawRoundRect(x + 1, y + 1, 12, 12, 2, 2);
+                    g2.drawLine(x + 1, y + 5, x + 13, y + 5);
+                    g2.drawLine(x + 1, y + 9, x + 13, y + 9);
+                    g2.drawLine(x + 5, y + 1, x + 5, y + 13);
+                    g2.drawLine(x + 9, y + 1, x + 9, y + 13);
+                }
+                g2.dispose();
+            }
+        };
+    }
+
+    private void styleRevenueChart() {
+        barChart.setAntiAlias(true);
+        barChart.setBackgroundPaint(BG_CARD);
+        barChart.setPadding(new org.jfree.chart.ui.RectangleInsets(6, 8, 6, 8));
+        barChart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
+        barChart.getTitle().setPaint(TEXT_DARK);
+
+        CategoryPlot plot = barChart.getCategoryPlot();
+        plot.setBackgroundPaint(BG_CARD);
+        plot.setOutlineVisible(false);
+        plot.setRangeGridlinePaint(new Color(0xDCE5F2));
+        plot.setRangeGridlineStroke(new BasicStroke(1f));
+        plot.setDomainGridlinesVisible(false);
+        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(6, 8, 6, 8));
+
+        CategoryAxis domainAxis = plot.getDomainAxis();
+        domainAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+        domainAxis.setLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+        domainAxis.setTickLabelPaint(TEXT_MID);
+        domainAxis.setLabelPaint(TEXT_MID);
+        domainAxis.setCategoryLabelPositions(CategoryLabelPositions.STANDARD);
+        domainAxis.setMaximumCategoryLabelLines(1);
+        domainAxis.setMaximumCategoryLabelWidthRatio(1.0f);
+        domainAxis.setCategoryMargin(0.2);
+        domainAxis.setLowerMargin(0.02);
+        domainAxis.setUpperMargin(0.02);
+
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        rangeAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+        rangeAxis.setLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
+        rangeAxis.setTickLabelPaint(TEXT_MID);
+        rangeAxis.setLabelPaint(TEXT_MID);
+        rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+        rangeAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+        // Chừa khoảng trống phía trên để nhãn số trên đầu cột không bị che/clipping.
+        rangeAxis.setUpperMargin(0.12);
+
+        BarRenderer renderer = (BarRenderer) plot.getRenderer();
+        renderer.setBarPainter(new StandardBarPainter());
+        renderer.setShadowVisible(false);
+        renderer.setDrawBarOutline(false);
+        renderer.setMaximumBarWidth(0.22);
+        renderer.setItemMargin(0.08);
+        renderer.setSeriesPaint(0, new Color(0x2F80ED));
+        renderer.setDefaultItemLabelsVisible(false);
+    }
+
+    private double parseNumber(Object value) {
+        if (value == null) return 0;
+        String raw = String.valueOf(value).replaceAll("[^\\d.,-]", "");
+        if (raw.isEmpty()) return 0;
+        raw = raw.replace(",", "");
+        try {
+            return Double.parseDouble(raw);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
     }
 
     private JTable buildTable(DefaultTableModel model) {

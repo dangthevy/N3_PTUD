@@ -26,6 +26,8 @@ public class GUI_General extends JPanel {
     private TAB_KhuyenMai tab_KhuyenMai;
     private TAB_ThongKeDoanhThu tab_ThongKeDoanhThu;
     private TAB_ThongKeVe tab_ThongKeVe;
+	private TAB_ThongKeTuyen tab_ThongKeTuyen;
+    private TAB_ThongKeNhanVien tab_ThongKeNhanVien;
 
 	private JPanel contentPanel;
 	private JPanel currentTabPanel;
@@ -64,6 +66,8 @@ public class GUI_General extends JPanel {
         tab_KhuyenMai = new TAB_KhuyenMai();
         tab_ThongKeDoanhThu = new TAB_ThongKeDoanhThu();
         tab_ThongKeVe = new TAB_ThongKeVe();
+		tab_ThongKeTuyen = new TAB_ThongKeTuyen();
+        tab_ThongKeNhanVien = new TAB_ThongKeNhanVien();
 
 		// ================= 1. SIDEBAR PANEL =================
 		JPanel sidebarPanel = new JPanel();
@@ -72,7 +76,7 @@ public class GUI_General extends JPanel {
 		sidebarPanel.setPreferredSize(new Dimension(280, 0));
 
 		// Thêm khoảng trống padding trên cùng
-		sidebarPanel.add(Box.createVerticalStrut(10));
+		sidebarPanel.add(Box.createVerticalStrut(5));
 		addUserInfoSection(sidebarPanel, nv);
 		addTabButtons(sidebarPanel, nv);
 
@@ -149,8 +153,8 @@ public class GUI_General extends JPanel {
 			return;
 		}
 		sidebar.add(createSideTitle("BÁO CÁO"));
-		addDropdownMenu(sidebar, "Thống kê", new String[] { "Doanh thu", "Lượng vé" },
-				new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe }, true);
+		addDropdownMenu(sidebar, "Thống kê", new String[] { "Doanh thu", "Lượng vé", "Tuyến", "Nhân viên" },
+				new JPanel[] { tab_ThongKeDoanhThu, tab_ThongKeVe, tab_ThongKeTuyen, tab_ThongKeNhanVien }, true);
 	}
 
 	private void addTabButton(JPanel sidebar, String title, JPanel target, boolean canAccess) {
