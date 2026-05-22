@@ -168,7 +168,33 @@ public class TAB_TraCuuVe extends JPanel {
             ResultSet rs = daoVe.getDanhSachVe(maVeFilter, null);
             while (rs != null && rs.next()) {
                 String status = rs.getString("trangThaiVe");
-                // thanhTien = giá sau ap dung KM (từ ChiTietHoaDon), fallback về giaVe nếu chưa có HĐ
+                if (status == null) status = "CHUASUDUNG";
+
+                // ── Kiểm tra hết hạn: nếu CHUASUDUNG nhưng đã quá giờ khởi hành ──
+                if ("CHUASUDUNG".equalsIgnoreCase(status)) {
+                    java.sql.Date ngayKH = rs.getDate("ngayKhoiHanh");
+                    java.sql.Time gioKH  = rs.getTime("gioKhoiHanh");
+                    if (ngayKH != null && gioKH != null) {
+                        // Ghép ngày + giờ khởi hành thành Timestamp
+                        java.util.Calendar cal = java.util.Calendar.getInstance();
+                        java.util.Calendar calKH = java.util.Calendar.getInstance();
+                        calKH.setTime(ngayKH);
+                        java.util.Calendar calGio = java.util.Calendar.getInstance();
+                        calGio.setTime(gioKH);
+                        calKH.set(java.util.Calendar.HOUR_OF_DAY, calGio.get(java.util.Calendar.HOUR_OF_DAY));
+                        calKH.set(java.util.Calendar.MINUTE,      calGio.get(java.util.Calendar.MINUTE));
+                        calKH.set(java.util.Calendar.SECOND,      0);
+                        calKH.set(java.util.Calendar.MILLISECOND, 0);
+                        if (cal.after(calKH)) {
+                            status = "HETHAN";
+                            // Cập nhật trạng thái xuống DB (bất đồng bộ để không lag UI)
+                            final String maVeFinal = rs.getString("maVe");
+                            new Thread(() -> daoVe.capNhatTrangThaiVe(maVeFinal, "HETHAN")).start();
+                        }
+                    }
+                }
+
+                // thanhTien = giá sau áp dụng KM (từ ChiTietHoaDon)
                 double thanhTien = rs.getDouble("thanhTien");
                 // ngayLap từ HoaDon
                 java.sql.Timestamp ngayLap = rs.getTimestamp("ngayLap");
@@ -185,7 +211,7 @@ public class TAB_TraCuuVe extends JPanel {
                     rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
                     df.format(thanhTien),   // ← giá SAU khuyến mãi
                     ngayLapStr,
-                    trangThaiToDisplay(status != null ? status : "CHUASUDUNG")
+                    trangThaiToDisplay(status)
                 });
             }
         } catch (SQLException e) {
@@ -199,11 +225,14 @@ public class TAB_TraCuuVe extends JPanel {
     private void refreshStats() {
         int[] counts = daoVe.demTongVeVaVeHoan();
         int tong = counts[0], daHoan = counts[1];
-        int chuaSuDung = 0, daSuDung = 0;
+        int chuaSuDung = 0, daSuDung = 0, hetHan = 0;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String st = tableModel.getValueAt(i, 9).toString().toUpperCase();
-            if ("CHƯA SỬ DỤNG".equals(st)) chuaSuDung++;
-            else if ("ĐÃ SỬ DỤNG".equals(st)) daSuDung++;
+            String st = tableModel.getValueAt(i, 9).toString();
+            switch (st) {
+                case "Chưa sử dụng": chuaSuDung++; break;
+                case "Đã sử dụng":   daSuDung++;   break;
+                case "Hết hạn":      hetHan++;      break;
+            }
         }
         lblTongVe.setText(String.valueOf(tong));
         lblChuaSuDung.setText(String.valueOf(chuaSuDung));
@@ -271,10 +300,10 @@ public class TAB_TraCuuVe extends JPanel {
         String displayStatus = trangThaiDisplay;
         Color badgeFg;
         switch (trangThai) {
-            case "DAHOAN":  badgeFg = new Color(0x856404); break;
-            case "DASUDUNG":badgeFg = new Color(0x065F46); break;
-            case "HETHAN":  badgeFg = new Color(0x991B1B); break;
-            default:        badgeFg = new Color(0x16A34A);
+            case "DAHOAN":   badgeFg = new Color(0x856404); break;
+            case "DASUDUNG": badgeFg = new Color(0x065F46); break;
+            case "HETHAN":   badgeFg = new Color(0x4B5563); break;  // xám đậm
+            default:         badgeFg = new Color(0x16A34A);          // xanh lá: chưa sử dụng
         }
 
         // Lấy danh sách khuyến mãi đã áp dụng cho vé
@@ -499,7 +528,14 @@ public class TAB_TraCuuVe extends JPanel {
 
         boolean coTheHoan = "CHUASUDUNG".equals(trangThai);
         btnHoanVe.setEnabled(coTheHoan);
-        if (!coTheHoan) btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
+        if ("HETHAN".equals(trangThai))
+            btnHoanVe.setToolTipText("Không thể hoàn vé đã hết hạn (đã quá giờ khởi hành)");
+        else if ("DASUDUNG".equals(trangThai))
+            btnHoanVe.setToolTipText("Không thể hoàn vé đã được sử dụng");
+        else if ("DAHOAN".equals(trangThai))
+            btnHoanVe.setToolTipText("Vé này đã được hoàn trước đó");
+        else if (!coTheHoan)
+            btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
 
         // Capture final cho lambda — dung thuTuToa da tinh o tren
         final String fMaVe = maVe, fMaKH = maKH, fTenKH = tenKH;
