@@ -7,6 +7,27 @@ import java.util.List;
 
 public class DAO_Ve {
 
+    private void ensureVeHanhKhachSnapshotTable(Connection conn) {
+        if (conn == null) return;
+        String sql = "IF OBJECT_ID('dbo.VeHanhKhachSnapshot', 'U') IS NULL "
+                   + "BEGIN "
+                   + "CREATE TABLE VeHanhKhachSnapshot ("
+                   + "maVe VARCHAR(30) NOT NULL PRIMARY KEY,"
+                   + "maKH VARCHAR(15) NULL,"
+                   + "tenKH NVARCHAR(100) NULL,"
+                   + "sdt VARCHAR(15) NULL,"
+                   + "cccd VARCHAR(20) NULL,"
+                   + "email VARCHAR(100) NULL,"
+                   + "CONSTRAINT FK_VeHanhKhachSnapshot_Ve FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE"
+                   + ") "
+                   + "END";
+        try (Statement st = conn.createStatement()) {
+            st.execute(sql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     // ===================== QUERY =====================
 
     /**
@@ -16,15 +37,17 @@ public class DAO_Ve {
     public ResultSet getDanhSachVe(String maVeFilter, String maKHFilter) throws SQLException {
         Connection conn = ConnectDB.getConnection();
         if (conn == null) return null;
+        ensureVeHanhKhachSnapshotTable(conn);
 
         StringBuilder sql = new StringBuilder(
-            "SELECT v.maVe, v.maKH, k.tenKH, v.maLT, v.maToa, v.viTriGhe, "
+            "SELECT v.maVe, v.maKH, COALESCE(vs.tenKH, k.tenKH) AS tenKH, v.maLT, v.maToa, v.viTriGhe, "
           + "       lv.tenLoai AS tenLoaiVe, v.giaVe, v.trangThaiVe, "
           // thanhTien = giá khách thực trả (sau KM); nếu chưa có HĐ thì dùng giaVe
           + "       COALESCE(ct.thanhTien, v.giaVe) AS thanhTien, "
           // ngayLap = ngày lập hóa đơn mới nhất chứa vé này
           + "       hd.ngayLap AS ngayLap "
           + "FROM Ve v "
+          + "LEFT JOIN VeHanhKhachSnapshot vs ON v.maVe = vs.maVe "
           + "LEFT JOIN KhachHang k  ON v.maKH     = k.maKH "
           + "LEFT JOIN LoaiVe    lv ON v.maLoaiVe = lv.maLoai "
           // Lấy thanhTien và ngayLap của hóa đơn mới nhất chứa vé này
@@ -46,7 +69,8 @@ public class DAO_Ve {
             params.add("%" + maVeFilter.trim() + "%");
         }
         if (maKHFilter != null && !maKHFilter.trim().isEmpty()) {
-            sql.append("AND (v.maKH LIKE ? OR k.tenKH LIKE ?) ");
+            sql.append("AND (v.maKH LIKE ? OR k.tenKH LIKE ? OR vs.tenKH LIKE ?) ");
+            params.add("%" + maKHFilter.trim() + "%");
             params.add("%" + maKHFilter.trim() + "%");
             params.add("%" + maKHFilter.trim() + "%");
         }
@@ -63,9 +87,14 @@ public class DAO_Ve {
     public ResultSet getChiTietVe(String maVe) throws SQLException {
         Connection conn = ConnectDB.getConnection();
         if (conn == null) return null;
+        ensureVeHanhKhachSnapshotTable(conn);
 
         String sql =
-            "SELECT v.maVe, v.maKH, k.tenKH, k.sdt, k.cccd, k.email, "
+            "SELECT v.maVe, v.maKH, "
+          + "       COALESCE(vs.tenKH, k.tenKH) AS tenKH, "
+          + "       COALESCE(vs.sdt, k.sdt) AS sdt, "
+          + "       COALESCE(vs.cccd, k.cccd) AS cccd, "
+          + "       COALESCE(vs.email, k.email) AS email, "
           + "       v.maLT, lt.ngayKhoiHanh, lt.gioKhoiHanh, "
           + "       ct.tenChuyen, t.tenTuyen, "
           + "       v.maToa, toa.tenToa, lt2.tenLoaiToa, "
@@ -73,6 +102,7 @@ public class DAO_Ve {
           + "       lv.tenLoai AS tenLoaiVe, "
           + "       v.giaVe, v.trangThaiVe "
           + "FROM Ve v "
+          + "LEFT JOIN VeHanhKhachSnapshot vs ON v.maVe = vs.maVe "
           + "LEFT JOIN KhachHang  k   ON v.maKH      = k.maKH "
           + "LEFT JOIN LichTrinh  lt  ON v.maLT       = lt.maLT "
           + "LEFT JOIN ChuyenTau  ct  ON lt.maChuyen  = ct.maChuyen "

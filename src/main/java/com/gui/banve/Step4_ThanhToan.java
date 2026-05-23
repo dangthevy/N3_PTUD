@@ -931,14 +931,34 @@ public class Step4_ThanhToan extends JPanel {
 			String sqlCTHD = "INSERT INTO ChiTietHoaDon (maHD, maVe, tienGoc, tienGiam, thanhTien) VALUES (?, ?, ?, ?, ?)";
 			String sqlCTKM = "INSERT INTO ChiTiet_KhuyenMai (maHD, maVe, maKMDetail, tienGiamCuaKM) VALUES (?, ?, ?, ?)";
 			String sqlChoNgoi = "UPDATE GheLichTrinh SET trangThai = 'DADAT' WHERE maLT = ? AND maToa = ? AND viTri = ?";
+			String sqlEnsureVePaxSnapshotTable = "IF OBJECT_ID('dbo.VeHanhKhachSnapshot', 'U') IS NULL "
+					+ "BEGIN "
+					+ "CREATE TABLE VeHanhKhachSnapshot ("
+					+ "maVe VARCHAR(30) NOT NULL PRIMARY KEY,"
+					+ "maKH VARCHAR(15) NULL,"
+					+ "tenKH NVARCHAR(100) NULL,"
+					+ "sdt VARCHAR(15) NULL,"
+					+ "cccd VARCHAR(20) NULL,"
+					+ "email VARCHAR(100) NULL,"
+					+ "CONSTRAINT FK_VeHanhKhachSnapshot_Ve FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE"
+					+ ") "
+					+ "END";
+			String sqlDeletePaxSnapshot = "DELETE FROM VeHanhKhachSnapshot WHERE maVe = ?";
+			String sqlInsertPaxSnapshot = "INSERT INTO VeHanhKhachSnapshot (maVe, maKH, tenKH, sdt, cccd, email) VALUES (?, ?, ?, ?, ?, ?)";
 			String sqlEnsureGhe = "IF NOT EXISTS (SELECT 1 FROM GheLichTrinh WHERE maLT = ? AND maToa = ? AND viTri = ?) "
 					+ "INSERT INTO GheLichTrinh(maLT, maToa, viTri, trangThai) VALUES (?, ?, ?, 'TRONG')";
+
+			try (PreparedStatement psEnsureSnapshotTable = conn.prepareStatement(sqlEnsureVePaxSnapshotTable)) {
+				psEnsureSnapshotTable.execute();
+			}
 
 			try (PreparedStatement psVe = conn.prepareStatement(sqlVe);
 			     PreparedStatement psCTHD = conn.prepareStatement(sqlCTHD);
 			     PreparedStatement psCTKM = conn.prepareStatement(sqlCTKM);
 			     PreparedStatement psCho = conn.prepareStatement(sqlChoNgoi);
-			     PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe)) {
+			     PreparedStatement psEnsureGhe = conn.prepareStatement(sqlEnsureGhe);
+			     PreparedStatement psDeletePaxSnapshot = conn.prepareStatement(sqlDeletePaxSnapshot);
+			     PreparedStatement psInsertPaxSnapshot = conn.prepareStatement(sqlInsertPaxSnapshot)) {
 
 				for (VeEntry entry : dsVe) {
 					// Lấy mã vé đã sinh đồng nhất trên UI
@@ -971,6 +991,23 @@ public class Step4_ThanhToan extends JPanel {
 					psVe.setString(6, entry.ve.getLoaiVe().getMaLoai());
 					psVe.setLong(7, entry.tienGoc());
 					psVe.executeUpdate();
+
+					KhachHang hk = entry.ve.getKhachHang();
+					psDeletePaxSnapshot.setString(1, maVeReal);
+					psDeletePaxSnapshot.executeUpdate();
+
+					psInsertPaxSnapshot.setString(1, maVeReal);
+					if (hk != null && !isBlank(hk.getMaKH())) psInsertPaxSnapshot.setString(2, hk.getMaKH());
+					else psInsertPaxSnapshot.setNull(2, Types.VARCHAR);
+					if (hk != null && !isBlank(hk.getHoTen())) psInsertPaxSnapshot.setString(3, hk.getHoTen());
+					else psInsertPaxSnapshot.setNull(3, Types.NVARCHAR);
+					if (hk != null && !isBlank(hk.getSdt())) psInsertPaxSnapshot.setString(4, hk.getSdt());
+					else psInsertPaxSnapshot.setNull(4, Types.VARCHAR);
+					if (hk != null && !isBlank(hk.getCccd())) psInsertPaxSnapshot.setString(5, hk.getCccd());
+					else psInsertPaxSnapshot.setNull(5, Types.VARCHAR);
+					if (hk != null && !isBlank(hk.getEmail())) psInsertPaxSnapshot.setString(6, hk.getEmail());
+					else psInsertPaxSnapshot.setNull(6, Types.VARCHAR);
+					psInsertPaxSnapshot.executeUpdate();
 
 					// INSERT CTHD
 					psCTHD.setString(1, this.currentMaHD);
