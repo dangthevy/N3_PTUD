@@ -250,7 +250,7 @@ public class Step3_NhapThongTinKH extends JPanel {
 
 		// Sự kiện Enter
 		txtPaxSdt.addActionListener(e -> {
-			debounceBk.stop();
+			debouncePax.stop();
 			if (validatePaxSdt())
 				txtPaxHoTen.requestFocus();
 		});
@@ -616,9 +616,8 @@ public class Step3_NhapThongTinKH extends JPanel {
 		}
 
 		if (sdt.length() == 10) {
-			List<KhachHang> list = kh_dao.searchBySdt(sdt);
-			if (list != null && !list.isEmpty()) {
-				KhachHang kh = list.get(0);
+			KhachHang kh = findByExactSdt(sdt);
+			if (kh != null) {
 				confirmedBooker = kh;
 				txtBkHoTen.setText(kh.getHoTen());
 				txtBkCccd.setText(kh.getCccd());
@@ -650,9 +649,8 @@ public class Step3_NhapThongTinKH extends JPanel {
 		}
 
 		if (sdt.length() == 10) {
-			List<KhachHang> list = kh_dao.searchBySdt(sdt);
-			if (list != null && !list.isEmpty()) {
-				KhachHang kh = list.get(0);
+			KhachHang kh = findByExactSdt(sdt);
+			if (kh != null) {
 				txtPaxHoTen.setText(kh.getHoTen());
 				txtPaxCccd.setText(kh.getCccd());
 				txtPaxEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
@@ -848,11 +846,13 @@ public class Step3_NhapThongTinKH extends JPanel {
 
 		Map<String, String> seatMap = mainTab.getSelectedSeatsData().get(idx);
 		if (seatMap.containsKey("hoTen")) {
+			debouncePax.stop();
 			txtPaxHoTen.setText(seatMap.get("hoTen"));
 			txtPaxSdt.setText(seatMap.get("sdt"));
 			txtPaxCccd.setText(seatMap.get("cccd"));
 			txtPaxEmail.setText(seatMap.get("email"));
 			cbLoaiVe.setSelectedItem(seatMap.get("loaiVe"));
+			debouncePax.stop();
 
 			setPaxFieldsEditable(false);
 			btnConfirmPax.setVisible(false);

@@ -19,7 +19,10 @@ import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Step5_SuccessPanel extends JPanel {
     private TAB_BanVe mainTab;
@@ -115,22 +118,9 @@ public class Step5_SuccessPanel extends JPanel {
             return;
         }
 
+        Map<String, File> generatedFiles = generateTicketPdfFilesByMaVe(maVeList);
         File outDir = getVeOutputDir();
-        int okCount = 0;
-
-        for (String maVe : maVeList) {
-            try {
-                TicketPrintData d = loadTicketData(maVe);
-                if (d == null) {
-                    continue;
-                }
-                File dest = new File(outDir, "Ve_" + maVe + ".pdf");
-                buildBoardingPassPDF(dest, d);
-                okCount++;
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
+        int okCount = generatedFiles.size();
 
         JOptionPane.showMessageDialog(this,
                 "Đã in " + okCount + "/" + maVeList.size() + " vé vào:\n" + outDir.getAbsolutePath(),
@@ -143,6 +133,36 @@ public class Step5_SuccessPanel extends JPanel {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+    }
+
+    public Map<String, File> generateTicketPdfFilesByMaVe(List<String> maVeList) {
+        Map<String, File> generatedFiles = new LinkedHashMap<>();
+        if (maVeList == null || maVeList.isEmpty()) {
+            return generatedFiles;
+        }
+
+        Map<String, Map<String, String>> sessionPassengerByMaVe = new HashMap<>();
+        Step4_ThanhToan step4 = mainTab.getStep4();
+        if (step4 != null) {
+            sessionPassengerByMaVe.putAll(step4.getCurrentPassengerInfoByMaVe());
+        }
+
+        File outDir = getVeOutputDir();
+        for (String maVe : maVeList) {
+            try {
+                TicketPrintData d = loadTicketData(maVe);
+                if (d == null) {
+                    continue;
+                }
+                applySessionPassengerOverride(d, sessionPassengerByMaVe.get(maVe));
+                File dest = new File(outDir, "Ve_" + maVe + ".pdf");
+                buildBoardingPassPDF(dest, d);
+                generatedFiles.put(maVe, dest);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+        return generatedFiles;
     }
 
     private TicketPrintData loadTicketData(String maVe) {
@@ -195,6 +215,29 @@ public class Step5_SuccessPanel extends JPanel {
 
     private String nvl(String s, String fallback) {
         return (s == null || s.trim().isEmpty()) ? fallback : s;
+    }
+
+    private void applySessionPassengerOverride(TicketPrintData d, Map<String, String> sessionPassenger) {
+        if (d == null || sessionPassenger == null || sessionPassenger.isEmpty()) {
+            return;
+        }
+        String ten = nvl(sessionPassenger.get("ten"));
+        String cccd = nvl(sessionPassenger.get("cccd"));
+        String sdt = nvl(sessionPassenger.get("sdt"));
+        String maKH = nvl(sessionPassenger.get("maKH"));
+
+        if (!ten.isEmpty()) {
+            d.tenKH = ten;
+        }
+        if (!cccd.isEmpty()) {
+            d.cccd = cccd;
+        }
+        if (!sdt.isEmpty()) {
+            // hiện tại layout vé chưa hiển thị SĐT, giữ lại để mở rộng về sau nếu cần
+        }
+        if (!maKH.isEmpty()) {
+            d.maKH = maKH;
+        }
     }
 
     private void buildBoardingPassPDF(File dest, TicketPrintData d) throws Exception {

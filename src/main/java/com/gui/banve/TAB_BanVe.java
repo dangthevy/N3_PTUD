@@ -116,6 +116,10 @@ public class TAB_BanVe extends JPanel {
 		return step4;
 	}
 
+	public Step5_SuccessPanel getStep5() {
+		return step5;
+	}
+
 	// =========================================================================
 	// QUẢN LÝ DATABASE TRẠNG THÁI GHẾ (GIỮ CHỖ / GIẢI PHÓNG)
 	// =========================================================================
