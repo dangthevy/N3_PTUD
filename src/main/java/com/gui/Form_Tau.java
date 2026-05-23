@@ -1,6 +1,7 @@
 package com.gui;
 
 import com.dao.DAO_Tau;
+import com.entities.NhanVien;
 import com.entities.Tau;
 import com.enums.TrangThaiTau;
 import javax.swing.*;
@@ -29,6 +30,11 @@ public class Form_Tau extends JDialog {
 	private String origTen = "";
 	private String origSoToaStr = "";
 	private String origTrangThaiStr = "";
+	private NhanVien nhanVienHienTai;
+
+	public void setNhanVien(NhanVien nv) {
+		this.nhanVienHienTai = nv;
+	}
 
 	public Form_Tau(Frame parent, String title) {
 		super(parent, title, true);
@@ -90,7 +96,8 @@ public class Form_Tau extends JDialog {
 		btnSave.setEnabled(false);
 
 		btnCancel.addActionListener(e -> dispose());
-		btnSave.addActionListener(e -> validateAndSave());
+		btnSave.addActionListener(e -> {validateAndSave();});
+
 		pnlBottom.add(btnCancel);
 		pnlBottom.add(btnSave);
 		pnlMain.add(pnlBottom, BorderLayout.SOUTH);
@@ -126,56 +133,54 @@ public class Form_Tau extends JDialog {
 	}
 
 	// ================== REAL-TIME VALIDATION TỐI ƯU ==================
-		private void liveValidate() {
-			boolean isValid = true;
-			
-			// 1. Validate Tên Tàu
-			String ten = txtTen.getText().trim();
-			if (ten.isEmpty()) { 
-				// FIX: Không bôi đỏ khi đang trống, chỉ ngầm báo Form chưa hợp lệ
-				clearErrorState(txtTen, lblErrTen); 
-				isValid = false; 
-			} else if (!ten.matches("^(SE|TN|SN|SPT)\\d+$")) { 
-				setErrorState(txtTen, lblErrTen, "Định dạng sai (VD: SE1, TN2)!"); 
-				isValid = false; 
-			} else {
-				clearErrorState(txtTen, lblErrTen);
-			}
+	private void liveValidate() {
+		boolean isValid = true;
 
-			// 2. Validate Số Toa
-			String soToaStr = txtSoToa.getText().trim();
-			int currentSoToa = -1;
-			if (soToaStr.isEmpty()) { 
-				// FIX: Không bôi đỏ khi đang trống
-				clearErrorState(txtSoToa, lblErrSoToa); 
-				isValid = false; 
-			} else {
-				try {
-					currentSoToa = Integer.parseInt(soToaStr);
-					if (currentSoToa < 5 || currentSoToa > 20) { 
-						setErrorState(txtSoToa, lblErrSoToa, "Số toa từ 5 - 20!"); 
-						isValid = false; 
-					} else {
-						clearErrorState(txtSoToa, lblErrSoToa);
-					}
-				} catch (Exception ex) { 
-					setErrorState(txtSoToa, lblErrSoToa, "Phải là số nguyên!"); 
-					isValid = false; 
-				}
-			}
-
-			// 3. Dirty Check (Kiểm tra có sự thay đổi thực sự không)
-			boolean isChanged = true;
-			if (isEditMode) {
-				String curTrangThaiStr = ((TrangThaiTau) cbTrangThai.getSelectedItem()).name();
-				if (ten.equals(origTen) && soToaStr.equals(origSoToaStr) && curTrangThaiStr.equals(origTrangThaiStr)) {
-					isChanged = false;
-				}
-			}
-
-			// Nút lưu chỉ sáng lên khi TẤT CẢ các ô đã nhập đúng và có sự thay đổi
-			btnSave.setEnabled(isValid && isChanged);
+		// 1. Validate Tên Tàu
+		String ten = txtTen.getText().trim();
+		if (ten.isEmpty()) {
+			clearErrorState(txtTen, lblErrTen);
+			isValid = false;
+		} else if (!ten.matches("^(SE|TN|SN|SPT)\\d+$")) {
+			setErrorState(txtTen, lblErrTen, "Định dạng sai (VD: SE1, TN2)!");
+			isValid = false;
+		} else {
+			clearErrorState(txtTen, lblErrTen);
 		}
+
+		// 2. Validate Số Toa
+		String soToaStr = txtSoToa.getText().trim();
+		int currentSoToa = -1;
+		if (soToaStr.isEmpty()) {
+			clearErrorState(txtSoToa, lblErrSoToa);
+			isValid = false;
+		} else {
+			try {
+				currentSoToa = Integer.parseInt(soToaStr);
+				if (currentSoToa < 5 || currentSoToa > 20) {
+					setErrorState(txtSoToa, lblErrSoToa, "Số toa từ 5 - 20!");
+					isValid = false;
+				} else {
+					clearErrorState(txtSoToa, lblErrSoToa);
+				}
+			} catch (Exception ex) {
+				setErrorState(txtSoToa, lblErrSoToa, "Phải là số nguyên!");
+				isValid = false;
+			}
+		}
+
+		// 3. Dirty Check (Kiểm tra có sự thay đổi thực sự không)
+		boolean isChanged = true;
+		if (isEditMode) {
+			String curTrangThaiStr = ((TrangThaiTau) cbTrangThai.getSelectedItem()).name();
+			if (ten.equals(origTen) && soToaStr.equals(origSoToaStr) && curTrangThaiStr.equals(origTrangThaiStr)) {
+				isChanged = false;
+			}
+		}
+
+		// Nút lưu chỉ sáng lên khi TẤT CẢ các ô đã nhập đúng và có sự thay đổi
+		btnSave.setEnabled(isValid && isChanged);
+	}
 
 	// Đổi viền ô Text thành màu Đỏ và hiện thông báo
 	private void setErrorState(JTextField tf, JLabel lbl, String msg) {
