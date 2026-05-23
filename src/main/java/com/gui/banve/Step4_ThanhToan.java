@@ -10,6 +10,15 @@ import com.enums.LoaiKhuyenMai;
 import com.enums.PTThanhToan;
 import com.enums.TrangThaiVe;
 
+import javax.mail.Message;
+import javax.mail.Multipart;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
@@ -188,6 +197,14 @@ public class Step4_ThanhToan extends JPanel {
 	private static final String SEPAY_API_KEY = "4YLJ5RBD72H5APO6CCQH0GMITN0JTFMYPXCSZVFRIS3YOVBSMRGZEZWNGSKDNQXL";
 	private static final int PAYMENT_POLL_INTERVAL_MS = 3000;
 	private static final int PAYMENT_POLL_TIMEOUT_MS = 120000;
+	private static final String SMTP_EMAIL = "ngbathien3101@gmail.com";
+	private static final String SMTP_APP_PASSWORD = "dhbeqfkcunlpgzoj";
+	private static final String EMAIL_BODY_VE = "Kính gửi Quý khách,\n"
+			+ "Công ty Cổ phần Vận tải Đường sắt Việt Nam xin chân thành cảm ơn Quý khách đã tin tưởng và lựa chọn dịch vụ của chúng tôi.\n"
+			+ "Quý khách vui lòng tải vé điện tử được đính kèm và xuất trình cho nhân viên kiểm soát trước khi lên tàu.\n"
+			+ "Kính chúc Quý khách có một hành trình an toàn và trọn vẹn!\n"
+			+ "Trân trọng,\n"
+			+ "Công ty Cổ phần Vận tải Đường sắt Việt Nam.";
 
 	private static final NumberFormat FMT = NumberFormat.getNumberInstance(new Locale("vi", "VN"));
 	private static final SimpleDateFormat SDF = new SimpleDateFormat("dd/MM/yyyy");
@@ -992,8 +1009,9 @@ public class Step4_ThanhToan extends JPanel {
 				printNote = "\nĐã lưu hóa đơn: " + printPath;
 			}
 
+			String emailNote = guiVeDienTuQuaEmailSauThanhToan();
 			JOptionPane.showMessageDialog(this,
-					"Thanh toán thành công! Mã Hóa Đơn: " + this.currentMaHD + printNote);
+					"Thanh toán thành công! Mã Hóa Đơn: " + this.currentMaHD + printNote + emailNote);
 
 			// Chuyển step sau khi dialog đóng để tránh cảm giác giật UI.
 			SwingUtilities.invokeLater(() -> {
@@ -1022,6 +1040,123 @@ public class Step4_ThanhToan extends JPanel {
 			}
 			isProcessingPayment = false;
 		}
+	}
+
+	private String guiVeDienTuQuaEmailSauThanhToan() {
+		try {
+			Step5_SuccessPanel step5Panel = mainTab.getStep5();
+			if (step5Panel == null) {
+				return "\n[Email] Không thể gửi vé: chưa khởi tạo màn hình vé.";
+			}
+
+			Map<String, File> vePdfByMaVe = step5Panel.generateTicketPdfFilesByMaVe(getCurrentMaVeList());
+			if (vePdfByMaVe.isEmpty()) {
+				return "\n[Email] Không có file PDF vé để gửi.";
+			}
+
+			Map<String, List<File>> filesTheoEmail = new LinkedHashMap<>();
+			int boQuaThieuEmail = 0;
+			int boQuaThieuPdf = 0;
+
+			for (VeEntry entry : dsVe) {
+				if (entry == null || entry.ve == null) {
+					continue;
+				}
+				String maVe = entry.ve.getMaVe();
+				File pdf = vePdfByMaVe.get(maVe);
+				if (pdf == null || !pdf.exists()) {
+					boQuaThieuPdf++;
+					continue;
+				}
+
+				KhachHang khach = entry.ve.getKhachHang();
+				String email = chuanHoaEmail(khach != null ? khach.getEmail() : null);
+				if (!isEmailHopLe(email)) {
+					boQuaThieuEmail++;
+					continue;
+				}
+
+				filesTheoEmail.computeIfAbsent(email, k -> new ArrayList<>());
+				if (!filesTheoEmail.get(email).contains(pdf)) {
+					filesTheoEmail.get(email).add(pdf);
+				}
+			}
+
+			if (filesTheoEmail.isEmpty()) {
+				return "\n[Email] Chưa gửi vé: không có email hợp lệ.";
+			}
+
+			Session mailSession = taoMailSession();
+			int soEmailThanhCong = 0;
+			for (Map.Entry<String, List<File>> e : filesTheoEmail.entrySet()) {
+				if (guiEmailVeDinhKem(mailSession, e.getKey(), e.getValue())) {
+					soEmailThanhCong++;
+				}
+			}
+
+			String note = "\n[Email] Đã gửi vé: " + soEmailThanhCong + "/" + filesTheoEmail.size() + " email thành công.";
+			if (boQuaThieuEmail > 0 || boQuaThieuPdf > 0) {
+				note += " (Bỏ qua " + boQuaThieuEmail + " vé thiếu email hợp lệ, " + boQuaThieuPdf + " vé chưa có PDF).";
+			}
+			return note;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return "\n[Email] Không thể gửi vé tự động: " + getRootMessage(ex);
+		}
+	}
+
+	private Session taoMailSession() {
+		Properties props = new Properties();
+		props.put("mail.smtp.auth", "true");
+		props.put("mail.smtp.starttls.enable", "true");
+		props.put("mail.smtp.host", "smtp.gmail.com");
+		props.put("mail.smtp.port", "587");
+		props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+		return Session.getInstance(props, new javax.mail.Authenticator() {
+			@Override
+			protected PasswordAuthentication getPasswordAuthentication() {
+				return new PasswordAuthentication(SMTP_EMAIL, SMTP_APP_PASSWORD);
+			}
+		});
+	}
+
+	private boolean guiEmailVeDinhKem(Session session, String recipientEmail, List<File> attachments) {
+		try {
+			Message message = new MimeMessage(session);
+			message.setFrom(new InternetAddress(SMTP_EMAIL));
+			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
+			message.setSubject("Vé điện tử - Mã hóa đơn " + this.currentMaHD);
+
+			MimeBodyPart textPart = new MimeBodyPart();
+			textPart.setText(EMAIL_BODY_VE, "UTF-8");
+
+			Multipart multipart = new MimeMultipart();
+			multipart.addBodyPart(textPart);
+			for (File file : attachments) {
+				if (file == null || !file.exists()) {
+					continue;
+				}
+				MimeBodyPart attachPart = new MimeBodyPart();
+				attachPart.attachFile(file);
+				attachPart.setFileName(file.getName());
+				multipart.addBodyPart(attachPart);
+			}
+
+			message.setContent(multipart);
+			Transport.send(message);
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	private String chuanHoaEmail(String email) {
+		return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+	}
+
+	private boolean isEmailHopLe(String email) {
+		return email != null && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
 	}
 
 	private String validatePaymentData() {
@@ -1649,6 +1784,26 @@ public class Step4_ThanhToan extends JPanel {
 			}
 		}
 		return list;
+	}
+
+	public Map<String, Map<String, String>> getCurrentPassengerInfoByMaVe() {
+		Map<String, Map<String, String>> result = new LinkedHashMap<>();
+		for (VeEntry entry : dsVe) {
+			if (entry == null || entry.ve == null || isBlank(entry.ve.getMaVe())) {
+				continue;
+			}
+			KhachHang passenger = entry.ve.getKhachHang();
+			Map<String, String> info = new HashMap<>();
+			if (passenger != null) {
+				info.put("maKH", passenger.getMaKH());
+				info.put("ten", passenger.getHoTen());
+				info.put("sdt", passenger.getSdt());
+				info.put("cccd", passenger.getCccd());
+				info.put("email", passenger.getEmail());
+			}
+			result.put(entry.ve.getMaVe(), info);
+		}
+		return result;
 	}
 
 	private File getHoaDonOutputDir() {

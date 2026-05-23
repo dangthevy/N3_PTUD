@@ -14,7 +14,7 @@ import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
 import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.labels.CategoryItemLabelGenerator;
+import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.labels.ItemLabelAnchor;
 import org.jfree.chart.labels.ItemLabelPosition;
 import org.jfree.chart.ui.TextAnchor;
@@ -23,7 +23,6 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.data.category.CategoryDataset;
 
 import java.awt.*;
 import java.awt.Color;
@@ -161,7 +160,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         chartCard.setBorder(BorderFactory.createCompoundBorder(
                 new ShadowBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
-        chartCard.setPreferredSize(new Dimension(0, 420));
+        chartCard.setPreferredSize(new Dimension(0, 360));
 
         chartDataset = new DefaultCategoryDataset();
         barChart = ChartFactory.createBarChart(
@@ -194,8 +193,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         jfreeChartPanel.setMinimumDrawHeight(0);
         jfreeChartPanel.setMaximumDrawWidth(Integer.MAX_VALUE);
         jfreeChartPanel.setMaximumDrawHeight(Integer.MAX_VALUE);
-        jfreeChartPanel.setDomainZoomable(false);
-        jfreeChartPanel.setRangeZoomable(false);
+        jfreeChartPanel.setPreferredSize(new Dimension(0, 340));
         chartCard.add(jfreeChartPanel, BorderLayout.CENTER);
 
         // --- B. BẢNG CHI TIẾT ---
@@ -723,7 +721,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     private void styleRevenueChart() {
         barChart.setAntiAlias(true);
         barChart.setBackgroundPaint(BG_CARD);
-        barChart.setPadding(new org.jfree.chart.ui.RectangleInsets(6, 8, 6, 8));
+        barChart.setPadding(new org.jfree.chart.ui.RectangleInsets(8, 8, 28, 8));
         barChart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
         barChart.getTitle().setPaint(TEXT_DARK);
 
@@ -733,7 +731,6 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         plot.setRangeGridlinePaint(new Color(0xDCE5F2));
         plot.setRangeGridlineStroke(new BasicStroke(1f));
         plot.setDomainGridlinesVisible(false);
-        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(6, 8, 6, 8));
 
         CategoryAxis domainAxis = plot.getDomainAxis();
         domainAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -755,16 +752,21 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
         rangeAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
         // Chừa khoảng trống phía trên để nhãn số trên đầu cột không bị che/clipping.
-        rangeAxis.setUpperMargin(0.12);
+        rangeAxis.setUpperMargin(0.25);
 
         BarRenderer renderer = (BarRenderer) plot.getRenderer();
         renderer.setBarPainter(new StandardBarPainter());
         renderer.setShadowVisible(false);
         renderer.setDrawBarOutline(false);
-        renderer.setMaximumBarWidth(0.22);
+        renderer.setMaximumBarWidth(0.14);
         renderer.setItemMargin(0.08);
         renderer.setSeriesPaint(0, new Color(0x2F80ED));
-        renderer.setDefaultItemLabelsVisible(false);
+        renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("#,###")));
+        renderer.setDefaultItemLabelsVisible(true);
+        renderer.setDefaultItemLabelFont(new Font("Segoe UI", Font.BOLD, 11));
+        renderer.setDefaultItemLabelPaint(new Color(0x3B4A61));
+        renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.OUTSIDE12, TextAnchor.BOTTOM_CENTER));
+        renderer.setItemLabelAnchorOffset(6.0);
     }
 
     private double parseNumber(Object value) {
