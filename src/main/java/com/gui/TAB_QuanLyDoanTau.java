@@ -5,6 +5,7 @@ import com.dao.DAO_LoaiToa;
 import com.dao.DAO_Tau;
 import com.dao.DAO_Toa;
 import com.entities.LoaiToa;
+import com.entities.NhanVien;
 import com.entities.Tau;
 
 import javax.swing.*;
@@ -12,7 +13,6 @@ import javax.swing.border.AbstractBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.border.LineBorder;
-import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
@@ -20,7 +20,6 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.sql.Connection;
@@ -32,7 +31,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private static final Color BG_PAGE = new Color(0xF4F7FB);
 	private static final Color ACCENT = new Color(0x1A5EAB);
 	private static final Color ACCENT_LIGHT = new Color(0xE8F0FB);
-	private static final Color C_WHITE = Color.WHITE;
 	private static final Color C_SUCCESS = new Color(0x27AE60);
 	private static final Color C_WARNING = new Color(0xE67E22);
 	private static final Color C_DANGER = new Color(0xC0392B);
@@ -63,6 +61,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private DAO_Tau daoTau = new DAO_Tau();
 	private DAO_Toa daoToa = new DAO_Toa();
 	private DAO_ChiTietTau daoCT = new DAO_ChiTietTau();
+	private NhanVien nhanVienHienTai;
 
 	class LoaiToaWrapper {
 		LoaiToa lt;
@@ -79,13 +78,15 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		}
 	}
 
-	public TAB_QuanLyDoanTau() {
+	public TAB_QuanLyDoanTau(NhanVien nv) {
+		this.nhanVienHienTai = nv;
 		setLayout(new BorderLayout());
 		cardLayout = new CardLayout();
 		pnlCards = new JPanel(cardLayout);
 		JPanel pnlMainView = createMainView();
 
-		TAB_Toa tabToa = new TAB_Toa(() -> {
+		// Truyền tiếp nv xuống cho TAB_Toa quản lý
+		TAB_Toa tabToa = new TAB_Toa(nv, () -> {
 			cardLayout.show(pnlCards, "MAIN");
 			loadDsTau();
 			loadKho();
@@ -118,16 +119,26 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		lblTitle.setForeground(ACCENT);
 		JPanel pnlGlobalActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
 		pnlGlobalActions.setOpaque(false);
-		JButton btnKhoToa = makeBtn("Quản lý Kho Toa", new Color(44, 62, 80));
+		JButton btnKhoToa = makeBtn("Quản lý Kho Toa", new Color(0x103667));
 		btnKhoToa.setPreferredSize(new Dimension(160, 34));
-		JButton btnLoaiToa = makeBtn("Quản lý loại toa", new Color(127, 140, 141));
-		btnLoaiToa.setPreferredSize(new Dimension(180, 34));
+		JButton btnLoaiToa = makeBtn("Quản lý loại toa", new Color(0x666666));
+		btnLoaiToa.setPreferredSize(new Dimension(140, 34));
+		JButton btnLichSu = makeBtn("Lịch sử bảo trì", new Color(0x993333));
+		btnLichSu.setPreferredSize(new Dimension(140, 34));
+		btnLichSu.addActionListener(e -> {
+			com.gui.Form_LichSuBaoTri frm = new com.gui.Form_LichSuBaoTri(
+					(Frame) SwingUtilities.getWindowAncestor(this), "TỔNG HỢP NHẬT KÝ BẢO TRÌ HỆ THỐNG", "ALL", "",
+					false, // Truyền "ALL" để Form tự hiểu là xem toàn bộ
+					this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001");
+			frm.setVisible(true);
+		});
 
 		btnKhoToa.addActionListener(e -> cardLayout.show(pnlCards, "TOA"));
 		btnLoaiToa.addActionListener(e -> cardLayout.show(pnlCards, "LOAITOA"));
 
 		pnlGlobalActions.add(btnLoaiToa);
 		pnlGlobalActions.add(btnKhoToa);
+		pnlGlobalActions.add(btnLichSu);
 		pnlHeader.add(lblTitle, BorderLayout.WEST);
 		pnlHeader.add(pnlGlobalActions, BorderLayout.EAST);
 
@@ -184,6 +195,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 						Tau tDao = daoTau.getTauByMa(currentTau);
 						Form_Tau f = new Form_Tau(JOptionPane.getFrameForComponent(TAB_QuanLyDoanTau.this),
 								"Cập Nhật Tàu");
+						f.setNhanVien(TAB_QuanLyDoanTau.this.nhanVienHienTai);
 						f.setEntity(tDao);
 						f.setVisible(true);
 
@@ -212,7 +224,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 													+ "] đang được phân công chạy các lịch trình trong tương lai.\n"
 													+ "Không thể cho tàu đi bảo trì hoặc ngưng hoạt động lúc này.",
 											"Lỗi Ràng Buộc Hệ Thống", JOptionPane.ERROR_MESSAGE);
-									return;
+									return; // Chặn lại, không mở form ghi nhật ký bảo trì
 								}
 
 								// Nếu không có lịch trình, nhưng đang gắn toa -> Hỏi gỡ toa
@@ -232,6 +244,32 @@ public class TAB_QuanLyDoanTau extends JPanel {
 												JOptionPane.INFORMATION_MESSAGE);
 										return; // Hủy lưu
 									}
+								}
+							}
+
+							// =================================================================
+							// 3. ĐÁNH CHẶN GHI NHẬN LỊCH SỬ BẢO TRÌ
+							// =================================================================
+							if (!oldStatus.equals(newStatus)) {
+								// Trường hợp A: Đưa tàu đi bảo trì
+								if ("BAOTRI".equals(newStatus)) {
+									com.gui.Form_LichSuBaoTri frm = new com.gui.Form_LichSuBaoTri(
+											(Frame) SwingUtilities.getWindowAncestor(TAB_QuanLyDoanTau.this),
+											"Ghi nhận bảo trì tàu " + tUpdate.getMaTau(), "TAU", tUpdate.getMaTau(),
+											false,
+											TAB_QuanLyDoanTau.this.nhanVienHienTai != null
+													? TAB_QuanLyDoanTau.this.nhanVienHienTai.getMaNV()
+													: "NV001");
+									frm.setVisible(true);
+
+									// Nếu nhân viên tắt form lịch sử hoặc bấm nút Hủy -> Chặn tiến trình lưu tàu
+									if (!frm.isConfirmed()) {
+										return;
+									}
+								}
+								// Trường hợp B: Tàu hoàn tất sửa chữa, trở lại HOATDONG
+								else if ("BAOTRI".equals(oldStatus)) {
+									new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("TAU", tUpdate.getMaTau());
 								}
 							}
 
@@ -274,7 +312,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		btnLen.setToolTipText("Chuyển toa lên trên");
 		btnXuong.setToolTipText("Chuyển toa xuống dưới");
 
-		JButton btnAuto = makeBtn("Auto Sinh Toa", new Color(142, 68, 173));
+		JButton btnAuto = makeBtn("Auto Sinh Toa", new Color(0x947BD3));
 		btnAuto.setPreferredSize(new Dimension(130, 32));
 
 		btnIn.addActionListener(e -> ganToa());
@@ -506,12 +544,15 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		b.setToolTipText("Ghế số " + num + (isBaoTri ? " - ĐANG BẢO TRÌ" : " - SẴN SÀNG"));
 
-		// LOGIC XỬ LÝ NGUYÊN BẢN
 		b.addActionListener(e -> {
 			if (isBaoTri) {
 				int ans = JOptionPane.showConfirmDialog(this, "Mở khóa bảo trì cho ghế số " + num + "?", "Mở khóa ghế",
 						JOptionPane.YES_NO_OPTION);
 				if (ans == JOptionPane.YES_OPTION) {
+					// 1. Ghi nhận thời gian kết thúc bảo trì vào lịch sử
+					new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("GHE", maToa + "_" + viTri);
+
+					// 2. Thực hiện mở khóa trạng thái vật lý
 					daoToa.removeGheBaoTri(maToa, viTri);
 					generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
 				}
@@ -522,9 +563,15 @@ public class TAB_QuanLyDoanTau extends JPanel {
 									+ "Vui lòng báo bộ phận CSKH dời chỗ cho khách trước khi khóa ghế.",
 							"Cảnh báo hệ thống", JOptionPane.WARNING_MESSAGE);
 				} else {
-					int ans = JOptionPane.showConfirmDialog(this, "Khóa ghế số " + num + " chuyển sang BẢO TRÌ?",
-							"Khóa ghế", JOptionPane.YES_NO_OPTION);
-					if (ans == JOptionPane.YES_OPTION) {
+					// Thay vì chỉ hiện ConfirmDialog đơn giản, ta mở Form ghi nhận lý do & xem lịch
+					// sử
+					Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
+							"Ghi nhận bảo trì ghế " + num, "GHE", maToa + "_" + viTri, false,
+							this.nhanVienHienTai.getMaNV());
+					frm.setVisible(true);
+
+					if (frm.isConfirmed()) {
+						// Nếu người dùng nhập lý do và bấm xác nhận thành công
 						daoToa.addGheBaoTri(maToa, viTri);
 						generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
 					}
@@ -1019,15 +1066,8 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private void loadKho() {
 		cbKho.removeAllItems();
 		for (Object[] obj : daoToa.getToaTrongKhoSanSang()) {
-			// Kiểm tra an toàn: Nếu DAO đã được cập nhật (có >= 5 cột dữ liệu)
-			if (obj.length > 4) {
-				if (obj[4] != null && obj[4].toString().equals("SAN_SANG")) {
-					cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
-				}
-			} else {
-				// Nếu DAO cũ chỉ có 4 cột (chưa có cột trạng thái), thì nạp thẳng vào ComboBox
-				cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
-			}
+			// obj[0]: maToa, obj[1]: tenToa, obj[3]: tenLoaiToa, obj[2]: soGhe
+			cbKho.addItem(obj[0] + " - " + obj[1] + " [" + obj[3] + " - " + obj[2] + " chỗ]");
 		}
 	}
 
