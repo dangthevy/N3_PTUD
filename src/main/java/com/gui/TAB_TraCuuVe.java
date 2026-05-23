@@ -70,7 +70,7 @@ public class TAB_TraCuuVe extends JPanel {
     private final DecimalFormat df = new DecimalFormat("#,##0 VND");
 
     private static final String[] COLS = {
-        "Mã Vé", "Mã KH", "Tên KH", "Mã LT", "Toa", "Ghế", "Loại Vé", "Giá Vé", "Ngày Lập", "Trạng Thái"
+            "Mã Vé", "Mã KH", "Tên KH", "Mã LT", "Toa", "Ghế", "Loại Vé", "Giá Vé", "Ngày Lập", "Trạng Thái"
     };
 
     // ================= CONSTRUCTOR =================
@@ -168,56 +168,30 @@ public class TAB_TraCuuVe extends JPanel {
             ResultSet rs = daoVe.getDanhSachVe(maVeFilter, null);
             while (rs != null && rs.next()) {
                 String status = rs.getString("trangThaiVe");
-                if (status == null) status = "CHUASUDUNG";
-
-                // ── Kiểm tra hết hạn: nếu CHUASUDUNG nhưng đã quá giờ khởi hành ──
-                if ("CHUASUDUNG".equalsIgnoreCase(status)) {
-                    java.sql.Date ngayKH = rs.getDate("ngayKhoiHanh");
-                    java.sql.Time gioKH  = rs.getTime("gioKhoiHanh");
-                    if (ngayKH != null && gioKH != null) {
-                        // Ghép ngày + giờ khởi hành thành Timestamp
-                        java.util.Calendar cal = java.util.Calendar.getInstance();
-                        java.util.Calendar calKH = java.util.Calendar.getInstance();
-                        calKH.setTime(ngayKH);
-                        java.util.Calendar calGio = java.util.Calendar.getInstance();
-                        calGio.setTime(gioKH);
-                        calKH.set(java.util.Calendar.HOUR_OF_DAY, calGio.get(java.util.Calendar.HOUR_OF_DAY));
-                        calKH.set(java.util.Calendar.MINUTE,      calGio.get(java.util.Calendar.MINUTE));
-                        calKH.set(java.util.Calendar.SECOND,      0);
-                        calKH.set(java.util.Calendar.MILLISECOND, 0);
-                        if (cal.after(calKH)) {
-                            status = "HETHAN";
-                            // Cập nhật trạng thái xuống DB (bất đồng bộ để không lag UI)
-                            final String maVeFinal = rs.getString("maVe");
-                            new Thread(() -> daoVe.capNhatTrangThaiVe(maVeFinal, "HETHAN")).start();
-                        }
-                    }
-                }
-
-                // thanhTien = giá sau áp dụng KM (từ ChiTietHoaDon)
+                // thanhTien = giá sau ap dung KM (từ ChiTietHoaDon), fallback về giaVe nếu chưa có HĐ
                 double thanhTien = rs.getDouble("thanhTien");
                 // ngayLap từ HoaDon
                 java.sql.Timestamp ngayLap = rs.getTimestamp("ngayLap");
                 String ngayLapStr = ngayLap != null
-                    ? new SimpleDateFormat("dd/MM/yyyy HH:mm").format(ngayLap)
-                    : "";
+                        ? new SimpleDateFormat("dd/MM/yyyy HH:mm").format(ngayLap)
+                        : "";
                 tableModel.addRow(new Object[]{
-                    rs.getString("maVe"),
-                    rs.getString("maKH")     != null ? rs.getString("maKH")     : "",
-                    rs.getString("tenKH")    != null ? rs.getString("tenKH")    : "Khách lẻ",
-                    rs.getString("maLT"),
-                    rs.getString("maToa"),
-                    rs.getString("viTriGhe"),
-                    rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
-                    df.format(thanhTien),   // ← giá SAU khuyến mãi
-                    ngayLapStr,
-                    trangThaiToDisplay(status)
+                        rs.getString("maVe"),
+                        rs.getString("maKH")     != null ? rs.getString("maKH")     : "",
+                        rs.getString("tenKH")    != null ? rs.getString("tenKH")    : "Khách lẻ",
+                        rs.getString("maLT"),
+                        rs.getString("maToa"),
+                        rs.getString("viTriGhe"),
+                        rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
+                        df.format(thanhTien),   // ← giá SAU khuyến mãi
+                        ngayLapStr,
+                        trangThaiToDisplay(status != null ? status : "CHUASUDUNG")
                 });
             }
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this,
-                "Lỗi kết nối CSDL: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    "Lỗi kết nối CSDL: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
         refreshStats();
     }
@@ -225,14 +199,11 @@ public class TAB_TraCuuVe extends JPanel {
     private void refreshStats() {
         int[] counts = daoVe.demTongVeVaVeHoan();
         int tong = counts[0], daHoan = counts[1];
-        int chuaSuDung = 0, daSuDung = 0, hetHan = 0;
+        int chuaSuDung = 0, daSuDung = 0;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String st = tableModel.getValueAt(i, 9).toString();
-            switch (st) {
-                case "Chưa sử dụng": chuaSuDung++; break;
-                case "Đã sử dụng":   daSuDung++;   break;
-                case "Hết hạn":      hetHan++;      break;
-            }
+            String st = tableModel.getValueAt(i, 9).toString().toUpperCase();
+            if ("CHƯA SỬ DỤNG".equals(st)) chuaSuDung++;
+            else if ("ĐÃ SỬ DỤNG".equals(st)) daSuDung++;
         }
         lblTongVe.setText(String.valueOf(tong));
         lblChuaSuDung.setText(String.valueOf(chuaSuDung));
@@ -273,9 +244,9 @@ public class TAB_TraCuuVe extends JPanel {
                 }
                 String tenChuyenFull = rs.getString("tenChuyen") != null ? rs.getString("tenChuyen") : "";
                 // Lấy mã tàu thôi: "SE1: Sài Gòn - Hà Nội" → "SE1"
-                tenTau = tenChuyenFull.contains(":") 
-                       ? tenChuyenFull.split(":")[0].trim() 
-                       : tenChuyenFull;
+                tenTau = tenChuyenFull.contains(":")
+                        ? tenChuyenFull.split(":")[0].trim()
+                        : tenChuyenFull;
                 java.sql.Date ngay = rs.getDate("ngayKhoiHanh");
                 java.sql.Time gio  = rs.getTime("gioKhoiHanh");
                 ngayDi = ngay != null ? new SimpleDateFormat("dd/MM/yyyy").format(ngay) : "";
@@ -300,10 +271,10 @@ public class TAB_TraCuuVe extends JPanel {
         String displayStatus = trangThaiDisplay;
         Color badgeFg;
         switch (trangThai) {
-            case "DAHOAN":   badgeFg = new Color(0x856404); break;
-            case "DASUDUNG": badgeFg = new Color(0x065F46); break;
-            case "HETHAN":   badgeFg = new Color(0x4B5563); break;  // xám đậm
-            default:         badgeFg = new Color(0x16A34A);          // xanh lá: chưa sử dụng
+            case "DAHOAN":  badgeFg = new Color(0x856404); break;
+            case "DASUDUNG":badgeFg = new Color(0x065F46); break;
+            case "HETHAN":  badgeFg = new Color(0x991B1B); break;
+            default:        badgeFg = new Color(0x16A34A);
         }
 
         // Lấy danh sách khuyến mãi đã áp dụng cho vé
@@ -321,19 +292,19 @@ public class TAB_TraCuuVe extends JPanel {
         String thuTuToa = "Toa " + getThuTuToa(maLT, maToa);
 
         Object[][] fields = {
-            { "Mã vé",           maVe,       false },
-            { "Mã khách hàng",   maKH,       false },
-            { "Họ tên",          tenKH,      true  },
-            { "CCCD/Passport",   cccd,       false },
-            { "Điện thoại",      sdt,        false },
-            { "Tàu/Train",       tenTau,     false },
-            { "Tuyến",           (gaKhoiHanh.isEmpty() ? "" : gaKhoiHanh + " → " + gaDen), false },
-            { "Ngày đi/Date",    ngayDi,     false },
-            { "Giờ đi/Time",     gioDi,      false },
-            { "Toa/Coach",       thuTuToa,   false },
-            { "Chỗ/Seat",        viTri,      false },
-            { "Loại chỗ/Class",  tenLoaiToa.isEmpty() ? loaiVe : tenLoaiToa, true },
-            { "Loại vé/Ticket",  loaiVe,     true  },
+                { "Mã vé",           maVe,       false },
+                { "Mã khách hàng",   maKH,       false },
+                { "Họ tên",          tenKH,      true  },
+                { "CCCD/Passport",   cccd,       false },
+                { "Điện thoại",      sdt,        false },
+                { "Tàu/Train",       tenTau,     false },
+                { "Tuyến",           (gaKhoiHanh.isEmpty() ? "" : gaKhoiHanh + " → " + gaDen), false },
+                { "Ngày đi/Date",    ngayDi,     false },
+                { "Giờ đi/Time",     gioDi,      false },
+                { "Toa/Coach",       thuTuToa,   false },
+                { "Chỗ/Seat",        viTri,      false },
+                { "Loại chỗ/Class",  tenLoaiToa.isEmpty() ? loaiVe : tenLoaiToa, true },
+                { "Loại vé/Ticket",  loaiVe,     true  },
         };
 
         int r = 0;
@@ -375,8 +346,8 @@ public class TAB_TraCuuVe extends JPanel {
             // Dòng đầu tiên thẳng hàng với label "Khuyến mãi:"
             DAO_Ve.KhuyenMaiInfo km0 = dsKM.get(0);
             String loai0 = km0.loaiKM.equals("GIAM_PHAN_TRAM")
-                ? String.format("%.0f%%", km0.giaTri)
-                : String.format("%,.0f VND", km0.giaTri);
+                    ? String.format("%.0f%%", km0.giaTri)
+                    : String.format("%,.0f VND", km0.giaTri);
             JLabel lKM0 = new JLabel("" + km0.tenKM + "  (Giảm " + loai0 + ")");
             lKM0.setFont(new Font("Segoe UI", Font.BOLD, 13));
             lKM0.setForeground(new Color(0x0369A1));
@@ -386,8 +357,8 @@ public class TAB_TraCuuVe extends JPanel {
             for (int i = 1; i < dsKM.size(); i++) {
                 DAO_Ve.KhuyenMaiInfo kmi = dsKM.get(i);
                 String loaii = kmi.loaiKM.equals("GIAM_PHAN_TRAM")
-                    ? String.format("%.0f%%", kmi.giaTri)
-                    : String.format("%,.0f VND", kmi.giaTri);
+                        ? String.format("%.0f%%", kmi.giaTri)
+                        : String.format("%,.0f VND", kmi.giaTri);
                 g.gridy = r; g.gridx = 1; g.weightx = 0.62;
                 g.insets = new Insets(2, 0, 2, 10);
                 JLabel lKMi = new JLabel("" + kmi.tenKM + "  (Giảm " + loaii + ")");
@@ -444,8 +415,8 @@ public class TAB_TraCuuVe extends JPanel {
         JPanel pFooter = new JPanel(new GridLayout(1, 3, 12, 0));
         pFooter.setBackground(new Color(0xF8FAFC));
         pFooter.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER),
-            BorderFactory.createEmptyBorder(14, 22, 14, 22)));
+                BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER),
+                BorderFactory.createEmptyBorder(14, 22, 14, 22)));
 
         // Nut Hoan ve - icon undo ro rang
         JButton btnHoanVe = new JButton("  Hoàn vé") {
@@ -453,7 +424,7 @@ public class TAB_TraCuuVe extends JPanel {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 Color base = !isEnabled() ? new Color(0xBDBDBD)
-                           : getModel().isRollover() ? BTN_ORANGE_HVR : BTN_ORANGE;
+                        : getModel().isRollover() ? BTN_ORANGE_HVR : BTN_ORANGE;
                 g2.setColor(base);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
                 g2.setColor(Color.WHITE);
@@ -528,14 +499,7 @@ public class TAB_TraCuuVe extends JPanel {
 
         boolean coTheHoan = "CHUASUDUNG".equals(trangThai);
         btnHoanVe.setEnabled(coTheHoan);
-        if ("HETHAN".equals(trangThai))
-            btnHoanVe.setToolTipText("Không thể hoàn vé đã hết hạn (đã quá giờ khởi hành)");
-        else if ("DASUDUNG".equals(trangThai))
-            btnHoanVe.setToolTipText("Không thể hoàn vé đã được sử dụng");
-        else if ("DAHOAN".equals(trangThai))
-            btnHoanVe.setToolTipText("Vé này đã được hoàn trước đó");
-        else if (!coTheHoan)
-            btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
+        if (!coTheHoan) btnHoanVe.setToolTipText("Chỉ hoàn được vé ở trạng thái 'Chưa sử dụng'");
 
         // Capture final cho lambda — dung thuTuToa da tinh o tren
         final String fMaVe = maVe, fMaKH = maKH, fTenKH = tenKH;
@@ -550,9 +514,9 @@ public class TAB_TraCuuVe extends JPanel {
         btnDong.addActionListener(e -> dialog.dispose());
         btnHoanVe.addActionListener(e -> confirmHoanVe(fMaVe, dialog));
         btnInLai.addActionListener(e ->
-            inVePDF(dialog, fMaVe, fMaKH, fTenKH, fCccd, fTenTau,
-                    fGaKH, fGaDen, fNgayDi, fGioDi,
-                    fThuTuToa, fViTri, fLoaiToa, fLoaiVe, fGiaVeRaw, fDsKM, fTrangThai));
+                inVePDF(dialog, fMaVe, fMaKH, fTenKH, fCccd, fTenTau,
+                        fGaKH, fGaDen, fNgayDi, fGioDi,
+                        fThuTuToa, fViTri, fLoaiToa, fLoaiVe, fGiaVeRaw, fDsKM, fTrangThai));
 
         pFooter.add(btnHoanVe);
         pFooter.add(btnInLai);
@@ -592,12 +556,12 @@ public class TAB_TraCuuVe extends JPanel {
 
         try {
             buildBoardingPassPDF(dest, maVe, maKH, tenKH, cccd,
-                tenTau, gaKhoiHanh, gaDen, ngayDi, gioDi,
-                maToa, viTri, loaiChoDon, loaiVe, giaVeRaw, dsKM, trangThai);
+                    tenTau, gaKhoiHanh, gaDen, ngayDi, gioDi,
+                    maToa, viTri, loaiChoDon, loaiVe, giaVeRaw, dsKM, trangThai);
 
             JOptionPane.showMessageDialog(parentDialog,
-                "Đã xuất PDF thành công!\n" + dest.getAbsolutePath(),
-                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    "Đã xuất PDF thành công!\n" + dest.getAbsolutePath(),
+                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
 
             // Mở PDF bằng trình xem mặc định
             if (Desktop.isDesktopSupported())
@@ -606,7 +570,7 @@ public class TAB_TraCuuVe extends JPanel {
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(parentDialog,
-                "Lỗi xuất PDF: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    "Lỗi xuất PDF: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -636,13 +600,13 @@ public class TAB_TraCuuVe extends JPanel {
     }
 
     private void buildBoardingPassPDF(File dest,
-            String maVe, String maKH, String tenKH, String cccd,
-            String tenTau, String gaKhoiHanh, String gaDen,
-            String ngayDi, String gioDi,
-            String maToa, String viTri,
-            String loaiChoClass, String loaiVe,
-            double giaVeRaw, List<DAO_Ve.KhuyenMaiInfo> dsKM,
-            String trangThai) throws Exception {
+                                      String maVe, String maKH, String tenKH, String cccd,
+                                      String tenTau, String gaKhoiHanh, String gaDen,
+                                      String ngayDi, String gioDi,
+                                      String maToa, String viTri,
+                                      String loaiChoClass, String loaiVe,
+                                      double giaVeRaw, List<DAO_Ve.KhuyenMaiInfo> dsKM,
+                                      String trangThai) throws Exception {
 
         // iText color
         DeviceRgb BLACK  = new DeviceRgb(0,   0,   0);
@@ -699,7 +663,7 @@ public class TAB_TraCuuVe extends JPanel {
         // 3. MÃ VÉ
         // ============================================================
         drawCenteredText(canvas, fontPlain, 8.5f,
-            "Mã vé / TicketID:  " + maVe, BLACK, margin, pageW, y);
+                "Mã vé / TicketID:  " + maVe, BLACK, margin, pageW, y);
         y -= 20;
 
         // ============================================================
@@ -755,21 +719,21 @@ public class TAB_TraCuuVe extends JPanel {
         // Tính format tiền (dấu chấm phân ngàn VN)
         java.text.DecimalFormat dfMoney = new java.text.DecimalFormat("#,##0");
         dfMoney.setDecimalFormatSymbols(
-            new java.text.DecimalFormatSymbols(new java.util.Locale("vi", "VN")));
+                new java.text.DecimalFormatSymbols(new java.util.Locale("vi", "VN")));
 
         double tongGiam = 0;
         for (DAO_Ve.KhuyenMaiInfo km : dsKM) tongGiam += km.tienGiamThucTe;
         double giaSau = giaVeRaw - tongGiam;
 
         String[][] rows = {
-            { "Tàu / Train:",          tenTau.isEmpty()      ? "N/A" : tenTau      },
-            { "Ngày đi / Date:",        ngayDi.isEmpty()      ? "N/A" : ngayDi      },
-            { "Giờ đi / Time:",         gioDi.isEmpty()       ? "N/A" : gioDi       },
-            { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri                    },            { "Loại chỗ / Class:",      loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
-            { "Loại vé / Ticket:",      loaiVe.isEmpty()      ? "N/A" : loaiVe      },
-            { "Họ tên / Name:",         tenKH.isEmpty()       ? "xxxxxxxx" : tenKH  },
-            { "",                       ""                                           },
-            { "Giấy tờ / Passport:",    cccd.isEmpty()        ? "xxxxxxxx" : cccd   },
+                { "Tàu / Train:",          tenTau.isEmpty()      ? "N/A" : tenTau      },
+                { "Ngày đi / Date:",        ngayDi.isEmpty()      ? "N/A" : ngayDi      },
+                { "Giờ đi / Time:",         gioDi.isEmpty()       ? "N/A" : gioDi       },
+                { "Toa / Coach:  " + maToa, "Chỗ / Seat:  " + viTri                    },            { "Loại chỗ / Class:",      loaiChoClass.isEmpty() ? loaiVe : loaiChoClass },
+                { "Loại vé / Ticket:",      loaiVe.isEmpty()      ? "N/A" : loaiVe      },
+                { "Họ tên / Name:",         tenKH.isEmpty()       ? "xxxxxxxx" : tenKH  },
+                { "",                       ""                                           },
+                { "Giấy tờ / Passport:",    cccd.isEmpty()        ? "xxxxxxxx" : cccd   },
         };
 
         for (String[] row : rows) {
@@ -821,8 +785,8 @@ public class TAB_TraCuuVe extends JPanel {
             // Tên KM đầu tiên
             DAO_Ve.KhuyenMaiInfo km0 = dsKM.get(0);
             String loai0 = km0.loaiKM.equals("GIAM_PHAN_TRAM")
-                ? String.format("Giảm %.0f%%", km0.giaTri)
-                : String.format("Giảm %s VND", dfMoney.format((long)km0.giaTri));
+                    ? String.format("Giảm %.0f%%", km0.giaTri)
+                    : String.format("Giảm %s VND", dfMoney.format((long)km0.giaTri));
             canvas.setFillColor(new DeviceRgb(0x03, 0x69, 0xA1));
             canvas.beginText();
             canvas.setFontAndSize(fontBold, 8.5f);
@@ -834,8 +798,8 @@ public class TAB_TraCuuVe extends JPanel {
             for (int i = 1; i < dsKM.size(); i++) {
                 DAO_Ve.KhuyenMaiInfo kmi = dsKM.get(i);
                 String loaii = kmi.loaiKM.equals("GIAM_PHAN_TRAM")
-                    ? String.format("Giảm %.0f%%", kmi.giaTri)
-                    : String.format("Giảm %s VND", dfMoney.format((long)kmi.giaTri));
+                        ? String.format("Giảm %.0f%%", kmi.giaTri)
+                        : String.format("Giảm %s VND", dfMoney.format((long)kmi.giaTri));
                 canvas.setFillColor(new DeviceRgb(0x03, 0x69, 0xA1));
                 canvas.beginText();
                 canvas.setFontAndSize(fontBold, 8.5f);
@@ -907,9 +871,9 @@ public class TAB_TraCuuVe extends JPanel {
         // 7. CUỐNG VÉ — thông tin gọn
         // ============================================================
         drawCenteredText(canvas, fontBold, 7.5f,
-            maVe + "   |   " + tenTau + "   |   " + ngayDi + "   " + gioDi
-            + "   |   " + maToa + "  Ghế " + viTri,
-            GRAY, margin, pageW, y);
+                maVe + "   |   " + tenTau + "   |   " + ngayDi + "   " + gioDi
+                        + "   |   " + maToa + "  Ghế " + viTri,
+                GRAY, margin, pageW, y);
         y -= 11;
 
         // Ngày in
@@ -936,8 +900,8 @@ public class TAB_TraCuuVe extends JPanel {
         canvas.setStrokeColor(LGRAY);
         canvas.setLineWidth(0.8f);
         canvas.rectangle(margin - 8, margin - 8,
-                         pageW - (margin - 8) * 2,
-                         pageH - (margin - 8) * 2);
+                pageW - (margin - 8) * 2,
+                pageH - (margin - 8) * 2);
         canvas.stroke();
 
         canvas.release();
@@ -958,23 +922,23 @@ public class TAB_TraCuuVe extends JPanel {
         String[][] candidates;
         if (os.contains("win")) {
             candidates = new String[][] {
-                { "C:/Windows/Fonts/arial.ttf",    "C:/Windows/Fonts/arialbd.ttf"    },
-                { "C:/Windows/Fonts/tahoma.ttf",   "C:/Windows/Fonts/tahomabd.ttf"   },
-                { "C:/Windows/Fonts/times.ttf",    "C:/Windows/Fonts/timesbd.ttf"    },
-                { "C:/Windows/Fonts/calibri.ttf",  "C:/Windows/Fonts/calibrib.ttf"   },
+                    { "C:/Windows/Fonts/arial.ttf",    "C:/Windows/Fonts/arialbd.ttf"    },
+                    { "C:/Windows/Fonts/tahoma.ttf",   "C:/Windows/Fonts/tahomabd.ttf"   },
+                    { "C:/Windows/Fonts/times.ttf",    "C:/Windows/Fonts/timesbd.ttf"    },
+                    { "C:/Windows/Fonts/calibri.ttf",  "C:/Windows/Fonts/calibrib.ttf"   },
             };
         } else if (os.contains("mac")) {
             candidates = new String[][] {
-                { "/Library/Fonts/Arial.ttf",                    "/Library/Fonts/Arial Bold.ttf"          },
-                { "/System/Library/Fonts/Supplemental/Arial.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf" },
-                { "/Library/Fonts/Times New Roman.ttf",          "/Library/Fonts/Times New Roman Bold.ttf"},
+                    { "/Library/Fonts/Arial.ttf",                    "/Library/Fonts/Arial Bold.ttf"          },
+                    { "/System/Library/Fonts/Supplemental/Arial.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf" },
+                    { "/Library/Fonts/Times New Roman.ttf",          "/Library/Fonts/Times New Roman Bold.ttf"},
             };
         } else {
             // Linux / other
             candidates = new String[][] {
-                { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"      },
-                { "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" },
-                { "/usr/share/fonts/truetype/freefont/FreeSans.ttf",      "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"       },
+                    { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"      },
+                    { "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" },
+                    { "/usr/share/fonts/truetype/freefont/FreeSans.ttf",      "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"       },
             };
         }
 
@@ -985,22 +949,22 @@ public class TAB_TraCuuVe extends JPanel {
             if (!f.exists() && idx == 1) f = new File(pair[0]);
             if (f.exists()) {
                 return PdfFontFactory.createFont(
-                    f.getAbsolutePath(),
-                    PdfEncodings.IDENTITY_H,
-                    PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
+                        f.getAbsolutePath(),
+                        PdfEncodings.IDENTITY_H,
+                        PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
             }
         }
 
         // Fallback: Helvetica (không có dấu tiếng Việt nhưng không crash)
         return PdfFontFactory.createFont(
-            bold ? com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLD
-                 : com.itextpdf.io.font.constants.StandardFonts.HELVETICA);
+                bold ? com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLD
+                        : com.itextpdf.io.font.constants.StandardFonts.HELVETICA);
     }
 
     // ====== PDF drawing helpers ======
 
     private void drawCenteredText(PdfCanvas c, PdfFont font, float size, String text,
-                                   DeviceRgb color, float marginL, float pageW, float y) throws Exception {
+                                  DeviceRgb color, float marginL, float pageW, float y) throws Exception {
         float tw = font.getWidth(text, size);
         float x  = marginL + (pageW - marginL * 2 - tw) / 2f;
         c.setFillColor(color);
@@ -1067,10 +1031,10 @@ public class TAB_TraCuuVe extends JPanel {
         // Nếu không hoàn được (< 4 giờ)
         if (phanTramHoan == 0 && gioConLai >= 0) {
             JOptionPane.showMessageDialog(chiTietDialog,
-                "<html>Không thể hoàn vé <b>" + maVe + "</b>!<br>"
-              + String.format("Tàu khởi hành trong <b>%.1f giờ nữa</b> (dưới 4 giờ).<br>", gioConLai)
-              + "Chính sách: không hoàn vé khi còn dưới 4 giờ khởi hành.</html>",
-                "Không thể hoàn vé", JOptionPane.WARNING_MESSAGE);
+                    "<html>Không thể hoàn vé <b>" + maVe + "</b>!<br>"
+                            + String.format("Tàu khởi hành trong <b>%.1f giờ nữa</b> (dưới 4 giờ).<br>", gioConLai)
+                            + "Chính sách: không hoàn vé khi còn dưới 4 giờ khởi hành.</html>",
+                    "Không thể hoàn vé", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -1087,11 +1051,11 @@ public class TAB_TraCuuVe extends JPanel {
         JPanel pWarn = new JPanel(new BorderLayout(10, 0));
         pWarn.setBackground(new Color(0xFFF3CD));
         pWarn.setBorder(BorderFactory.createCompoundBorder(
-            new LineBorder(new Color(0xFFC107), 1),
-            BorderFactory.createEmptyBorder(14, 18, 14, 18)));
+                new LineBorder(new Color(0xFFC107), 1),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)));
         JLabel warnMsg = new JLabel(
-            "<html>Bạn có chắc muốn hoàn vé <b>" + maVe + "</b>?<br>"
-          + "Vé sẽ chuyển sang <b>DAHOAN</b> và ghế sẽ được trả lại.</html>");
+                "<html>Bạn có chắc muốn hoàn vé <b>" + maVe + "</b>?<br>"
+                        + "Vé sẽ chuyển sang <b>DAHOAN</b> và ghế sẽ được trả lại.</html>");
         warnMsg.setFont(F_CELL);
         warnMsg.setForeground(new Color(0x856404));
         pWarn.add(warnMsg, BorderLayout.CENTER);
@@ -1100,8 +1064,8 @@ public class TAB_TraCuuVe extends JPanel {
         JPanel pDetail = new JPanel(new GridBagLayout());
         pDetail.setBackground(BG_CARD);
         pDetail.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER),
-            BorderFactory.createEmptyBorder(16, 24, 16, 24)));
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER),
+                BorderFactory.createEmptyBorder(16, 24, 16, 24)));
 
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.HORIZONTAL;
@@ -1124,9 +1088,9 @@ public class TAB_TraCuuVe extends JPanel {
         else                       chinhSachStr = String.format("Còn %.1f giờ → Hoàn %.0f%%", gioConLai, phanTramHoan);
 
         String[][] detailRows = {
-            { "Thời gian còn lại:",       chinhSachStr                                          },
-            { "Số tiền khách đã trả:",    String.format("%,.0f VND", tienThanhToan)             },
-            { "Phí hoàn vé (giữ lại):",   String.format("%,.0f VND  (%.0f%%)", phiHoan, 100 - phanTramHoan) },
+                { "Thời gian còn lại:",       chinhSachStr                                          },
+                { "Số tiền khách đã trả:",    String.format("%,.0f VND", tienThanhToan)             },
+                { "Phí hoàn vé (giữ lại):",   String.format("%,.0f VND  (%.0f%%)", phiHoan, 100 - phanTramHoan) },
         };
 
         for (String[] dr : detailRows) {
@@ -1167,9 +1131,9 @@ public class TAB_TraCuuVe extends JPanel {
 
         // ---- Chính sách hoàn vé (note nhỏ) ----
         JLabel lblNote = new JLabel(
-            "<html><font color='#6B7280' size='2'>"
-          + "Chính sách: ≥72h → hoàn 90% | 24–72h → 75% | 4–24h → 50% | &lt;4h → không hoàn"
-          + "</font></html>");
+                "<html><font color='#6B7280' size='2'>"
+                        + "Chính sách: ≥72h → hoàn 90% | 24–72h → 75% | 4–24h → 50% | &lt;4h → không hoàn"
+                        + "</font></html>");
         lblNote.setBorder(BorderFactory.createEmptyBorder(0, 24, 10, 24));
         pInfo.add(lblNote, BorderLayout.SOUTH);
 
@@ -1190,15 +1154,15 @@ public class TAB_TraCuuVe extends JPanel {
             if (ok) {
                 chiTietDialog.dispose();
                 JOptionPane.showMessageDialog(TAB_TraCuuVe.this,
-                    String.format("<html>Hoàn vé <b>%s</b> thành công!<br>"
-                        + "Số tiền hoàn trả cho khách: <b>%,.0f VND</b><br>"
-                        + "Ghế đã được trả lại.</html>", maVe, tienHoan),
-                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        String.format("<html>Hoàn vé <b>%s</b> thành công!<br>"
+                                + "Số tiền hoàn trả cho khách: <b>%,.0f VND</b><br>"
+                                + "Ghế đã được trả lại.</html>", maVe, tienHoan),
+                        "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 loadData(txtMaVe != null ? txtMaVe.getText().trim() : null);
             } else {
                 JOptionPane.showMessageDialog(TAB_TraCuuVe.this,
-                    "Không thể hoàn vé!\nVé không ở trạng thái 'chưa sử dụng' hoặc có lỗi CSDL.",
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        "Không thể hoàn vé!\nVé không ở trạng thái 'chưa sử dụng' hoặc có lỗi CSDL.",
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -1387,8 +1351,8 @@ public class TAB_TraCuuVe extends JPanel {
         JPanel p = new JPanel(new BorderLayout(5, 5));
         p.setBackground(BG_CARD);
         p.setBorder(BorderFactory.createCompoundBorder(
-            new LineBorder(COLOR_BORDER, 1, true),
-            new EmptyBorder(14, 20, 14, 20)));
+                new LineBorder(COLOR_BORDER, 1, true),
+                new EmptyBorder(14, 20, 14, 20)));
         JLabel lblT = new JLabel(title);
         lblT.setForeground(COLOR_MUTED);
         lblT.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -1462,8 +1426,8 @@ public class TAB_TraCuuVe extends JPanel {
                 switch (style) {
                     case DANGER:    c = getModel().isRollover() ? BTN_RED_HVR : BTN_RED; break;
                     case WARNING:   c = isEnabled()
-                                        ? (getModel().isRollover() ? BTN_ORANGE_HVR : BTN_ORANGE)
-                                        : new Color(0xBDBDBD); break;
+                            ? (getModel().isRollover() ? BTN_ORANGE_HVR : BTN_ORANGE)
+                            : new Color(0xBDBDBD); break;
                     case SECONDARY: c = getModel().isRollover() ? new Color(0xE5ECF6) : Color.WHITE; break;
                     default:        c = getModel().isRollover() ? ACCENT_HVR : ACCENT;
                 }
