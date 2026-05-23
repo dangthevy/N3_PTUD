@@ -56,7 +56,7 @@ public class GUI_General extends JPanel {
         tab_BanVe.setNhanVien(nv);
         tab_TraCuuVe = new TAB_TraCuuVe();
         tab_ThanhToanLapHD = new TAB_ThanhToanLapHD();
-        tab_qlDoanTau = new TAB_QuanLyDoanTau();
+        tab_qlDoanTau = new TAB_QuanLyDoanTau(nv);
         tab_Ga = new TAB_Ga();
         tab_Tuyen = new TAB_Tuyen();
         tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();
