@@ -62,7 +62,7 @@ public class GUI_General extends JPanel {
 //        tab_Toa = new TAB_Toa();
 //        tab_LoaiToa = new TAB_LoaiToa();
 //        tab_Cho = new TAB_Cho();
-        tab_qlDoanTau = new TAB_QuanLyDoanTau();
+        tab_qlDoanTau = new TAB_QuanLyDoanTau(nv);
         tab_Ga = new TAB_Ga();
         tab_Tuyen = new TAB_Tuyen();
         tab_LichTrinh_ChuyenTau = new TAB_LichTrinh_ChuyenTau();

@@ -2,6 +2,8 @@ package com.gui;
 
 import com.dao.DAO_Tau;
 import com.dao.DAO_Toa;
+import com.entities.NhanVien;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
@@ -29,13 +31,15 @@ public class TAB_Toa extends JPanel {
 	private JTextField txtSearch;
 	private JComboBox<String> cbLocTrangThai, cbLocTau;
 	private TableRowSorter<DefaultTableModel> sorter;
+	private NhanVien nhanVienHienTai;
 
-	public TAB_Toa() {
-		this(null);
-	}
+//	public TAB_Toa() {
+//		this(null);
+//	}
 
-	public TAB_Toa(Runnable onBack) {
-		this.onBack = onBack;
+	public TAB_Toa(NhanVien nv, Runnable onBack) {
+        this.nhanVienHienTai = nv; // Lưu dữ liệu nhân viên
+        this.onBack = onBack;
 		setLayout(new BorderLayout(15, 20));
 		setBackground(BG_PAGE);
 		setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -265,14 +269,41 @@ public class TAB_Toa extends JPanel {
 					JOptionPane.WARNING_MESSAGE);
 			return;
 		}
-		String newStatusStr = currentStatus.equals("Bảo trì") ? "SAN_SANG" : "BAO_TRI";
-		String msg = currentStatus.equals("Bảo trì") ? "Chuyển toa này sang trạng thái [SẴN SÀNG]?"
-				: "Chuyển toa này đi [BẢO TRÌ]?";
-		if (JOptionPane.showConfirmDialog(this, msg, "Cập nhật", JOptionPane.YES_NO_OPTION) == 0) {
-			if (dao.updateTrangThai(maToa, newStatusStr)) {
-				refreshData();
-				JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
+
+		// XỬ LÝ ĐÁNH CHẶN NGHIỆP VỤ BẢO TRÌ THEO TRẠNG THÁI HIỆN TẠI
+		if (currentStatus.equals("Bảo trì")) {
+			// TRƯỜNG HỢP 1: Toa đang BẢO TRÌ -> Muốn chuyển về SẴN SÀNG (Hoàn tất sửa chữa)
+			String msg = "Chuyển toa này sang trạng thái [SẴN SÀNG]?";
+			if (JOptionPane.showConfirmDialog(this, msg, "Cập nhật", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+				
+				// 1. Kết thúc tiến trình bảo trì trong bảng nhật ký
+				new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("TOA", maToa);
+				
+				// 2. Cập nhật trạng thái vật lý của toa xuống CSDL
+				if (dao.updateTrangThai(maToa, "SAN_SANG")) {
+					refreshData();
+					JOptionPane.showMessageDialog(this, "Đã khôi phục hoạt động cho toa thành công!");
+				}
 			}
+		} else {
+			// TRƯỜNG HỢP 2: Toa đang bình thường -> Muốn đưa đi BẢO TRÌ (Bắt đầu sửa chữa)
+			// Bật Dialog ghi nhận lý do hư hỏng và tra cứu lịch sử sửa chữa cũ của toa này
+			Form_LichSuBaoTri frm = new Form_LichSuBaoTri(
+					(Frame) SwingUtilities.getWindowAncestor(this),
+					"Ghi nhận bảo trì toa " + maToa, "TOA", maToa, false,
+					this.nhanVienHienTai.getMaNV() // ĐÃ SỬA: Dùng trực tiếp biến của class
+				);
+			frm.setVisible(true);
+
+			// Nếu nhân viên điền lý do, nhập dự toán chi phí và bấm "Xác Nhận Lệnh"
+			if (frm.isConfirmed()) {
+				// Cập nhật trạng thái toa sang BAO_TRI trong CSDL
+				if (dao.updateTrangThai(maToa, "BAO_TRI")) {
+					refreshData();
+					JOptionPane.showMessageDialog(this, "Đã chuyển giao toa sang phân xưởng bảo trì!");
+				}
+			}
+			// Nếu nhân viên bấm "Hủy Bỏ" hoặc tắt Dialog, tiến trình dừng tại đây, giữ nguyên trạng thái toa cũ.
 		}
 	}
 
