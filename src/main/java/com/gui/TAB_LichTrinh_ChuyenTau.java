@@ -322,7 +322,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         for (LichTrinhRow lt : tatCaLT) {
             String nd = (lt.ngayDen != null && !lt.ngayDen.isEmpty())
                     ? lt.ngayDen
-                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, 1440);
+                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, getThoiGianChayByMaChuyen(lt.maChuyen));
             String tt = tinhTrangThai(lt.ngayKhoiHanh, lt.gioKhoiHanh, nd);
             switch (tt) {
                 case "Chưa Khởi Hành" -> chua++;
@@ -444,20 +444,8 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                             return;
                         }
                     }
-                    // Không có vé → xóa an toàn: GiaDetail → GiaHeader → LichTrinh → ChuyenTau
-                    String sqlGD = "DELETE gd FROM GiaDetail gd " +
-                            "INNER JOIN GiaHeader g ON gd.maGia = g.maGia " +
-                            "INNER JOIN LichTrinh lt ON g.maLT = lt.maLT " +
-                            "WHERE lt.maChuyen = ?";
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGD)) {
-                        ps.setString(1, maChuyen); ps.executeUpdate();
-                    }
-                    String sqlGH = "DELETE g FROM GiaHeader g " +
-                            "INNER JOIN LichTrinh lt ON g.maLT = lt.maLT " +
-                            "WHERE lt.maChuyen = ?";
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGH)) {
-                        ps.setString(1, maChuyen); ps.executeUpdate();
-                    }
+                    // Không có vé → xóa an toàn: LichTrinh → ChuyenTau
+                    // (GiaHeader không còn FK đến LichTrinh, không cần xóa)
                     daoLichTrinh.deleteByMaChuyen(maChuyen);
                     if (daoChuyenTau.delete(maChuyen)) {
                         modelCT.removeRow(row);
@@ -775,17 +763,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                         }
                         // Không có vé → xóa an toàn
                         for (String maLT : dsXoa) {
-                            // Xóa GiaDetail
-                            String sqlGD = "DELETE gd FROM GiaDetail gd INNER JOIN GiaHeader g ON gd.maGia = g.maGia WHERE g.maLT = ?";
-                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlGD)) {
-                                ps.setString(1, maLT); ps.executeUpdate();
-                            }
-                            // Xóa GiaHeader
-                            String sqlG = "DELETE FROM GiaHeader WHERE maLT = ?";
-                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlG)) {
-                                ps.setString(1, maLT); ps.executeUpdate();
-                            }
-                            // Xóa LichTrinh
+                            // Xóa LichTrinh (GiaHeader không còn FK đến LichTrinh)
                             if (daoLichTrinh.delete(maLT)) soXoa++;
                         }
                     }
@@ -1016,7 +994,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         for (LichTrinhRow lt : dsLT) {
             String ngayDenFull = lt.ngayDen != null && !lt.ngayDen.isEmpty()
                     ? lt.ngayDen
-                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, 1440);
+                    : tinhNgayDen(lt.ngayKhoiHanh, lt.gioKhoiHanh, getThoiGianChayByMaChuyen(lt.maChuyen));
             // Ngày đến: chỉ dd/MM/yyyy
             String ngayDenHienThi = ngayDenFull.length() >= 10 ? ngayDenFull.substring(0, 10) : ngayDenFull;
             // Giờ đến: lấy phần HH:mm từ ngayDenFull (format "dd/MM/yyyy HH:mm")
@@ -2307,6 +2285,22 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             }
         } catch (Exception e) { e.printStackTrace(); }
         return 1440; // mặc định 1 ngày
+    }
+
+    /** Lấy thoiGianChay từ maChuyen (qua ChuyenTau → Tuyen) */
+    private int getThoiGianChayByMaChuyen(String maChuyen) {
+        if (maChuyen == null || maChuyen.isEmpty()) return 1440;
+        String sql = "SELECT t.thoiGianChay FROM ChuyenTau ct JOIN Tuyen t ON ct.maTuyen = t.maTuyen WHERE ct.maChuyen = ?";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maChuyen);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                int phut = rs.getInt("thoiGianChay");
+                return phut > 0 ? phut : 1440;
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return 1440;
     }
 
     // =========================================================================
