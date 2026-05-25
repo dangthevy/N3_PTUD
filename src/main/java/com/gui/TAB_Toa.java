@@ -38,8 +38,8 @@ public class TAB_Toa extends JPanel {
 //	}
 
 	public TAB_Toa(NhanVien nv, Runnable onBack) {
-        this.nhanVienHienTai = nv; // Lưu dữ liệu nhân viên
-        this.onBack = onBack;
+		this.nhanVienHienTai = nv; // Lưu dữ liệu nhân viên
+		this.onBack = onBack;
 		setLayout(new BorderLayout(15, 20));
 		setBackground(BG_PAGE);
 		setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -171,34 +171,36 @@ public class TAB_Toa extends JPanel {
 		sorter = new TableRowSorter<>(model);
 		table.setRowSorter(sorter);
 
-		// CẬP NHẬT: Logic lọc ẩn toa thanh lý mặc định
-		Runnable applyFilter = () -> {
-			List<RowFilter<Object, Object>> filters = new ArrayList<>();
-			String text = txtSearch.getText().trim();
-			if (!text.isEmpty())
-				filters.add(RowFilter.regexFilter("(?i)" + text, 0, 1));
+		// CẬP NHẬT: Logic lọc ẩn toa thanh lý mặc định và CHỐNG LỖI NULL
+				Runnable applyFilter = () -> {
+					List<RowFilter<Object, Object>> filters = new ArrayList<>();
+					String text = txtSearch.getText().trim();
+					if (!text.isEmpty()) {
+						filters.add(RowFilter.regexFilter("(?i)" + text, 0, 1));
+					}
 
-			int statusIdx = cbLocTrangThai.getSelectedIndex();
-			if (statusIdx == 0) {
-				// Mặc định chọn "Tất cả": Ẩn những toa có chữ "Thanh lý" ở cột Trạng thái
-				// (index 4)
-				filters.add(RowFilter.notFilter(RowFilter.regexFilter("^Thanh lý$", 4)));
-			} else if (statusIdx == 1) {
-				filters.add(RowFilter.regexFilter("^Sẵn sàng$", 4));
-			} else if (statusIdx == 2) {
-				filters.add(RowFilter.regexFilter("^Bảo trì$", 4));
-			} else if (statusIdx == 3) {
-				// Chọn "Thanh lý": Chỉ hiện những toa thanh lý
-				filters.add(RowFilter.regexFilter("^Thanh lý$", 4));
-			}
+					int statusIdx = cbLocTrangThai.getSelectedIndex();
+					if (statusIdx == 0) {
+						filters.add(RowFilter.notFilter(RowFilter.regexFilter("^Thanh lý$", 4)));
+					} else if (statusIdx == 1) {
+						filters.add(RowFilter.regexFilter("^Sẵn sàng$", 4));
+					} else if (statusIdx == 2) {
+						filters.add(RowFilter.regexFilter("^Bảo trì$", 4));
+					} else if (statusIdx == 3) {
+						filters.add(RowFilter.regexFilter("^Thanh lý$", 4));
+					}
 
-			if (cbLocTau.getSelectedIndex() == 1)
-				filters.add(RowFilter.regexFilter("KHO TRỐNG", 5));
-			else if (cbLocTau.getSelectedIndex() > 1)
-				filters.add(RowFilter.regexFilter(cbLocTau.getSelectedItem().toString(), 5));
+					// ĐÃ FIX: Chặn lỗi NullPointerException khi hàm refreshData làm mới ComboBox
+					if (cbLocTau.getSelectedItem() != null) {
+						if (cbLocTau.getSelectedIndex() == 1) {
+							filters.add(RowFilter.regexFilter("KHO TRỐNG", 5));
+						} else if (cbLocTau.getSelectedIndex() > 1) {
+							filters.add(RowFilter.regexFilter(cbLocTau.getSelectedItem().toString(), 5));
+						}
+					}
 
-			sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
-		};
+					sorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
+				};
 
 		txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
 			public void insertUpdate(javax.swing.event.DocumentEvent e) {
@@ -272,30 +274,40 @@ public class TAB_Toa extends JPanel {
 
 		// XỬ LÝ ĐÁNH CHẶN NGHIỆP VỤ BẢO TRÌ THEO TRẠNG THÁI HIỆN TẠI
 		if (currentStatus.equals("Bảo trì")) {
+			// =================================================================
 			// TRƯỜNG HỢP 1: Toa đang BẢO TRÌ -> Muốn chuyển về SẴN SÀNG (Hoàn tất sửa chữa)
-			String msg = "Chuyển toa này sang trạng thái [SẴN SÀNG]?";
-			if (JOptionPane.showConfirmDialog(this, msg, "Cập nhật", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-				
-				// 1. Kết thúc tiến trình bảo trì trong bảng nhật ký
-				new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("TOA", maToa);
-				
-				// 2. Cập nhật trạng thái vật lý của toa xuống CSDL
+			// ĐÃ SỬA: Bật Form bắt nhập CHI PHÍ sửa chữa thực tế (isHoanTat = true)
+			// =================================================================
+			Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
+					"Nghiệm thu chi phí hoàn tất toa " + maToa, "TOA", maToa, false,
+					this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", true 
+																									
+			);
+			frm.setVisible(true);
+
+			// Nếu nhân viên nhập tiền hợp lệ và bấm "Xác Nhận Lệnh"
+			if (frm.isConfirmed()) {
+				// Cập nhật trạng thái vật lý của toa xuống CSDL sang SAN_SANG
 				if (dao.updateTrangThai(maToa, "SAN_SANG")) {
 					refreshData();
-					JOptionPane.showMessageDialog(this, "Đã khôi phục hoạt động cho toa thành công!");
+					JOptionPane.showMessageDialog(this, "Đã khôi phục trạng thái SẴN SÀNG cho toa thành công!");
 				}
 			}
 		} else {
+			// =================================================================
 			// TRƯỜNG HỢP 2: Toa đang bình thường -> Muốn đưa đi BẢO TRÌ (Bắt đầu sửa chữa)
-			// Bật Dialog ghi nhận lý do hư hỏng và tra cứu lịch sử sửa chữa cũ của toa này
-			Form_LichSuBaoTri frm = new Form_LichSuBaoTri(
-					(Frame) SwingUtilities.getWindowAncestor(this),
-					"Ghi nhận bảo trì toa " + maToa, "TOA", maToa, false,
-					this.nhanVienHienTai.getMaNV() // ĐÃ SỬA: Dùng trực tiếp biến của class
-				);
+			// ĐÃ SỬA: Bật Form bắt nhập LÝ DO hỏng hóc (isHoanTat = false)
+			// =================================================================
+			Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
+					"Ghi nhận lý do bảo trì toa " + maToa, "TOA", maToa, false,
+					this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", false // isHoanTat = false
+																									// (Chỉ nhập lý do
+																									// khám bệnh, chi
+																									// phí mặc định = 0)
+			);
 			frm.setVisible(true);
 
-			// Nếu nhân viên điền lý do, nhập dự toán chi phí và bấm "Xác Nhận Lệnh"
+			// Nếu nhân viên điền lý do hỏng hóc và bấm "Xác Nhận Lệnh"
 			if (frm.isConfirmed()) {
 				// Cập nhật trạng thái toa sang BAO_TRI trong CSDL
 				if (dao.updateTrangThai(maToa, "BAO_TRI")) {
@@ -303,7 +315,8 @@ public class TAB_Toa extends JPanel {
 					JOptionPane.showMessageDialog(this, "Đã chuyển giao toa sang phân xưởng bảo trì!");
 				}
 			}
-			// Nếu nhân viên bấm "Hủy Bỏ" hoặc tắt Dialog, tiến trình dừng tại đây, giữ nguyên trạng thái toa cũ.
+			// Nếu nhân viên bấm "Hủy Bỏ" hoặc tắt Dialog, tiến trình dừng lại, giữ nguyên
+			// trạng thái cũ.
 		}
 	}
 

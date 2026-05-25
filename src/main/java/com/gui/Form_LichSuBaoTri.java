@@ -10,6 +10,11 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -19,35 +24,39 @@ public class Form_LichSuBaoTri extends JDialog {
     private static final Color TEXT_DARK = new Color(0x1E2B3C);
     private static final Color BORDER_CLR = new Color(0xE2EAF4);
     
+    // Placeholder cho thanh tìm kiếm
+    private final String SEARCH_PLACEHOLDER = "Tra cứu theo mã, lý do, tên NV...";
+    
     private JTextField txtLyDo, txtChiPhi;
     private DefaultTableModel model;
     private JTable table;
     
-    // UI Lọc & Thống kê
     private JTextField txtSearch;
     private JComboBox<String> cbFilterLoai, cbFilterStatus;
     private JLabel lblTongChiPhi;
     
     private String loaiTaiSan, maTaiSan;
     private String maNhanVien; 
+    private boolean isHoanTat; 
     
     private DAO_LichSuBaoTri daoBaoTri = new DAO_LichSuBaoTri();
     private boolean isConfirmed = false;
 
-    public Form_LichSuBaoTri(Frame parent, String title, String loaiTaiSan, String maTaiSan, boolean modeInputOnly, String maNhanVien) {
+    public Form_LichSuBaoTri(Frame parent, String title, String loaiTaiSan, String maTaiSan, boolean modeInputOnly, String maNhanVien, boolean isHoanTat) {
         super(parent, title, true);
         this.loaiTaiSan = loaiTaiSan;
         this.maTaiSan = maTaiSan;
         this.maNhanVien = maNhanVien; 
+        this.isHoanTat = isHoanTat;
         
-        setSize("ALL".equals(loaiTaiSan) ? 850 : 650, modeInputOnly ? 320 : 620);
+        setSize("ALL".equals(loaiTaiSan) ? 980 : 720, modeInputOnly ? 320 : 660); // Tăng form ra một xíu cho rộng rãi
         setLocationRelativeTo(parent);
         getContentPane().setBackground(Color.WHITE);
         setLayout(new BorderLayout(15, 15));
 
         // ----- HEADER TITLE -----
         JLabel lblTitle = new JLabel(title.toUpperCase(), SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTitle.setForeground(ACCENT);
         lblTitle.setBorder(BorderFactory.createEmptyBorder(15, 10, 5, 10));
         add(lblTitle, BorderLayout.NORTH);
@@ -58,66 +67,81 @@ public class Form_LichSuBaoTri extends JDialog {
         pnlCenter.setOpaque(false);
         pnlCenter.setBorder(BorderFactory.createEmptyBorder(5, 20, 10, 20));
 
-        // 1. Form ghi nhận thông tin (Chỉ hiện khi thao tác bảo trì cụ thể)
-        JPanel pnlForm = new JPanel(new GridBagLayout());
-        pnlForm.setOpaque(false);
-        GridBagConstraints gc = new GridBagConstraints();
-        gc.fill = GridBagConstraints.HORIZONTAL;
-        gc.insets = new Insets(6, 6, 6, 6);
+        // 1. TẠO FORM NHẬP ĐỘNG
+        if (!"ALL".equals(loaiTaiSan)) {
+            JPanel pnlForm = new JPanel(new GridBagLayout());
+            pnlForm.setOpaque(false);
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.fill = GridBagConstraints.HORIZONTAL;
+            gc.insets = new Insets(6, 6, 6, 6);
 
-        txtLyDo = createTextField();
-        txtChiPhi = createTextField();
-        txtChiPhi.setText("0");
-
-        addFormRow(pnlForm, "Lý do bảo trì (*):", txtLyDo, 0, gc);
-        addFormRow(pnlForm, "Dự toán chi phí (VNĐ):", txtChiPhi, 1, gc);
-        pnlCenter.add(pnlForm);
-
-        if ("ALL".equals(loaiTaiSan)) {
-            pnlForm.setVisible(false); // Ẩn form nhập nếu đang ở chế độ xem TẤT CẢ
+            if (!isHoanTat) { 
+                txtLyDo = createTextField();
+                addFormRow(pnlForm, "Lý do bảo trì (*):", txtLyDo, 0, gc);
+            } else {          
+                txtChiPhi = createTextField();
+                txtChiPhi.setText("0");
+                addFormRow(pnlForm, "Chi phí sửa chữa thực tế (VNĐ):", txtChiPhi, 0, gc);
+            }
+            pnlCenter.add(pnlForm);
         }
 
-        // 2. Bảng hiển thị lịch sử & Bộ lọc
+        // 2. BẢNG HIỂN THỊ LỊCH SỬ & BỘ LỌC HIỆN ĐẠI
         if (!modeInputOnly) {
             if (!"ALL".equals(loaiTaiSan)) {
                 pnlCenter.add(Box.createVerticalStrut(15));
             }
             
-            // =================================================================
-            // ĐÃ FIX: CHỈ HIỂN THỊ KHU VỰC BỘ LỌC KHI Ở CHẾ ĐỘ XEM TẤT CẢ ("ALL")
-            // =================================================================
+            // ==========================================
+            // UI BỘ LỌC ĐƯỢC THIẾT KẾ LẠI (REDESIGNED)
+            // ==========================================
             if ("ALL".equals(loaiTaiSan)) {
-                JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+                JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
                 pnlFilter.setOpaque(false);
                 pnlFilter.setAlignmentX(Component.LEFT_ALIGNMENT);
+                pnlFilter.setBorder(BorderFactory.createEmptyBorder(5, 0, 15, 0));
                 
-                JLabel lblFilter = new JLabel("Tra cứu:");
-                lblFilter.setFont(new Font("Segoe UI", Font.BOLD, 13));
-                pnlFilter.add(lblFilter);
+                // Ô tìm kiếm có Placeholder giả
+                txtSearch = new JTextField(SEARCH_PLACEHOLDER, 18);
+                txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                txtSearch.setPreferredSize(new Dimension(280, 38));
+                txtSearch.setForeground(Color.GRAY);
+                txtSearch.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(BORDER_CLR, 1, true), 
+                    BorderFactory.createEmptyBorder(0, 12, 0, 12)
+                ));
                 
-                txtSearch = new JTextField(12);
-                txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-                txtSearch.setPreferredSize(new Dimension(150, 32));
-                txtSearch.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), new EmptyBorder(0, 5, 0, 5)));
+                // Hiệu ứng Placeholder
+                txtSearch.addFocusListener(new FocusAdapter() {
+                    public void focusGained(FocusEvent e) {
+                        if (txtSearch.getText().equals(SEARCH_PLACEHOLDER)) {
+                            txtSearch.setText("");
+                            txtSearch.setForeground(TEXT_DARK);
+                        }
+                    }
+                    public void focusLost(FocusEvent e) {
+                        if (txtSearch.getText().isEmpty()) {
+                            txtSearch.setForeground(Color.GRAY);
+                            txtSearch.setText(SEARCH_PLACEHOLDER);
+                        }
+                    }
+                });
                 
+                // ComboBox phân loại có thêm biểu tượng
+                cbFilterLoai = new JComboBox<>(new String[]{"Tất cả loại tài sản", "Tàu", "Toa", "Ghế"});
+                styleComboBox(cbFilterLoai, 180);
+                
+                // ComboBox trạng thái có thêm biểu tượng
                 cbFilterStatus = new JComboBox<>(new String[]{"Tất cả trạng thái", "Đang sửa chữa", "Đã hoàn tất"});
-                cbFilterStatus.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-                cbFilterStatus.setPreferredSize(new Dimension(140, 32));
-                cbFilterStatus.setBackground(Color.WHITE);
-                
-                cbFilterLoai = new JComboBox<>(new String[]{"Tất cả loại", "Tàu (TAU)", "Toa (TOA)", "Ghế (GHE)"});
-                cbFilterLoai.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-                cbFilterLoai.setPreferredSize(new Dimension(120, 32));
-                cbFilterLoai.setBackground(Color.WHITE);
+                styleComboBox(cbFilterStatus, 170);
 
                 pnlFilter.add(txtSearch);
                 pnlFilter.add(cbFilterLoai); 
                 pnlFilter.add(cbFilterStatus);
                 
                 pnlCenter.add(pnlFilter);
-                pnlCenter.add(Box.createVerticalStrut(10));
 
-                // Gắn sự kiện lọc dữ liệu
+                // Lắng nghe sự kiện
                 txtSearch.getDocument().addDocumentListener(new DocumentListener() {
                     public void insertUpdate(DocumentEvent e) { loadHistoryData(); }
                     public void removeUpdate(DocumentEvent e) { loadHistoryData(); }
@@ -126,21 +150,20 @@ public class Form_LichSuBaoTri extends JDialog {
                 cbFilterStatus.addActionListener(e -> loadHistoryData());
                 cbFilterLoai.addActionListener(e -> loadHistoryData());
             }
+            // ==========================================
             
-            // --- TẠO TIÊU ĐỀ BẢNG ---
             JLabel lblHistory = new JLabel("ALL".equals(loaiTaiSan) ? "Dữ liệu nhật ký bảo trì toàn hệ thống:" : "Nhật ký sửa chữa trước đây của tài sản này:");
-            lblHistory.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            lblHistory.setFont(new Font("Segoe UI", Font.BOLD, 14));
             lblHistory.setForeground(TEXT_DARK);
             lblHistory.setAlignmentX(Component.LEFT_ALIGNMENT);
             pnlCenter.add(lblHistory);
             pnlCenter.add(Box.createVerticalStrut(8));
 
-            // Đổi cột nếu đang xem tất cả
             String[] cols;
             if ("ALL".equals(loaiTaiSan)) {
-                cols = new String[] { "Loại", "Mã Tài Sản", "Ngày bắt đầu", "Ngày hoàn tất", "Lý do hỏng hóc", "Chi phí" };
+                cols = new String[] { "Loại", "Mã Tài Sản", "Ngày bắt đầu", "Ngày hoàn tất", "Lý do hỏng hóc", "Chi phí", "Người thực hiện" };
             } else {
-                cols = new String[] { "Ngày bắt đầu", "Ngày hoàn tất", "Lý do hỏng hóc", "Chi phí" };
+                cols = new String[] { "Ngày bắt đầu", "Ngày hoàn tất", "Lý do hỏng hóc", "Chi phí", "Người thực hiện" };
             }
             
             model = new DefaultTableModel(cols, 0);
@@ -154,7 +177,7 @@ public class Form_LichSuBaoTri extends JDialog {
             scroll.getViewport().setBackground(Color.WHITE);
             pnlCenter.add(scroll);
             
-            loadHistoryData(); // Tải dữ liệu lần đầu
+            loadHistoryData(); 
         }
         add(pnlCenter, BorderLayout.CENTER);
 
@@ -163,15 +186,14 @@ public class Form_LichSuBaoTri extends JDialog {
         pnlBottom.setOpaque(false);
         pnlBottom.setBorder(BorderFactory.createEmptyBorder(0, 20, 15, 20));
 
-        // Nhãn tổng chi phí ở góc trái
         lblTongChiPhi = new JLabel("Tổng chi phí: 0 VNĐ");
-        lblTongChiPhi.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        lblTongChiPhi.setForeground(new Color(220, 53, 69)); // Màu đỏ cảnh báo
+        lblTongChiPhi.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTongChiPhi.setForeground(new Color(220, 53, 69)); 
+        
         if ("ALL".equals(loaiTaiSan)) {
             pnlBottom.add(lblTongChiPhi, BorderLayout.WEST);
         }
 
-        // Các nút bấm ở góc phải
         JPanel pnlBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlBtns.setOpaque(false);
         JButton btnCancel = createButton("ALL".equals(loaiTaiSan) ? "Đóng Báo Cáo" : "Hủy Bỏ", new Color(149, 165, 166));
@@ -187,6 +209,52 @@ public class Form_LichSuBaoTri extends JDialog {
         pnlBottom.add(pnlBtns, BorderLayout.EAST);
         
         add(pnlBottom, BorderLayout.SOUTH);
+    }
+
+    // --- HÀM TRANG TRÍ RIÊNG CHO COMBOBOX ---
+    private void styleComboBox(JComboBox<String> cb, int width) {
+        cb.setPreferredSize(new Dimension(width, 38));
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        cb.setBackground(Color.WHITE);
+        cb.setForeground(TEXT_DARK);
+        cb.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        cb.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_CLR, 1, true), 
+            BorderFactory.createEmptyBorder(0, 5, 0, 5)
+        ));
+        
+        // Custom Renderer để list danh sách có khoảng cách (padding) đẹp hơn
+        cb.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel lbl = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                lbl.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10)); // Padding rộng
+                if (isSelected) {
+                    lbl.setBackground(new Color(0xE8F0FB)); // Màu highlight xanh dương nhạt
+                    lbl.setForeground(ACCENT);
+                } else {
+                    lbl.setBackground(Color.WHITE);
+                }
+                return lbl;
+            }
+        });
+    }
+
+    private String getTenNhanVienByMa(String maNV) {
+        if (maNV == null || maNV.trim().isEmpty()) return "—";
+        String sql = "SELECT tenNV FROM NhanVien WHERE maNV = ?";
+        try (Connection con = com.connectDB.ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maNV);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("tenNV");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maNV; 
     }
 
     private void addFormRow(JPanel p, String text, JComponent c, int row, GridBagConstraints gc) {
@@ -205,107 +273,126 @@ public class Form_LichSuBaoTri extends JDialog {
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
         DecimalFormat df = new DecimalFormat("#,##0 VNĐ");
         
-        // Lấy giá trị từ các bộ lọc
-        String searchTxt = txtSearch != null ? txtSearch.getText().trim().toLowerCase() : "";
-        int statusIdx = cbFilterStatus != null ? cbFilterStatus.getSelectedIndex() : 0; // 0: Tất cả, 1: Đang sửa, 2: Đã xong
-        int loaiIdx = cbFilterLoai != null ? cbFilterLoai.getSelectedIndex() : 0; // 0: Tất cả, 1: TAU, 2: TOA, 3: GHE
+        // Cập nhật để loại trừ text của placeholder ra khỏi bộ lọc
+        String searchTxt = "";
+        if (txtSearch != null) {
+            String raw = txtSearch.getText().trim();
+            if (!raw.equals(SEARCH_PLACEHOLDER)) {
+                searchTxt = raw.toLowerCase();
+            }
+        }
+        
+        int statusIdx = cbFilterStatus != null ? cbFilterStatus.getSelectedIndex() : 0; 
+        int loaiIdx = cbFilterLoai != null ? cbFilterLoai.getSelectedIndex() : 0; 
 
         double totalCost = 0;
 
         if ("ALL".equals(loaiTaiSan)) {
-            try (java.sql.Connection con = com.connectDB.ConnectDB.getConnection();
-                 java.sql.PreparedStatement ps = con.prepareStatement("SELECT * FROM LichSuBaoTri ORDER BY ngayBatDau DESC");
-                 java.sql.ResultSet rs = ps.executeQuery()) {
+            try (Connection con = com.connectDB.ConnectDB.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT * FROM LichSuBaoTri ORDER BY ngayBatDau DESC");
+                 ResultSet rs = ps.executeQuery()) {
                  
                 while (rs.next()) {
                     String loai = rs.getString("loaiTaiSan");
                     String maTS = rs.getString("maTaiSan");
                     java.sql.Timestamp endTS = rs.getTimestamp("ngayKetThuc");
                     double chiPhi = rs.getDouble("chiPhi");
+                    String maNV = rs.getString("nguoiThucHien");
                     
-                    // --- ÁP DỤNG BỘ LỌC TẠI ĐÂY ---
-                    // 1. Lọc theo Loại
                     if (loaiIdx == 1 && !loai.equalsIgnoreCase("TAU")) continue;
                     if (loaiIdx == 2 && !loai.equalsIgnoreCase("TOA")) continue;
                     if (loaiIdx == 3 && !loai.equalsIgnoreCase("GHE")) continue;
+                    if (statusIdx == 1 && endTS != null) continue; 
+                    if (statusIdx == 2 && endTS == null) continue; 
                     
-                    // 2. Lọc theo Trạng thái
-                    if (statusIdx == 1 && endTS != null) continue; // Đang sửa -> endTS phải null
-                    if (statusIdx == 2 && endTS == null) continue; // Đã xong -> endTS phải khác null
-                    
-                    // 3. Lọc theo Text tìm kiếm (Mã hoặc Lý do)
+                    String tenNV = getTenNhanVienByMa(maNV);
+
                     if (!searchTxt.isEmpty()) {
                         String lyDo = rs.getString("lyDo").toLowerCase();
-                        if (!maTS.toLowerCase().contains(searchTxt) && !lyDo.contains(searchTxt)) {
+                        if (!maTS.toLowerCase().contains(searchTxt) && 
+                            !lyDo.contains(searchTxt) && 
+                            !tenNV.toLowerCase().contains(searchTxt)) {
                             continue;
                         }
                     }
 
-                    // Vượt qua bộ lọc -> Đưa lên bảng và cộng tiền
                     totalCost += chiPhi;
                     String start = rs.getTimestamp("ngayBatDau") != null ? sdf.format(rs.getTimestamp("ngayBatDau")) : "—";
                     String end = endTS != null ? sdf.format(endTS) : "Đang sửa chữa...";
                     
-                    model.addRow(new Object[]{ loai, maTS, start, end, rs.getString("lyDo"), df.format(chiPhi) });
+                    model.addRow(new Object[]{ loai, maTS, start, end, rs.getString("lyDo"), df.format(chiPhi), tenNV });
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         } else {
-            // Xem cho 1 tài sản cụ thể
             List<LichSuBaoTri> list = daoBaoTri.getLichSuByTaiSan(loaiTaiSan, maTaiSan);
             for (LichSuBaoTri log : list) {
-                // Áp dụng bộ lọc trạng thái & tìm kiếm
                 boolean isDone = log.getNgayKetThuc() != null;
                 if (statusIdx == 1 && isDone) continue;
                 if (statusIdx == 2 && !isDone) continue;
                 
-                if (!searchTxt.isEmpty() && !log.getLyDo().toLowerCase().contains(searchTxt)) {
+                String tenNV = getTenNhanVienByMa(log.getNguoiThucHien());
+
+                if (!searchTxt.isEmpty() && 
+                    !log.getLyDo().toLowerCase().contains(searchTxt) && 
+                    !tenNV.toLowerCase().contains(searchTxt)) {
                     continue;
                 }
                 
                 totalCost += log.getChiPhi();
                 String start = log.getNgayBatDau() != null ? sdf.format(log.getNgayBatDau()) : "—";
                 String end = isDone ? sdf.format(log.getNgayKetThuc()) : "Đang sửa chữa...";
-                model.addRow(new Object[]{ start, end, log.getLyDo(), df.format(log.getChiPhi()) });
+                
+                model.addRow(new Object[]{ start, end, log.getLyDo(), df.format(log.getChiPhi()), tenNV });
             }
         }
         
-        // Cập nhật nhãn tổng tiền
         if (lblTongChiPhi != null) {
             lblTongChiPhi.setText("Tổng chi phí: " + df.format(totalCost));
         }
     }
 
     private void handleSave() {
-        String lyDo = txtLyDo.getText().trim();
-        if (lyDo.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập lý do bảo trì thiết bị!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        double chiPhi = 0;
-        try {
-            chiPhi = Double.parseDouble(txtChiPhi.getText().trim());
-            if (chiPhi < 0) throw new Exception();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Chi phí dự toán phải là chữ số nguyên dương!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        if (!isHoanTat) {
+            String lyDo = txtLyDo.getText().trim();
+            if (lyDo.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập lý do bảo trì thiết bị!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
 
-        LichSuBaoTri log = new LichSuBaoTri(loaiTaiSan, maTaiSan, lyDo, chiPhi, this.maNhanVien);
-        if (daoBaoTri.ghiNhanBaoTri(log)) {
-            isConfirmed = true;
-            dispose();
+            LichSuBaoTri log = new LichSuBaoTri(loaiTaiSan, maTaiSan, lyDo, 0, this.maNhanVien);
+            
+            if (daoBaoTri.ghiNhanBaoTri(log)) {
+                isConfirmed = true;
+                dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Lỗi kết nối hệ thống dữ liệu bảo trì tài sản!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         } else {
-            JOptionPane.showMessageDialog(this, "Lỗi kết nối hệ thống dữ liệu bảo trì tài sản!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            double chiPhi = 0;
+            try {
+                chiPhi = Double.parseDouble(txtChiPhi.getText().trim());
+                if (chiPhi < 0) throw new Exception();
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Chi phí dự toán phải là chữ số nguyên dương hợp lệ!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            if (daoBaoTri.hoanTatBaoTri(loaiTaiSan, maTaiSan, chiPhi)) {
+                isConfirmed = true;
+                dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Lỗi cập nhật hoàn tất bảo trì xuống hệ thống!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
     private JTextField createTextField() {
         JTextField tf = new JTextField();
         tf.setPreferredSize(new Dimension(0, 36));
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), BorderFactory.createEmptyBorder(0, 8, 0, 8)));
+        tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_CLR), BorderFactory.createEmptyBorder(0, 10, 0, 10)));
         return tf;
     }
 
@@ -320,9 +407,9 @@ public class Form_LichSuBaoTri extends JDialog {
                 super.paintComponent(g);
             }
         };
-        b.setPreferredSize(new Dimension(130, 36));
+        b.setPreferredSize(new Dimension(140, 40));
         b.setForeground(Color.WHITE);
-        b.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
         b.setContentAreaFilled(false);
         b.setBorderPainted(false);
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -330,21 +417,20 @@ public class Form_LichSuBaoTri extends JDialog {
     }
 
     private void styleTable(JTable t) {
-        t.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        t.setRowHeight(36);
+        t.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        t.setRowHeight(38);
         t.setShowVerticalLines(false);
         t.setGridColor(BORDER_CLR);
         t.setFocusable(false);
-        t.getTableHeader().setPreferredSize(new Dimension(0, 38));
+        t.getTableHeader().setPreferredSize(new Dimension(0, 40));
         t.getTableHeader().setBackground(ACCENT);
         t.getTableHeader().setForeground(Color.WHITE);
-        t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
         
-        // Căn giữa nội dung cột loại tài sản nếu có
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         if ("ALL".equals(loaiTaiSan)) {
-            t.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); // Cột Loại (TAU/TOA/GHE)
+            t.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); 
             t.getColumnModel().getColumn(0).setPreferredWidth(60);
         }
     }
