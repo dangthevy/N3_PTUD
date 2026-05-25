@@ -31,16 +31,12 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	private static final Color BG_PAGE = new Color(0xF4F7FB);
 	private static final Color ACCENT = new Color(0x1A5EAB);
 	private static final Color ACCENT_LIGHT = new Color(0xE8F0FB);
-	private static final Color C_SUCCESS = new Color(0x27AE60);
-	private static final Color C_WARNING = new Color(0xE67E22);
-	private static final Color C_DANGER = new Color(0xC0392B);
 	private static final Color C_GRAY = new Color(0x7F8C8D);
 	private static final Color C_BORDER = new Color(0xDDE6F5);
 
 	private static final Font F_HEADER = new Font("Segoe UI", Font.BOLD, 14);
 	private static final Font F_BODY = new Font("Segoe UI", Font.PLAIN, 13);
 	private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 11);
-	private static final Font F_SEAT = new Font("Segoe UI", Font.BOLD, 10);
 
 	private CardLayout cardLayout;
 	private JPanel pnlCards;
@@ -128,8 +124,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		btnLichSu.addActionListener(e -> {
 			com.gui.Form_LichSuBaoTri frm = new com.gui.Form_LichSuBaoTri(
 					(Frame) SwingUtilities.getWindowAncestor(this), "TỔNG HỢP NHẬT KÝ BẢO TRÌ HỆ THỐNG", "ALL", "",
-					false, // Truyền "ALL" để Form tự hiểu là xem toàn bộ
-					this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001");
+					false, this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", false // <--- MỚI
+																											// THÊM
+			);
 			frm.setVisible(true);
 		});
 
@@ -248,28 +245,38 @@ public class TAB_QuanLyDoanTau extends JPanel {
 							}
 
 							// =================================================================
-							// 3. ĐÁNH CHẶN GHI NHẬN LỊCH SỬ BẢO TRÌ
+							// 3. ĐÁNH CHẶN GHI NHẬN LỊCH SỬ BẢO TRÌ TÀU
 							// =================================================================
 							if (!oldStatus.equals(newStatus)) {
-								// Trường hợp A: Đưa tàu đi bảo trì
+								// Trường hợp 1: Đưa tàu đi bảo trì (Chỉ nhập LÝ DO)
 								if ("BAOTRI".equals(newStatus)) {
-									com.gui.Form_LichSuBaoTri frm = new com.gui.Form_LichSuBaoTri(
+									Form_LichSuBaoTri frm = new Form_LichSuBaoTri(
 											(Frame) SwingUtilities.getWindowAncestor(TAB_QuanLyDoanTau.this),
-											"Ghi nhận bảo trì tàu " + tUpdate.getMaTau(), "TAU", tUpdate.getMaTau(),
-											false,
+											"Ghi nhận lý do bảo trì tàu " + tUpdate.getMaTau(), "TAU",
+											tUpdate.getMaTau(), false,
 											TAB_QuanLyDoanTau.this.nhanVienHienTai != null
 													? TAB_QuanLyDoanTau.this.nhanVienHienTai.getMaNV()
-													: "NV001");
+													: "NV001",
+											false // isHoanTat = false
+									);
 									frm.setVisible(true);
-
-									// Nếu nhân viên tắt form lịch sử hoặc bấm nút Hủy -> Chặn tiến trình lưu tàu
-									if (!frm.isConfirmed()) {
+									if (!frm.isConfirmed())
 										return;
-									}
 								}
-								// Trường hợp B: Tàu hoàn tất sửa chữa, trở lại HOATDONG
+								// Trường hợp 2: Tàu sửa xong quay lại hoạt động (Chỉ nhập CHI PHÍ thực tế)
 								else if ("BAOTRI".equals(oldStatus)) {
-									new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("TAU", tUpdate.getMaTau());
+									Form_LichSuBaoTri frm = new Form_LichSuBaoTri(
+											(Frame) SwingUtilities.getWindowAncestor(TAB_QuanLyDoanTau.this),
+											"Nghiệm thu chi phí sửa chữa tàu " + tUpdate.getMaTau(), "TAU",
+											tUpdate.getMaTau(), false,
+											TAB_QuanLyDoanTau.this.nhanVienHienTai != null
+													? TAB_QuanLyDoanTau.this.nhanVienHienTai.getMaNV()
+													: "NV001",
+											true // isHoanTat = true
+									);
+									frm.setVisible(true);
+									if (!frm.isConfirmed())
+										return;
 								}
 							}
 
@@ -318,7 +325,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		btnIn.addActionListener(e -> ganToa());
 		btnOut.addActionListener(e -> goToa());
 		btnLen.addActionListener(e -> doDoiChoToa(-1));
-		btnXuong.addActionListener(e -> doDoiChoToa(+1));
+		btnXuong.addActionListener(e -> doDoiChoToa(1));
 		btnAuto.addActionListener(e -> autoGenerateToaPopup());
 
 		pnlToaHeader.add(lblToa);
@@ -370,11 +377,10 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		legend.setOpaque(false);
 		legend.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
-		// --- CẬP NHẬT MÀU MỚI: Xám nhạt (Sẵn sàng) và Xám đậm (Bảo trì) ---
+		// --- CẬP NHẬT MÀU MỚI: Xám nhạt (Sẵn sàng) và Đỏ (Bảo trì) ---
 		legend.add(legendItem(new Color(0xE9EDF2), new Color(0xD1D9E0), "Sẵn sàng"));
-		legend.add(legendItem(new Color(0x95A5A6), new Color(0x7F8C8D), "Bảo trì"));
+		legend.add(legendItem(new Color(0xDC3545), new Color(0xDC3545).darker(), "Đang bảo trì"));
 		hdrMap.add(titleRow, BorderLayout.WEST);
-		// hdrMap.add(legend, BorderLayout.EAST);
 
 		pnlTrainBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 8));
 		pnlTrainBar.setBackground(Color.WHITE);
@@ -447,25 +453,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		return false;
 	}
 
-	// ====================================================================
-	// HÀM KIỂM TRA LỊCH TRÌNH TƯƠNG LAI (CHECK NGẦM)
-	// ====================================================================
-	private boolean isSeatBookedInFuture(String maToa, String viTri) {
-		String sql = "SELECT COUNT(*) FROM GheLichTrinh gl JOIN LichTrinh lt ON gl.maLT = lt.maLT "
-				+ "WHERE gl.maToa = ? AND gl.viTri = ? AND gl.trangThai IN ('DADAT', 'GIUCHO') "
-				+ "AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
-		try (Connection c = ConnectDB.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-			ps.setString(1, maToa);
-			ps.setString(2, viTri);
-			ResultSet rs = ps.executeQuery();
-			if (rs.next() && rs.getInt(1) > 0)
-				return true;
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return false;
-	}
-
 	private void goToanBoToaVeKho(String maTau) {
 		List<Object[]> attachedToa = daoCT.getToaOfTau(maTau);
 		for (Object[] obj : attachedToa) {
@@ -476,6 +463,27 @@ public class TAB_QuanLyDoanTau extends JPanel {
 	}
 
 	// ====================================================================
+	// HÀM MỚI: LẤY 1 LẦN DUY NHẤT DANH SÁCH GHẾ ĐÃ ĐẶT (CHỐNG LỖI TREO MÁY)
+	// ====================================================================
+	private java.util.Set<String> getGheDaDatTrongTuongLai(String maToa) {
+		java.util.Set<String> bookedSeats = new java.util.HashSet<>();
+		String sql = "SELECT gl.viTri FROM GheLichTrinh gl JOIN LichTrinh lt ON gl.maLT = lt.maLT "
+				+ "WHERE gl.maToa = ? AND gl.trangThai IN ('DADAT', 'GIUCHO') "
+				+ "AND (lt.ngayKhoiHanh > CAST(GETDATE() AS DATE) OR (lt.ngayKhoiHanh = CAST(GETDATE() AS DATE) AND lt.gioKhoiHanh > CAST(GETDATE() AS TIME)))";
+		try (java.sql.Connection c = com.connectDB.ConnectDB.getConnection();
+				java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+			ps.setString(1, maToa);
+			java.sql.ResultSet rs = ps.executeQuery();
+			while (rs.next()) {
+				bookedSeats.add(rs.getString(1));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return bookedSeats;
+	}
+
+	// ====================================================================
 	// VẼ SƠ ĐỒ VẬT LÝ VÀ SỰ KIỆN CLICK GHẾ BẢO TRÌ
 	// ====================================================================
 	private void generateSeatMap(String maToa, String tenToa, int thuTu) {
@@ -483,6 +491,10 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		lblMapTitle.setText("3. SƠ ĐỒ GHẾ VẬT LÝ: Toa Số " + thuTu + " - " + tenToa + " (" + maToa + ")");
 
 		Set<String> maintenanceSeats = daoToa.getGheBaoTri(maToa);
+
+		// ĐÃ FIX: Lấy danh sách ghế đã bán 1 lần duy nhất
+		Set<String> bookedSeats = getGheDaDatTrongTuongLai(maToa);
+
 		Object[] thongTin = daoToa.getThongTinToaForMap(maToa);
 
 		if (thongTin != null) {
@@ -494,9 +506,10 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			lblSeatStats
 					.setText("   Tổng sức chứa: " + tongGhe + " ghế   |   Đang bảo trì: " + maintenanceSeats.size());
 
+			// Truyền thêm bookedSeats vào các hàm vẽ
 			JPanel seatPanel = "GIUONG".equalsIgnoreCase(kieu)
-					? drawSleeperHorizontal(soHang, soCot, maintenanceSeats, maToa)
-					: drawSeaterHorizontal(soHang, soCot, maintenanceSeats, maToa);
+					? drawSleeperHorizontal(soHang, soCot, maintenanceSeats, bookedSeats, maToa)
+					: drawSeaterHorizontal(soHang, soCot, maintenanceSeats, bookedSeats, maToa);
 			pnlMap.add(seatPanel, BorderLayout.CENTER);
 		}
 		pnlMap.revalidate();
@@ -504,29 +517,30 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		refreshTrainBar();
 	}
 
-	private JButton seatBtn(int num, Set<String> maintenanceSeats, String maToa) {
+	// ĐÃ FIX: Thêm tham số bookedSeats
+	// Vẫn truyền bookedSeats vào để check ngầm, nhưng không dùng để tô màu!
+	private JButton seatBtn(int num, java.util.Set<String> maintenanceSeats, java.util.Set<String> bookedSeats,
+			String maToa) {
 		String viTri = String.valueOf(num);
 		boolean isBaoTri = maintenanceSeats.contains(viTri);
+		boolean isBooked = bookedSeats.contains(viTri); // Chỉ lưu trạng thái ngầm trên RAM
 
-		// Tạo nút với UI Custom giống ModernSeatButton ở Step 2
 		JButton b = new JButton(viTri) {
 			@Override
 			protected void paintComponent(Graphics g) {
 				Graphics2D g2 = (Graphics2D) g.create();
 				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-				// Màu sắc chuẩn Modern UI
-				Color bg = isBaoTri ? new Color(0x95A5A6) : new Color(0xE9EDF2);
-				Color border = isBaoTri ? new Color(0x95A5A6).darker() : new Color(0xD1D9E0);
+				// CHỈ CÒN 2 TRẠNG THÁI VẬT LÝ: Đỏ (Bảo trì) và Xanh xám nhạt (Sẵn sàng)
+				Color bg = isBaoTri ? new Color(0xDC3545) : new Color(0xE9EDF2);
+				Color border = isBaoTri ? new Color(0xDC3545).darker() : new Color(0xD1D9E0);
 				Color text = isBaoTri ? Color.WHITE : new Color(0x5A6A7D);
 
-				// Vẽ nền và viền bo góc 6px
 				g2.setColor(bg);
 				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
 				g2.setColor(border);
 				g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 6, 6);
 
-				// Vẽ text
 				g2.setColor(text);
 				FontMetrics fm = g2.getFontMetrics();
 				int tx = (getWidth() - fm.stringWidth(getText())) / 2;
@@ -542,36 +556,38 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		b.setBorderPainted(false);
 		b.setFocusPainted(false);
 		b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+		// Tooltip cũng chỉ hiển thị 2 trạng thái vật lý
 		b.setToolTipText("Ghế số " + num + (isBaoTri ? " - ĐANG BẢO TRÌ" : " - SẴN SÀNG"));
 
 		b.addActionListener(e -> {
 			if (isBaoTri) {
-				int ans = JOptionPane.showConfirmDialog(this, "Mở khóa bảo trì cho ghế số " + num + "?", "Mở khóa ghế",
-						JOptionPane.YES_NO_OPTION);
-				if (ans == JOptionPane.YES_OPTION) {
-					// 1. Ghi nhận thời gian kết thúc bảo trì vào lịch sử
-					new com.dao.DAO_LichSuBaoTri().hoanTatBaoTri("GHE", maToa + "_" + viTri);
+				// 1. MỞ KHÓA: Nhập chi phí
+				Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
+						"Nghiệm thu chi phí sửa ghế " + num, "GHE", maToa + "_" + viTri, false,
+						this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", true);
+				frm.setVisible(true);
 
-					// 2. Thực hiện mở khóa trạng thái vật lý
+				if (frm.isConfirmed()) {
 					daoToa.removeGheBaoTri(maToa, viTri);
 					generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
+					JOptionPane.showMessageDialog(this, "Ghế số " + num + " đã được sửa xong và đưa vào khai thác!");
 				}
 			} else {
-				if (isSeatBookedInFuture(maToa, viTri)) {
+				// 2. ĐƯA VÀO BẢO TRÌ: Lúc này biến ngầm isBooked mới phát huy tác dụng
+				if (isBooked) {
 					JOptionPane.showMessageDialog(this,
-							"⚠️ Không thể bảo trì!\n\nGhế này đã có hành khách mua vé trong các chuyến đi tương lai.\n"
-									+ "Vui lòng báo bộ phận CSKH dời chỗ cho khách trước khi khóa ghế.",
-							"Cảnh báo hệ thống", JOptionPane.WARNING_MESSAGE);
+							"⚠️ TỪ CHỐI BẢO TRÌ!\n\nGhế số " + num
+									+ " đã có hành khách mua vé trong các chuyến đi tương lai.\n"
+									+ "Vui lòng báo bộ phận CSKH dời chỗ cho khách trước khi khóa ghế đưa vào xưởng.",
+							"Ràng buộc hệ thống", JOptionPane.WARNING_MESSAGE);
 				} else {
-					// Thay vì chỉ hiện ConfirmDialog đơn giản, ta mở Form ghi nhận lý do & xem lịch
-					// sử
 					Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
-							"Ghi nhận bảo trì ghế " + num, "GHE", maToa + "_" + viTri, false,
-							this.nhanVienHienTai.getMaNV());
+							"Ghi nhận lý do hỏng ghế " + num, "GHE", maToa + "_" + viTri, false,
+							this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", false);
 					frm.setVisible(true);
 
 					if (frm.isConfirmed()) {
-						// Nếu người dùng nhập lý do và bấm xác nhận thành công
 						daoToa.addGheBaoTri(maToa, viTri);
 						generateSeatMap(currentMaToa, currentTenToa, currentThuTu);
 					}
@@ -581,7 +597,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		return b;
 	}
 
-	private JPanel drawSeaterHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
+	// ĐÃ FIX: Thêm tham số bookedSeats
+	private JPanel drawSeaterHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, Set<String> bookedSeats,
+			String maToa) {
 		JPanel outer = new JPanel(new BorderLayout(8, 0));
 		outer.setBackground(Color.WHITE);
 		outer.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xE2EAF4), 1, true),
@@ -598,7 +616,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		int uiCols = soHang;
 		int halfRows = Math.max(1, uiRows / 2);
 
-		// Khoảng cách giữa các ghế là 5px
 		JPanel gridBody = new JPanel(new GridLayout(uiRows + 1, uiCols, 5, 5));
 		gridBody.setOpaque(false);
 
@@ -606,14 +623,15 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			if (r == halfRows) {
 				for (int c = 0; c < uiCols; c++) {
 					JPanel aisle = new JPanel();
-					aisle.setBackground(new Color(0xDDE6F5)); // Màu lối đi
+					aisle.setBackground(new Color(0xDDE6F5));
 					gridBody.add(aisle);
 				}
 			} else {
 				int actualRow = r > halfRows ? r - 1 : r;
 				for (int c = 0; c < uiCols; c++) {
 					int seatNum = (c * uiRows) + actualRow + 1;
-					gridBody.add(seatBtn(seatNum, maintenanceSeats, maToa));
+					// Gọi hàm seatBtn mới với tham số bookedSeats
+					gridBody.add(seatBtn(seatNum, maintenanceSeats, bookedSeats, maToa));
 				}
 			}
 		}
@@ -627,7 +645,9 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		return outer;
 	}
 
-	private JPanel drawSleeperHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, String maToa) {
+	// ĐÃ FIX: Thêm tham số bookedSeats
+	private JPanel drawSleeperHorizontal(int soHang, int soCot, Set<String> maintenanceSeats, Set<String> bookedSeats,
+			String maToa) {
 		int khoang = Math.max(1, soHang);
 		int soTang = soCot / 2;
 
@@ -643,7 +663,6 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		capB.setFont(new Font("Segoe UI", Font.BOLD, 11));
 		capB.setForeground(new Color(0x7F8C8D));
 
-		// --- CỘT NHÃN HIỂN THỊ TẦNG LÀM GIỐNG STEP 2 ---
 		JPanel pnlTangLabels = new JPanel(new GridLayout(soTang, 1, 2, 2));
 		pnlTangLabels.setOpaque(false);
 		pnlTangLabels.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 5));
@@ -654,14 +673,13 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			pnlTangLabels.add(lblTang);
 		}
 
-		// Khoảng cách giữa các khoang tăng lên 8px
 		JPanel gridBody = new JPanel(new GridLayout(1, khoang, 8, 0));
 		gridBody.setOpaque(false);
 
 		int idx = 1;
 		for (int k = 1; k <= khoang; k++) {
 			JPanel kp = new JPanel(new BorderLayout(0, 2));
-			kp.setBackground(new Color(0xF0F4FA)); // Nền xám nhạt cho khoang
+			kp.setBackground(new Color(0xF0F4FA));
 			kp.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0xDDE6F5), 1, true),
 					new EmptyBorder(5, 5, 5, 5)));
 
@@ -670,13 +688,13 @@ public class TAB_QuanLyDoanTau extends JPanel {
 			lbl.setForeground(new Color(0x7F8C8D));
 			kp.add(lbl, BorderLayout.NORTH);
 
-			// Khoảng cách giường nằm là 4x4px
 			JPanel grid = new JPanel(new GridLayout(soTang, 2, 4, 4));
 			grid.setOpaque(false);
 
 			for (int tang = soTang - 1; tang >= 0; tang--) {
-				grid.add(seatBtn(idx + 2 * tang, maintenanceSeats, maToa));
-				grid.add(seatBtn(idx + 2 * tang + 1, maintenanceSeats, maToa));
+				// Gọi hàm seatBtn mới với tham số bookedSeats
+				grid.add(seatBtn(idx + 2 * tang, maintenanceSeats, bookedSeats, maToa));
+				grid.add(seatBtn(idx + 2 * tang + 1, maintenanceSeats, bookedSeats, maToa));
 			}
 
 			idx += soCot;
@@ -723,7 +741,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 
 	private void goToa() {
 		if (!checkTauHoatDong())
-			return; // VÁ LỖI TẠI ĐÂY
+			return;
 
 		int row = tblToa.getSelectedRow();
 		if (row < 0) {
@@ -757,64 +775,109 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		if (choice == 2 || choice == JOptionPane.CLOSED_OPTION)
 			return;
 
+		// =================================================================
+		// ĐÃ UPDATE: Đánh chặn mở Form ghi lý do bảo trì nếu chọn đem đi sửa
+		// =================================================================
+		String status = "SAN_SANG";
+		if (choice == 1) {
+			Form_LichSuBaoTri frm = new Form_LichSuBaoTri((Frame) SwingUtilities.getWindowAncestor(this),
+					"Ghi nhận lý do bảo trì toa " + maToa, "TOA", maToa, false,
+					this.nhanVienHienTai != null ? this.nhanVienHienTai.getMaNV() : "NV001", false // isHoanTat = false
+																									// (Chỉ bắt nhập lý
+																									// do hỏng)
+			);
+			frm.setVisible(true);
+
+			// Nếu tắt form hoặc bấm hủy bỏ -> Ngắt luồng không thực hiện gỡ toa dưới DB
+			if (!frm.isConfirmed()) {
+				return;
+			}
+			status = "BAO_TRI";
+		}
+
+		// Thực thi tháo dỡ mối liên kết Toa - Tàu dưới Database
 		if (!daoCT.goToaKhoiTau(currentTau, maToa)) {
 			JOptionPane.showMessageDialog(this, "Đã xảy ra lỗi khi gỡ toa.", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
 			return;
 		}
-		String status = (choice == 1) ? "BAO_TRI" : "SAN_SANG";
+
+		// Cập nhật trạng thái vật lý tương ứng của Toa
 		daoToa.updateTrangThai(maToa, status);
 
+		// Sắp xếp, dồn lại số thứ tự các toa còn lại phía sau
 		List<String> remaining = new ArrayList<>();
 		for (int i = 0; i < modToa.getRowCount(); i++)
 			if (i != row)
 				remaining.add(modToa.getValueAt(i, 1).toString());
 		daoCT.capNhatThuTuSauKhiGo(currentTau, remaining);
+
+		// Đồng bộ lại giao diện
 		loadToaOfTau();
 		loadKho();
 		clearSeatMap();
 	}
 
 	private void doDoiChoToa(int delta) {
-		if (!checkTauHoatDong())
+		if (!checkTauHoatDong()) {
 			return;
+		}
+		// =================================================================
+		// ĐÃ THÊM: KHÓA CHỨC NĂNG DI CHUYỂN NẾU TÀU ĐANG DÍNH LỊCH TRÌNH
+		// =================================================================
+		if (isTauCoLichTrinhTuongLai(currentTau)) {
+			JOptionPane.showMessageDialog(this,
+					"⚠️ TỪ CHỐI THAO TÁC!\n\nĐoàn tàu này đang được phân công chạy trong các lịch trình tương lai.\n"
+							+ "Việc thay đổi thứ tự toa sẽ làm sai lệch vị trí Toa/Ghế trên vé mà hành khách đã mua.\n"
+							+ "Chỉ được phép sắp xếp lại thứ tự khi tàu ở trạng thái trống (chưa có lịch trình).",
+					"Ràng buộc toàn vẹn dữ liệu", JOptionPane.ERROR_MESSAGE);
+			return;
+		}
 
 		int row = tblToa.getSelectedRow();
 		if (row < 0) {
-			JOptionPane.showMessageDialog(this, "Chọn một toa để di chuyển!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, "Chọn một toa trên đoàn tàu để di chuyển!", "Thông báo",
+					JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
-		int newRow = row + delta;
-		// Kiểm tra nếu chạm nóc (lên quá dòng 1) hoặc chạm đáy (xuống quá dòng cuối)
-		if (newRow < 0 || newRow >= modToa.getRowCount())
+		int targetRow = row + delta;
+		// Kiểm tra nếu chạm nóc (lên quá dòng đầu) hoặc chạm đáy (xuống quá dòng cuối)
+		if (targetRow < 0 || targetRow >= modToa.getRowCount()) {
 			return;
-
-		// 1. Lấy mã của 2 toa cần đổi chỗ
-		String maA = modToa.getValueAt(row, 1).toString();
-		String maB = modToa.getValueAt(newRow, 1).toString();
-
-		// 2. Cập nhật hoán đổi dưới Database
-		boolean isSuccess = daoCT.hoanDoiThuTu(currentTau, maA, newRow + 1, maB, row + 1);
-
-		if (isSuccess) {
-			// 3. HOÁN ĐỔI TRỰC TIẾP TRÊN GIAO DIỆN (Không cần load lại Database)
-			// Chúng ta sẽ lặp qua các cột để đổi chữ (Bỏ qua cột 0 vì cột 0 là số thứ tự
-			// 1,2,3... phải giữ nguyên)
-			for (int col = 1; col < modToa.getColumnCount(); col++) {
-				Object temp = modToa.getValueAt(row, col);
-				modToa.setValueAt(modToa.getValueAt(newRow, col), row, col);
-				modToa.setValueAt(temp, newRow, col);
-			}
-
-			// 4. Bám đuôi bôi đen theo toa vừa di chuyển
-			tblToa.setRowSelectionInterval(newRow, newRow);
-
-			// 5. Cập nhật lại hình ảnh đoàn tàu nhỏ bên dưới
-			refreshTrainBar();
-		} else {
-			JOptionPane.showMessageDialog(this, "Lỗi khi đổi chỗ dưới Cơ sở dữ liệu!", "Lỗi",
-					JOptionPane.ERROR_MESSAGE);
 		}
+
+		// =========================================================
+		// CHIẾN THUẬT MỚI: HOÁN ĐỔI TRÊN RAM ĐỂ TRÁNH LỖI SQL CONSTRAINT
+		// =========================================================
+
+		// 1. Rút danh sách mã toa hiện tại ra một mảng ảo (RAM)
+		List<String> listMaToa = new ArrayList<>();
+		for (int i = 0; i < modToa.getRowCount(); i++) {
+			listMaToa.add(modToa.getValueAt(i, 1).toString()); // Cột 1 là Mã Toa
+		}
+
+		// 2. Hoán đổi vị trí của 2 toa trong mảng ảo
+		String temp = listMaToa.get(row);
+		listMaToa.set(row, listMaToa.get(targetRow));
+		listMaToa.set(targetRow, temp);
+
+		// 3. Gọi hàm capNhatThuTuSauKhiGo để Database xóa trắng thứ tự cũ và đánh lại
+		// từ 1 -> N
+		// Lưu ý: Đảm bảo trong hàm DAO này bạn đã viết logic an toàn (xóa/update tuần
+		// tự)
+		daoCT.capNhatThuTuSauKhiGo(currentTau, listMaToa);
+
+		// 4. Reload lại toàn bộ dữ liệu lên Table để đảm bảo UI đồng bộ 100% với
+		// Database
+		loadToaOfTau();
+		clearSeatMap(); // Xóa sơ đồ ghế cũ tránh lỗi click nhầm
+
+		// Nếu trong class bạn có hàm vẽ lại đồ họa tàu thì gọi lại nó
+		// refreshTrainBar();
+
+		// 5. Bám đuôi bôi đen theo toa vừa di chuyển để người dùng có thể bấm click
+		// liên tục
+		tblToa.setRowSelectionInterval(targetRow, targetRow);
 	}
 
 	private void autoGenerateToaPopup() {
@@ -976,6 +1039,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 				d.dispose();
 				loadToaOfTau();
 				loadKho();
+				clearSeatMap();
 			} else {
 				JOptionPane.showMessageDialog(d, "Có lỗi xảy ra khi tạo toa tự động!", "Lỗi",
 						JOptionPane.ERROR_MESSAGE);

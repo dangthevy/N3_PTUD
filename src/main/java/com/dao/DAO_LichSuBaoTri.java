@@ -8,7 +8,7 @@ import java.util.List;
 
 public class DAO_LichSuBaoTri {
     
-    // Ghi nhận bắt đầu bảo trì tài sản
+    // Ghi nhận bắt đầu bảo trì tài sản (Nhập lý do)
     public boolean ghiNhanBaoTri(LichSuBaoTri log) {
         String sql = "INSERT INTO LichSuBaoTri (loaiTaiSan, maTaiSan, ngayBatDau, lyDo, chiPhi, nguoiThucHien) VALUES (?, ?, GETDATE(), ?, ?, ?)";
         try (Connection con = ConnectDB.getConnection();
@@ -25,13 +25,15 @@ public class DAO_LichSuBaoTri {
         }
     }
 
-    // Ghi nhận hoàn tất bảo trì (Cập nhật ngày kết thúc)
-    public boolean hoanTatBaoTri(String loaiTaiSan, String maTaiSan) {
-        String sql = "UPDATE LichSuBaoTri SET ngayKetThuc = GETDATE() WHERE loaiTaiSan = ? AND maTaiSan = ? AND ngayKetThuc IS NULL";
+    // Ghi nhận hoàn tất bảo trì (Cập nhật ngày kết thúc và Chi phí thực tế)
+    public boolean hoanTatBaoTri(String loaiTaiSan, String maTaiSan, double chiPhiThucTe) {
+        String sql = "UPDATE LichSuBaoTri SET ngayKetThuc = GETDATE(), chiPhi = ? " +
+                     "WHERE loaiTaiSan = ? AND maTaiSan = ? AND ngayKetThuc IS NULL";
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, loaiTaiSan);
-            ps.setString(2, maTaiSan);
+            ps.setDouble(1, chiPhiThucTe);
+            ps.setString(2, loaiTaiSan);
+            ps.setString(3, maTaiSan);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
