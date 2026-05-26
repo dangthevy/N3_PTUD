@@ -8,6 +8,11 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +45,8 @@ public class Step2_ChonChoNgoi extends JPanel {
 	public static final Color SEAT_SELECTED_BG = new Color(0xF39C12); // Cam
 	public static final Color SEAT_BOOKED_BG = new Color(0x1A5EAB); // Xanh dương chính
 	public static final Color SEAT_MAINTENANCE_BG = new Color(0x95A5A6); // Xám
+				private static final DateTimeFormatter TIME_FMT_HM = DateTimeFormatter.ofPattern("H:mm");
+				private static final DateTimeFormatter TIME_FMT_HMS = DateTimeFormatter.ofPattern("H:mm:ss");
 
 	public Step2_ChonChoNgoi(TAB_BanVe mainTab) {
 		this.mainTab = mainTab;
@@ -170,6 +177,67 @@ public class Step2_ChonChoNgoi extends JPanel {
 		popup.show(btnCart, 0, btnCart.getHeight());
 	}
 
+	private boolean isToday(String yyyyMmDd) {
+		if (yyyyMmDd == null || yyyyMmDd.trim().isEmpty()) {
+			return false;
+		}
+		try {
+			return LocalDate.parse(yyyyMmDd).equals(LocalDate.now());
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	private LocalTime parseTimeFlexible(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String s = raw.trim();
+		if (s.isEmpty()) {
+			return null;
+		}
+		int lastSpace = s.lastIndexOf(' ');
+		if (lastSpace >= 0 && lastSpace + 1 < s.length()) {
+			s = s.substring(lastSpace + 1).trim();
+		}
+		try {
+			return LocalTime.parse(s, TIME_FMT_HM);
+		} catch (DateTimeParseException ignored) {
+		}
+		try {
+			return LocalTime.parse(s, TIME_FMT_HMS);
+		} catch (DateTimeParseException ignored) {
+		}
+		return null;
+	}
+
+	private boolean isPastDeparture(String yyyyMmDd, Object tgDiObj) {
+		if (!isToday(yyyyMmDd) || tgDiObj == null) {
+			return false;
+		}
+		LocalTime tgDi = parseTimeFlexible(tgDiObj.toString());
+		if (tgDi == null) {
+			return false;
+		}
+		return !tgDi.isAfter(LocalTime.now());
+	}
+
+	private List<Map<String, Object>> filterPastTrains(List<Map<String, Object>> dsChuyen, String ngay,
+			boolean[] allPastFlag) {
+		if (!isToday(ngay)) {
+			allPastFlag[0] = false;
+			return dsChuyen;
+		}
+		List<Map<String, Object>> filtered = new ArrayList<>();
+		for (Map<String, Object> chuyen : dsChuyen) {
+			if (!isPastDeparture(ngay, chuyen.get("tgDi"))) {
+				filtered.add(chuyen);
+			}
+		}
+		allPastFlag[0] = !dsChuyen.isEmpty() && filtered.isEmpty();
+		return filtered;
+	}
+
 	// =====================================================================
 	// GIỮ NGUYÊN HÀM loadTrainData TỪ BẢN GỐC ĐỂ KHÔNG LỖI STEP 1
 	// =====================================================================
@@ -186,8 +254,10 @@ public class Step2_ChonChoNgoi extends JPanel {
 		boolean hasOutbound = pnlOutbound.fetchDataTrains(maGaDi, maGaDen, sqlNgayDi);
 
 		if (!hasOutbound) {
-			JOptionPane.showMessageDialog(this, "Không tìm thấy chuyến tàu nào cho Chiều Đi vào ngày này!", "Thông báo",
-					JOptionPane.INFORMATION_MESSAGE);
+			String msg = pnlOutbound.isAllPast()
+					? "Các chuyến tàu trong ngày đã qua giờ chạy. Vui lòng chọn ngày khác!"
+					: "Không tìm thấy chuyến tàu nào cho Chiều Đi vào ngày này!";
+			JOptionPane.showMessageDialog(this, msg, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
 			return false;
 		}
 
@@ -203,8 +273,10 @@ public class Step2_ChonChoNgoi extends JPanel {
 			boolean hasReturn = pnlReturn.fetchDataTrains(maGaDen, maGaDi, sqlNgayVe);
 
 			if (!hasReturn) {
-				JOptionPane.showMessageDialog(this, "Không tìm thấy chuyến tàu nào cho Chiều Về vào ngày này!",
-						"Thông báo", JOptionPane.INFORMATION_MESSAGE);
+				String msg = pnlReturn.isAllPast()
+						? "Các chuyến tàu trong ngày đã qua giờ chạy. Vui lòng chọn ngày khác!"
+						: "Không tìm thấy chuyến tàu nào cho Chiều Về vào ngày này!";
+				JOptionPane.showMessageDialog(this, msg, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
 				return false;
 			}
 		}
@@ -222,6 +294,7 @@ public class Step2_ChonChoNgoi extends JPanel {
 		ButtonGroup bgTau;
 		String currentMaLT = "", currentTenTau = "", currentMaToa = "", currentTenToa = "";
 		Map<String, JToggleButton> seatButtonsMap = new HashMap<>();
+		boolean lastAllPast = false;
 
 		public RoutePanel(String chieu) {
 			this.chieu = chieu;
@@ -329,12 +402,25 @@ public class Step2_ChonChoNgoi extends JPanel {
 				applySeatStatuses(currentMaLT, currentMaToa);
 		}
 
+		public boolean isAllPast() {
+			return lastAllPast;
+		}
+
 		public boolean fetchDataTrains(String maGaDi, String maGaDen, String ngay) {
 			clearData();
 			updateCartStatus();
 			List<Map<String, Object>> dsChuyen = mainTab.getDaoBanVe().timChuyenTau(maGaDi, maGaDen, ngay);
-			if (dsChuyen.isEmpty())
+			if (dsChuyen.isEmpty()) {
+				lastAllPast = false;
 				return false;
+			}
+
+			boolean[] allPastFlag = new boolean[1];
+			dsChuyen = filterPastTrains(dsChuyen, ngay, allPastFlag);
+			lastAllPast = allPastFlag[0];
+			if (dsChuyen.isEmpty()) {
+				return false;
+			}
 
 			bgTau = new ButtonGroup();
 			boolean isFirst = true;

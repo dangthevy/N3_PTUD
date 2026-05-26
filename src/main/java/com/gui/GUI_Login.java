@@ -2,6 +2,7 @@ package com.gui;
 
 import com.dao.DAO_NhanVien;
 import com.entities.NhanVien;
+import com.service.SmtpConfig;
 
 import javax.swing.*;
 import javax.swing.Timer;
@@ -16,6 +17,9 @@ import java.util.prefs.Preferences;
 import javax.mail.*;
 import java.security.MessageDigest;
 import javax.mail.internet.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class GUI_Login extends JPanel implements ActionListener {
 
@@ -69,14 +73,8 @@ public class GUI_Login extends JPanel implements ActionListener {
 	private final int[]   shapeAlp = new int[NUM_SHAPES];
 
 	public GUI_Login() {
-		// Load ảnh nền
-		try {
-			java.net.URL imgURL = getClass().getResource("/com/img/doantau2.png");
-			if (imgURL != null)
-				backgroundImage = new ImageIcon(imgURL).getImage();
-		} catch (Exception e) {
-			System.err.println("Không tìm thấy ảnh: /com/img/doantau2.png");
-		}
+		// Load ảnh nền (ưu tiên classpath, fallback tới file trong dự án)
+		backgroundImage = loadBackgroundImage();
 
 		// Khởi tạo hình trang trí
 		Random rng = new Random(42);
@@ -361,6 +359,26 @@ public class GUI_Login extends JPanel implements ActionListener {
 
 		add(leftPanel);
 		add(rightPanel);
+	}
+
+	private Image loadBackgroundImage() {
+		String[] candidates = {"/com/img/doantau.png", "/com/img/doantau2.png"};
+		for (String res : candidates) {
+			java.net.URL imgURL = getClass().getResource(res);
+			if (imgURL != null) return new ImageIcon(imgURL).getImage();
+		}
+		String[] fileCandidates = {
+			"src/main/resources/com/img/doantau.png",
+			"src/main/java/com/img/doantau.png",
+			"src/main/resources/com/img/doantau2.png",
+			"src/main/java/com/img/doantau2.png"
+		};
+		for (String filePath : fileCandidates) {
+			Path p = Paths.get(filePath);
+			if (Files.exists(p)) return new ImageIcon(p.toString()).getImage();
+		}
+		System.err.println("Không tìm thấy ảnh nền đăng nhập (doantau.png / doantau2.png)");
+		return null;
 	}
 
 	// ════════════════════════════════════════
@@ -788,8 +806,8 @@ public class GUI_Login extends JPanel implements ActionListener {
 	}
 
 	private void sendEmail(String recipientEmail, String otp) {
-		final String myEmail       = "ngbathien3101@gmail.com";
-		final String myAppPassword = "dhbeqfkcunlpgzoj";
+		final String myEmail       = SmtpConfig.getEmail();
+		final String myAppPassword = SmtpConfig.getAppPassword();
 		Properties props = new Properties();
 		props.put("mail.smtp.auth",            "true");
 		props.put("mail.smtp.starttls.enable", "true");
@@ -820,3 +838,4 @@ public class GUI_Login extends JPanel implements ActionListener {
 		this.parentFrame = frame;
 	}
 }
+

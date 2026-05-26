@@ -7,8 +7,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +25,8 @@ public class Step1_TimKiem extends JPanel {
     // Map này lưu trữ "Chuỗi hiển thị" -> Đối tượng Ga
     private Map<String, Ga> mapGa = new HashMap<>();
     private final DAO_Ga daoGa = new DAO_Ga();
+    private static final DateTimeFormatter TIME_FMT_HM = DateTimeFormatter.ofPattern("H:mm");
+    private static final DateTimeFormatter TIME_FMT_HMS = DateTimeFormatter.ofPattern("H:mm:ss");
 
     public Step1_TimKiem(TAB_BanVe mainTab) {
         this.mainTab = mainTab;
@@ -71,7 +75,7 @@ public class Step1_TimKiem extends JPanel {
         int r = 0;
         UIHelper.addFormRow(pnlSearch, gc, r++, "Nơi Đi:", cbNoiDi, "Nơi Đến:", cbNoiDen);
         gc.gridx=0; gc.gridy=r++; gc.gridwidth=4; pnlSearch.add(Box.createVerticalStrut(10), gc); gc.gridwidth=1;
-        UIHelper.addFormRow(pnlSearch, gc, r++, "Loại vé:", pnlRadio, "", new JLabel());
+        UIHelper.addFormRow(pnlSearch, gc, r++, "", pnlRadio, "", new JLabel());
         gc.gridx=0; gc.gridy=r++; gc.gridwidth=4; pnlSearch.add(Box.createVerticalStrut(10), gc); gc.gridwidth=1;
         UIHelper.addFormRow(pnlSearch, gc, r++, "Ngày Đi:", dpNgayDi, "Ngày Về:", dpNgayVe);
 
@@ -124,6 +128,58 @@ public class Step1_TimKiem extends JPanel {
         } catch (Exception e) { return ""; }
     }
 
+    private boolean isToday(String yyyyMmDd) {
+        if (yyyyMmDd == null || yyyyMmDd.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            return LocalDate.parse(yyyyMmDd).equals(LocalDate.now());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private LocalTime parseTimeFromTgDi(Object tgDiObj) {
+        if (tgDiObj == null) {
+            return null;
+        }
+        String s = tgDiObj.toString().trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        int lastSpace = s.lastIndexOf(' ');
+        if (lastSpace >= 0 && lastSpace + 1 < s.length()) {
+            s = s.substring(lastSpace + 1).trim();
+        }
+        try {
+            return LocalTime.parse(s, TIME_FMT_HM);
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            return LocalTime.parse(s, TIME_FMT_HMS);
+        } catch (DateTimeParseException ignored) {
+        }
+        return null;
+    }
+
+    private boolean allTrainsPastToday(List<Map<String, Object>> dsChuyen, String yyyyMmDd) {
+        if (!isToday(yyyyMmDd) || dsChuyen == null || dsChuyen.isEmpty()) {
+            return false;
+        }
+        boolean anyParsed = false;
+        for (Map<String, Object> chuyen : dsChuyen) {
+            LocalTime tgDi = parseTimeFromTgDi(chuyen.get("tgDi"));
+            if (tgDi == null) {
+                return false;
+            }
+            anyParsed = true;
+            if (tgDi.isAfter(LocalTime.now())) {
+                return false;
+            }
+        }
+        return anyParsed;
+    }
+
     // Kiểm duyệt tính hợp lệ
     private void performSearch() {
         String selDi = cbNoiDi.getSelectedItem() != null ? cbNoiDi.getSelectedItem().toString() : "";
@@ -162,6 +218,29 @@ public class Step1_TimKiem extends JPanel {
             String sqlNgayVe = formatSqlDate(strNgayVe);
             if (sqlNgayVe.compareTo(sqlNgayDi) < 0) {
                 JOptionPane.showMessageDialog(this, "Ngày về không được trước ngày đi!", "Lỗi", JOptionPane.ERROR_MESSAGE); return;
+            }
+        }
+
+        if (isToday(sqlNgayDi)) {
+            List<Map<String, Object>> dsChuyen = mainTab.getDaoBanVe().timChuyenTau(gaDi.getMaGa(), gaDen.getMaGa(), sqlNgayDi);
+            if (allTrainsPastToday(dsChuyen, sqlNgayDi)) {
+                JOptionPane.showMessageDialog(this,
+                        "Các chuyến tàu trong ngày đã qua giờ chạy. Vui lòng chọn ngày khác!",
+                        "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+        }
+
+        if (isRoundTrip) {
+            String sqlNgayVe = formatSqlDate(strNgayVe);
+            if (isToday(sqlNgayVe)) {
+                List<Map<String, Object>> dsChuyenVe = mainTab.getDaoBanVe().timChuyenTau(gaDen.getMaGa(), gaDi.getMaGa(), sqlNgayVe);
+                if (allTrainsPastToday(dsChuyenVe, sqlNgayVe)) {
+                    JOptionPane.showMessageDialog(this,
+                            "Các chuyến tàu trong ngày đã qua giờ chạy. Vui lòng chọn ngày khác!",
+                            "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
             }
         }
 

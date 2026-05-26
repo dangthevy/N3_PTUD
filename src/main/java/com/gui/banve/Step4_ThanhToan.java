@@ -9,6 +9,7 @@ import com.entities.*;
 import com.enums.LoaiKhuyenMai;
 import com.enums.PTThanhToan;
 import com.enums.TrangThaiVe;
+import com.service.SmtpConfig;
 
 import javax.mail.Message;
 import javax.mail.Multipart;
@@ -197,8 +198,6 @@ public class Step4_ThanhToan extends JPanel {
 	private static final String SEPAY_API_KEY = "4YLJ5RBD72H5APO6CCQH0GMITN0JTFMYPXCSZVFRIS3YOVBSMRGZEZWNGSKDNQXL";
 	private static final int PAYMENT_POLL_INTERVAL_MS = 3000;
 	private static final int PAYMENT_POLL_TIMEOUT_MS = 120000;
-	private static final String SMTP_EMAIL = "ngbathien3101@gmail.com";
-	private static final String SMTP_APP_PASSWORD = "dhbeqfkcunlpgzoj";
 	private static final String EMAIL_BODY_VE = "Kính gửi Quý khách,\n"
 			+ "Công ty Cổ phần Vận tải Đường sắt Việt Nam xin chân thành cảm ơn Quý khách đã tin tưởng và lựa chọn dịch vụ của chúng tôi.\n"
 			+ "Quý khách vui lòng tải vé điện tử được đính kèm và xuất trình cho nhân viên kiểm soát trước khi lên tàu.\n"
@@ -1143,6 +1142,8 @@ public class Step4_ThanhToan extends JPanel {
 	}
 
 	private Session taoMailSession() {
+		final String smtpEmail = SmtpConfig.getEmail();
+		final String smtpAppPassword = SmtpConfig.getAppPassword();
 		Properties props = new Properties();
 		props.put("mail.smtp.auth", "true");
 		props.put("mail.smtp.starttls.enable", "true");
@@ -1152,15 +1153,16 @@ public class Step4_ThanhToan extends JPanel {
 		return Session.getInstance(props, new javax.mail.Authenticator() {
 			@Override
 			protected PasswordAuthentication getPasswordAuthentication() {
-				return new PasswordAuthentication(SMTP_EMAIL, SMTP_APP_PASSWORD);
+				return new PasswordAuthentication(smtpEmail, smtpAppPassword);
 			}
 		});
 	}
 
 	private boolean guiEmailVeDinhKem(Session session, String recipientEmail, List<File> attachments) {
 		try {
+			final String smtpEmail = SmtpConfig.getEmail();
 			Message message = new MimeMessage(session);
-			message.setFrom(new InternetAddress(SMTP_EMAIL));
+			message.setFrom(new InternetAddress(smtpEmail));
 			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
 			message.setSubject("Vé điện tử - Mã hóa đơn " + this.currentMaHD);
 

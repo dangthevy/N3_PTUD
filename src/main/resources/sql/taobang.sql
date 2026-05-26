@@ -202,6 +202,7 @@ CREATE TABLE KhuyenMaiDetail (
 CREATE UNIQUE INDEX UX_KMDetail_Active
     ON KhuyenMaiDetail (MaKM, MaTuyen, maLoaiToa, MaLoai)
     WHERE TrangThai = 1 AND An = 0;
+    
 -- =============================================
 -- 7. GIAO DỊCH (HÓA ĐƠN & VÉ)
 -- =============================================
@@ -254,41 +255,56 @@ CREATE TABLE ChiTiet_KhuyenMai (
 );
 GO
 
+-- =============================================
+-- 8. LỊCH SỬ BẢO TRÌ
+-- =============================================
+CREATE TABLE LichSuBaoTri (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    loaiTaiSan NVARCHAR(50) NOT NULL, -- 'TAU', 'TOA', 'GHE'
+    maTaiSan VARCHAR(50) NOT NULL,    -- maTau, maToa, hoặc maToa_viTriGhe
+    ngayBatDau DATETIME DEFAULT GETDATE(),
+    ngayKetThuc DATETIME NULL,
+    lyDo NVARCHAR(255) NOT NULL,
+    chiPhi DECIMAL(18, 2) DEFAULT 0,
+    nguoiThucHien VARCHAR(20) NULL    -- maNV phụ trách lệnh
+);
+GO
+
 -- =========================================================================
 -- ============================ BƠM DỮ LIỆU CHUẨN ==========================
 -- =========================================================================
 
 INSERT INTO Ga (maGa, tenGa, diaChi, tinhThanh, trangThai) VALUES
-('GA01', N'Ga Sài Gòn',     N'1 Nguyễn Thông, Phường 9, Quận 3',                    N'TP. Hồ Chí Minh',   1),
-('GA02', N'Ga Phủ Lý',      N'Quốc lộ 1A, Hai Bà Trưng, TP. Phủ Lý',                N'Hà Nam',             1),
+('GA01', N'Ga Sài Gòn',     N'1 Nguyễn Thông, Phường 9, Quận 3',                     N'TP. Hồ Chí Minh',   1),
+('GA02', N'Ga Phủ Lý',      N'Quốc lộ 1A, Hai Bà Trưng, TP. Phủ Lý',                 N'Hà Nam',             1),
 ('GA03', N'Ga Nam Định',    N'Trần Đăng Ninh, TP. Nam Định',                         N'Nam Định',           1),
 ('GA04', N'Ga Ninh Bình',   N'1 Ngõ 41 Hoàng Hoa Thám, Thanh Bình, TP. Ninh Bình', N'Ninh Bình',         1),
 ('GA05', N'Ga Thanh Hóa',   N'19 Dương Đình Nghệ, Tân Sơn, TP. Thanh Hóa',         N'Thanh Hóa',         1),
-('GA06', N'Ga Vinh',        N'Số 1 Lê Ninh, Quán Bàu, TP. Vinh',                    N'Nghệ An',           1),
-('GA07', N'Ga Yên Trung',   N'Thị trấn Đức Thọ, Huyện Đức Thọ',                     N'Hà Tĩnh',           1),
-('GA08', N'Ga Đồng Hới',    N'Tiểu khu 4, Phường Nam Lý, TP. Đồng Hới',             N'Quảng Bình',        1),
-('GA09', N'Ga Đông Hà',     N'2 Lê Thánh Tôn, Phường 1, TP. Đông Hà',               N'Quảng Trị',         1),
-('GA10', N'Ga Huế',         N'2 Bùi Thị Xuân, Phường Đúc, TP. Huế',                 N'Thừa Thiên Huế',    1),
-('GA11', N'Ga Đà Nẵng',     N'791 Hải Phòng, Tam Thuận, Thanh Khê',                 N'Đà Nẵng',           1),
-('GA12', N'Ga Tam Kỳ',      N'Đường Nguyễn Hoàng, An Xuân, TP. Tam Kỳ',             N'Quảng Nam',         1),
-('GA13', N'Ga Quảng Ngãi',  N'204 Nguyễn Trãi, Nghĩa Lộ, TP. Quảng Ngãi',         N'Quảng Ngãi',        1),
-('GA14', N'Ga Diêu Trì',    N'Thị trấn Diêu Trì, Huyện Tuy Phước',                  N'Bình Định',         1),
-('GA15', N'Ga Quy Nhơn',    N'Lê Hồng Phong, Phường Lê Lợi, TP. Quy Nhơn',         N'Bình Định',         1),
-('GA16', N'Ga Tuy Hòa',     N'149 Lê Trung Kiên, Phường 2, TP. Tuy Hòa',            N'Phú Yên',           1),
-('GA17', N'Ga Nha Trang',   N'17 Thái Nguyên, Phước Tân, TP. Nha Trang',            N'Khánh Hòa',         1),
-('GA18', N'Ga Tháp Chàm',   N'Phan Đình Phùng, Đô Vinh, TP. Phan Rang - Tháp Chàm',N'Ninh Thuận',       1),
-('GA19', N'Ga Bình Thuận',  N'Xã Mương Mán, Huyện Hàm Thuận Nam',                   N'Bình Thuận',        1),
-('GA20', N'Ga Phan Thiết',  N'1 Lê Duẩn, Phong Nẫm, TP. Phan Thiết',               N'Bình Thuận',        1),
-('GA21', N'Ga Long Khánh',  N'Trần Phú, Xuân An, TP. Long Khánh',                   N'Đồng Nai',          1),
+('GA06', N'Ga Vinh',        N'Số 1 Lê Ninh, Quán Bàu, TP. Vinh',                     N'Nghệ An',           1),
+('GA07', N'Ga Yên Trung',   N'Thị trấn Đức Thọ, Huyện Đức Thọ',                      N'Hà Tĩnh',           1),
+('GA08', N'Ga Đồng Hới',    N'Tiểu khu 4, Phường Nam Lý, TP. Đồng Hới',              N'Quảng Bình',        1),
+('GA09', N'Ga Đông Hà',     N'2 Lê Thánh Tôn, Phường 1, TP. Đông Hà',                N'Quảng Trị',         1),
+('GA10', N'Ga Huế',         N'2 Bùi Thị Xuân, Phường Đúc, TP. Huế',                  N'Thừa Thiên Huế',    1),
+('GA11', N'Ga Đà Nẵng',     N'791 Hải Phòng, Tam Thuận, Thanh Khê',                  N'Đà Nẵng',           1),
+('GA12', N'Ga Tam Kỳ',      N'Đường Nguyễn Hoàng, An Xuân, TP. Tam Kỳ',              N'Quảng Nam',         1),
+('GA13', N'Ga Quảng Ngãi',  N'204 Nguyễn Trãi, Nghĩa Lộ, TP. Quảng Ngãi',          N'Quảng Ngãi',        1),
+('GA14', N'Ga Diêu Trì',    N'Thị trấn Diêu Trì, Huyện Tuy Phước',                   N'Bình Định',         1),
+('GA15', N'Ga Quy Nhơn',    N'Lê Hồng Phong, Phường Lê Lợi, TP. Quy Nhơn',          N'Bình Định',         1),
+('GA16', N'Ga Tuy Hòa',     N'149 Lê Trung Kiên, Phường 2, TP. Tuy Hòa',             N'Phú Yên',           1),
+('GA17', N'Ga Nha Trang',   N'17 Thái Nguyên, Phước Tân, TP. Nha Trang',             N'Khánh Hòa',         1),
+('GA18', N'Ga Tháp Chàm',   N'Phan Đình Phùng, Đô Vinh, TP. Phan Rang - Tháp Chàm',N'Ninh Thuận',        1),
+('GA19', N'Ga Bình Thuận',  N'Xã Mương Mán, Huyện Hàm Thuận Nam',                    N'Bình Thuận',        1),
+('GA20', N'Ga Phan Thiết',  N'1 Lê Duẩn, Phong Nẫm, TP. Phan Thiết',                N'Bình Thuận',        1),
+('GA21', N'Ga Long Khánh',  N'Trần Phú, Xuân An, TP. Long Khánh',                    N'Đồng Nai',          1),
 ('GA22', N'Ga Biên Hòa',    N'Quảng trường Ga Biên Hòa, Trung Dũng, TP. Biên Hòa',N'Đồng Nai',          1),
-('GA23', N'Ga Hà Nội',      N'120 Lê Duẩn, Cửa Nam, Hoàn Kiếm',                     N'Hà Nội',             1),
-('GA24', N'Ga Lào Cai',     N'Tổ 15A, Phường Phố Mới, TP. Lào Cai',                 N'Lào Cai',           1),
-('GA25', N'Ga Yên Bái',     N'218 Trần Hưng Đạo, Hồng Hà, TP. Yên Bái',            N'Yên Bái',           1),
-('GA26', N'Ga Hải Phòng',   N'75 Lương Khánh Thiện, Cầu Đất, Ngô Quyền',           N'Hải Phòng',         1),
-('GA27', N'Ga Lạng Sơn',    N'Lê Lợi, Phường Vĩnh Trại, TP. Lạng Sơn',             N'Lạng Sơn',          1),
-('GA28', N'Ga Thái Nguyên', N'Quang Trung, Quang Trung, TP. Thái Nguyên',           N'Thái Nguyên',       1),
-('GA29', N'Ga Bắc Giang',   N'Xương Giang, TP. Bắc Giang',                           N'Bắc Giang',         1),
-('GA30', N'Ga Diễn Châu',   N'Khối 4, Thị trấn Diễn Châu, Huyện Diễn Châu',        N'Nghệ An',           1);
+('GA23', N'Ga Hà Nội',      N'120 Lê Duẩn, Cửa Nam, Hoàn Kiếm',                      N'Hà Nội',            1),
+('GA24', N'Ga Lào Cai',     N'Tổ 15A, Phường Phố Mới, TP. Lào Cai',                  N'Lào Cai',           1),
+('GA25', N'Ga Yên Bái',     N'218 Trần Hưng Đạo, Hồng Hà, TP. Yên Bái',             N'Yên Bái',           1),
+('GA26', N'Ga Hải Phòng',   N'75 Lương Khánh Thiện, Cầu Đất, Ngô Quyền',            N'Hải Phòng',         1),
+('GA27', N'Ga Lạng Sơn',    N'Lê Lợi, Phường Vĩnh Trại, TP. Lạng Sơn',              N'Lạng Sơn',          1),
+('GA28', N'Ga Thái Nguyên', N'Quang Trung, Quang Trung, TP. Thái Nguyên',            N'Thái Nguyên',       1),
+('GA29', N'Ga Bắc Giang',   N'Xương Giang, TP. Bắc Giang',                             N'Bắc Giang',         1),
+('GA30', N'Ga Diễn Châu',   N'Khối 4, Thị trấn Diễn Châu, Huyện Diễn Châu',         N'Nghệ An',           1);
 
 -- Cấu hình Khuôn Mẫu Loại Toa
 INSERT INTO LoaiToa VALUES
@@ -313,7 +329,7 @@ INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, n
 (N'Đặng Thế Vỹ',    '0925723812', 'vy@tau.com',     'vy',     'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
 (N'Nguyễn Vủ Thiện','0958472305', 'thien@tau.com',  'thien',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
 (N'Phạm Thái Bảo',  '0935782312', 'bao@tau.com',    'bao',    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'admin',           '0963212322', 'admin@tau.com',  'admin',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'ADMIN',    'HOATDONG', '2025-02-01');
+(N'admin',          '0963212322', 'admin@tau.com',  'admin',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'ADMIN',    'HOATDONG', '2025-02-01');
 
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES
 ('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com');
