@@ -1249,6 +1249,45 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             // Tính ngày đến = ngày đi + thoiGianChay phút
             String ngayDenVal = tinhNgayDen(ngayKH, gioDiVal, thoiGianPhut);
 
+            // --- KIỂM TRA TRÙNG CHUYẾN (cùng tàu + cùng tuyến đã tồn tại) ---
+            String maChuyenTrung = kiemTraTrungChuyen(maTau, maTuyenThuc);
+            if (maChuyenTrung != null) {
+                int choice = JOptionPane.showConfirmDialog(dlg,
+                        "Chuyến tàu với tàu " + maTau + " trên tuyến này đã tồn tại!\n" +
+                                "Mã chuyến: " + maChuyenTrung + "\n\n" +
+                                "Bạn có muốn thêm lịch trình vào chuyến " + maChuyenTrung + " không?",
+                        "Chuyến đã tồn tại",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                if (choice == JOptionPane.YES_OPTION) {
+                    // Thêm lịch trình vào chuyến đã có
+                    String trungLich = kiemTraTrungLich(maTau, ngayKH, gioDiVal, thoiGianPhut, null);
+                    if (trungLich != null) {
+                        warn("Tàu " + maTau + " đang có chuyến \"" + trungLich + "\" trùng thời gian!");
+                        return;
+                    }
+                    String maLT = nextMaLT();
+                    if (daoLichTrinh.insert(maLT, ngayKH, gioDiVal, ngayDenVal, maChuyenTrung)) {
+                        updateStats();
+                        // Chọn chuyến đã có trong bảng trái và refresh
+                        for (int i = 0; i < modelCT.getRowCount(); i++) {
+                            if (modelCT.getValueAt(i, 0).toString().equals(maChuyenTrung)) {
+                                tableCT.setRowSelectionInterval(i, i);
+                                tableCT.scrollRectToVisible(tableCT.getCellRect(i, 0, true));
+                                break;
+                            }
+                        }
+                        refreshDetail();
+                        dlg.dispose();
+                        JOptionPane.showMessageDialog(this,
+                                "Đã thêm lịch trình " + maLT + " vào chuyến " + maChuyenTrung + " thành công!",
+                                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        warn("Lỗi khi thêm lịch trình vào chuyến " + maChuyenTrung + "!");
+                    }
+                }
+                return;
+            }
+
             // --- KIỂM TRA TRÙNG LỊCH (dùng thoiGianPhut thay soNgay) ---
             String trungTenAdd = kiemTraTrungLich(maTau, ngayKH, gioDiVal, thoiGianPhut, null);
             if (trungTenAdd != null) {
@@ -2140,6 +2179,22 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         if (danhSachDaTao.contains(key)) {
             return "Trùng với lịch trình vừa tạo trong phiên này (" + ngayMoi + " " + gioMoi + ")";
         }
+        return null;
+    }
+
+    /**
+     * Kiểm tra đã có chuyến tàu nào với cùng maTau + maTuyen chưa.
+     * @return maChuyen nếu trùng, null nếu không trùng
+     */
+    private String kiemTraTrungChuyen(String maTau, String maTuyen) {
+        String sql = "SELECT maChuyen FROM ChuyenTau WHERE maTau = ? AND maTuyen = ?";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, maTau);
+            ps.setString(2, maTuyen);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getString("maChuyen");
+        } catch (Exception e) { e.printStackTrace(); }
         return null;
     }
 

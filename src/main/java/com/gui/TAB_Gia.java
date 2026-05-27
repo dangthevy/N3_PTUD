@@ -177,6 +177,13 @@ public class TAB_Gia extends JPanel {
         add(buildStatBar(), BorderLayout.NORTH);
         add(body, BorderLayout.CENTER);
         loadFromDB();
+
+        // Reload danh mục (loại toa, tuyến...) mỗi khi tab được hiển thị
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+                loadDanhMuc();
+            }
+        });
     }
 
     // =========================================================================
@@ -1004,6 +1011,9 @@ public class TAB_Gia extends JPanel {
         int row = tblGH.getSelectedRow();
         if (row < 0) { warn("Vui lòng chọn một bảng giá trước."); return; }
         String maGia = modelGH.getValueAt(row, 0).toString();
+
+        // Reload danh mục mới nhất từ DB trước khi mở dialog
+        loadDanhMuc();
 
         // --- Validate bảng giá còn hiệu lực ---
         String trangThai = modelGH.getValueAt(row, 4).toString();
