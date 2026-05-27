@@ -759,30 +759,12 @@ public class TAB_QLKhachHang extends JPanel {
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setOpaque(false);
 
-        // Icon nguoi dung ben canh title
-        JLabel icoTitle = new JLabel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(ACCENT);
-                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int cx = getWidth()/2, cy = getHeight()/2;
-                // Dau nguoi
-                g2.drawOval(cx-5, cy-10, 10, 10);
-                // Vai
-                g2.drawArc(cx-9, cy+1, 18, 12, 0, 180);
-                g2.dispose();
-            }
-        };
-        icoTitle.setPreferredSize(new Dimension(28, 28));
-
         JLabel lbl = new JLabel("QUẢN LÝ KHÁCH HÀNG");
         lbl.setFont(F_TITLE);
         lbl.setForeground(ACCENT);
 
-        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         titleRow.setOpaque(false);
-        titleRow.add(icoTitle);
         titleRow.add(lbl);
 
         pnl.add(titleRow, BorderLayout.WEST);

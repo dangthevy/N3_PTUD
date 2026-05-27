@@ -154,35 +154,12 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		JPanel p = new JPanel(new BorderLayout());
 		p.setOpaque(false);
 
-		// Icon calendar bên cạnh title
-		JLabel icoTitle = new JLabel() {
-			@Override protected void paintComponent(Graphics g) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(ACCENT);
-				g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-				int cx = getWidth()/2, cy = getHeight()/2;
-				g2.drawRoundRect(cx-9, cy-7, 18, 16, 3, 3);
-				g2.drawLine(cx-9, cy-3, cx+9, cy-3);
-				g2.drawLine(cx-4, cy-11, cx-4, cy-5);
-				g2.drawLine(cx+4, cy-11, cx+4, cy-5);
-				g2.fillOval(cx-6, cy, 3, 3);
-				g2.fillOval(cx-1, cy, 3, 3);
-				g2.fillOval(cx+4, cy, 3, 3);
-				g2.fillOval(cx-6, cy+4, 3, 3);
-				g2.fillOval(cx-1, cy+4, 3, 3);
-				g2.dispose();
-			}
-		};
-		icoTitle.setPreferredSize(new Dimension(28, 28));
-
 		JLabel l = new JLabel("QUẢN LÝ & TRA CỨU HÓA ĐƠN");
 		l.setFont(F_TITLE);
 		l.setForeground(ACCENT);
 
-		JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+		JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
 		titleRow.setOpaque(false);
-		titleRow.add(icoTitle);
 		titleRow.add(l);
 
 		p.add(titleRow, BorderLayout.WEST);
