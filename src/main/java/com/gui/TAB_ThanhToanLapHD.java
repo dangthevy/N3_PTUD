@@ -81,6 +81,34 @@ public class TAB_ThanhToanLapHD extends JPanel {
 		initUI();
 		loadNhanVienToCombo();
 		loadDanhSachHoaDon();
+
+		// Auto-refresh khi tab được hiển thị trở lại (ví dụ: sau khi bán vé xong)
+		addHierarchyListener(e -> {
+			if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+				loadDanhSachHoaDon();
+			}
+		});
+	}
+
+	/**
+	 * Gọi từ bên ngoài (ví dụ: TAB_BanVe) sau khi lập hóa đơn thành công.
+	 * Xóa bộ lọc, load lại danh sách, cuộn lên đầu để hóa đơn mới nhất hiển thị đầu tiên.
+	 */
+	public void refreshAfterSale() {
+		// Xóa bộ lọc để không bị ẩn hóa đơn mới
+		if (txtTimKiemTenKH != null) txtTimKiemTenKH.setText("");
+		if (dateTuNgay != null)      dateTuNgay.resetDate();
+		if (dateToiNgay != null)     dateToiNgay.resetDate();
+		if (cbNhanVienLoc != null && cbNhanVienLoc.getItemCount() > 0)
+			cbNhanVienLoc.setSelectedIndex(0);
+
+		loadDanhSachHoaDon();
+
+		// Cuộn bảng lên dòng đầu (hóa đơn mới nhất - vì SQL ORDER BY ngayLap DESC)
+		if (tableHD != null && modelHD.getRowCount() > 0) {
+			tableHD.scrollRectToVisible(tableHD.getCellRect(0, 0, true));
+			tableHD.setRowSelectionInterval(0, 0);
+		}
 	}
 
 	// ─── Khởi tạo bảng ───

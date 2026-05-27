@@ -96,6 +96,31 @@ public class TAB_TraCuuVe extends JPanel {
         add(buildDanhSachCard(), BorderLayout.CENTER);
 
         loadData(null);
+
+        // Auto-refresh khi tab được hiển thị trở lại (ví dụ: sau khi bán vé xong)
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
+                loadData(txtMaVe != null ? txtMaVe.getText().trim() : null);
+            }
+        });
+    }
+
+    /**
+     * Gọi từ bên ngoài (ví dụ: TAB_BanVe) sau khi bán vé / lập hóa đơn thành công.
+     * Xóa bộ lọc, load lại toàn bộ danh sách vé và cập nhật stat card.
+     * Vé mới nhất sẽ hiển thị đầu tiên (SQL ORDER BY ngayLap DESC).
+     */
+    public void refreshAfterSale() {
+        // Xóa filter để không bị ẩn vé mới
+        if (txtMaVe != null) txtMaVe.setText("");
+
+        loadData(null);
+
+        // Cuộn lên đầu bảng để thấy vé mới nhất
+        if (table != null && tableModel.getRowCount() > 0) {
+            table.scrollRectToVisible(table.getCellRect(0, 0, true));
+            table.setRowSelectionInterval(0, 0);
+        }
     }
 
     // ================= TABLE INIT =================
