@@ -1229,6 +1229,19 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             try { new SimpleDateFormat(DATE_FMT).parse(ngayKH); }
             catch (Exception ex) { warn("Ngày không hợp lệ! Định dạng: dd/MM/yyyy"); return; }
 
+            // Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay
+            try {
+                java.util.Date ngayChon = new SimpleDateFormat(DATE_FMT).parse(ngayKH);
+                Calendar calMin = Calendar.getInstance();
+                calMin.add(Calendar.DAY_OF_MONTH, 10);
+                calMin.set(Calendar.HOUR_OF_DAY, 0); calMin.set(Calendar.MINUTE, 0); calMin.set(Calendar.SECOND, 0);
+                if (ngayChon.before(calMin.getTime())) {
+                    warn("Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay!\nSớm nhất: " +
+                            new SimpleDateFormat(DATE_FMT).format(calMin.getTime()));
+                    return;
+                }
+            } catch (Exception ignored) {}
+
             String gioDiVal = (String) cbGioDi.getSelectedItem();
 
             // Lấy thoiGianChay từ DB theo tuyến đã chọn
@@ -1432,6 +1445,19 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             try { new SimpleDateFormat(DATE_FMT).parse(newNgayKH); }
             catch (Exception ex) { warn("Ngày không hợp lệ! Định dạng: dd/MM/yyyy"); return; }
 
+            // Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay
+            try {
+                java.util.Date ngayChon = new SimpleDateFormat(DATE_FMT).parse(newNgayKH);
+                Calendar calMin = Calendar.getInstance();
+                calMin.add(Calendar.DAY_OF_MONTH, 10);
+                calMin.set(Calendar.HOUR_OF_DAY, 0); calMin.set(Calendar.MINUTE, 0); calMin.set(Calendar.SECOND, 0);
+                if (ngayChon.before(calMin.getTime())) {
+                    warn("Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay!\nSớm nhất: " +
+                            new SimpleDateFormat(DATE_FMT).format(calMin.getTime()));
+                    return;
+                }
+            } catch (Exception ignored) {}
+
             // --- KIỂM TRA TRÙNG LỊCH (bỏ qua chính chuyến đang cập nhật) ---
             String trungTenUpd = kiemTraTrungLich(newMaTau, newNgayKH, newGioDi, thoiGianPhutUpd, maChuyenFinal);
             if (trungTenUpd != null) {
@@ -1605,6 +1631,19 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             if (ngayKH.isEmpty()) { warn("Vui lòng chọn ngày khởi hành!"); return; }
             try { new java.text.SimpleDateFormat(DATE_FMT).parse(ngayKH); }
             catch (Exception ex) { warn("Ngày không hợp lệ!"); return; }
+
+            // Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay
+            try {
+                java.util.Date ngayChon = new SimpleDateFormat(DATE_FMT).parse(ngayKH);
+                Calendar calMin = Calendar.getInstance();
+                calMin.add(Calendar.DAY_OF_MONTH, 10);
+                calMin.set(Calendar.HOUR_OF_DAY, 0); calMin.set(Calendar.MINUTE, 0); calMin.set(Calendar.SECOND, 0);
+                if (ngayChon.before(calMin.getTime())) {
+                    warn("Ngày khởi hành phải cách ít nhất 10 ngày kể từ hôm nay!\nSớm nhất: " +
+                            new SimpleDateFormat(DATE_FMT).format(calMin.getTime()));
+                    return;
+                }
+            } catch (Exception ignored) {}
 
             // Kiểm tra trùng lịch — truyền excludeMaLT=null (thêm mới)
             String trung = kiemTraTrungLich(maTau, ngayKH, gioDi, thoiGianPhut, null, null);
@@ -1855,6 +1894,16 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                 dEnd   = sdf.parse(denNgayStr);
             } catch (Exception ex) { warn("Ngày không hợp lệ! Định dạng: dd/MM/yyyy"); return; }
             if (dEnd.before(dStart)) { warn("Ngày kết thúc phải sau ngày bắt đầu!"); return; }
+
+            // Ngày bắt đầu phải cách ít nhất 10 ngày kể từ hôm nay
+            Calendar calMin = Calendar.getInstance();
+            calMin.add(Calendar.DAY_OF_MONTH, 10);
+            calMin.set(Calendar.HOUR_OF_DAY, 0); calMin.set(Calendar.MINUTE, 0); calMin.set(Calendar.SECOND, 0);
+            if (dStart.before(calMin.getTime())) {
+                warn("Ngày bắt đầu phải cách ít nhất 10 ngày kể từ hôm nay!\nSớm nhất: " +
+                        new SimpleDateFormat(DATE_FMT).format(calMin.getTime()));
+                return;
+            }
 
             // Validate và chuẩn hóa giờ (hỗ trợ HH:mm và HH:mm:ss)
             String gioDiRaw = cbGioDi.getSelectedItem() != null
