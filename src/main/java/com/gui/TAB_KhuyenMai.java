@@ -290,12 +290,13 @@ public class TAB_KhuyenMai extends JPanel {
                 buildKMDPanel()
         );
 
-        sp.setResizeWeight(0.5);
+        sp.setResizeWeight(0.3);
+
         sp.setBorder(BorderFactory.createEmptyBorder());
         sp.setOpaque(false);
-        sp.setDividerSize(6);
+        sp.setDividerSize(7);
 
-        SwingUtilities.invokeLater(() -> sp.setDividerLocation(0.5));
+        SwingUtilities.invokeLater(() -> sp.setDividerLocation(0.3));
 
         return sp;
     }
