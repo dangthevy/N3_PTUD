@@ -519,7 +519,7 @@ INSERT INTO KhuyenMai (TenKM, NgayBatDau, NgayKetThuc, TrangThai, MoTa) VALUES
 (N'Khuyến mãi hè 2026',            '2026-06-01', '2026-08-31', 1, N'Giảm giá mùa hè cho mọi hành khách'),
 (N'Ưu đãi Sinh viên',              '2026-01-01', '2026-12-31', 1, N'Chương trình hỗ trợ sinh viên đi lại'),
 (N'Ưu đãi vé trẻ em',              '2026-01-01', '2026-12-31', 1, N'Chương trình giảm giá cho trẻ em'),
-(N'Flash Sale Cuối Tuần',          '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
+(N'Flash Sale',          '2026-04-01', '2026-05-31', 1, N'Giảm giá mạnh các tuyến ngắn'),
 (N'Khuyến mãi Tết Nguyên Đán 2026','2026-02-01','2026-02-28', 1, N'Ưu đãi dịp Tết cho các tuyến phổ biến'),
 (N'Ưu đãi Giỗ Tổ Hùng Vương 2026','2026-04-01','2026-04-10', 1, N'Khuyến mãi dịp lễ đầu tháng 4'),
 (N'Khuyến mãi 30/4 - 1/5',         '2026-04-25','2026-05-05', 1, N'Ưu đãi dịp lễ 30/4 và 1/5'),
@@ -529,7 +529,7 @@ GO
 DECLARE @KM_HE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi hè 2026');
 DECLARE @KM_SV    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Sinh viên');
 DECLARE @KM_TE    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi vé trẻ em');
-DECLARE @KM_FS    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale Cuối Tuần');
+DECLARE @KM_FS    VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Flash Sale');
 DECLARE @KM_TET   VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi Tết Nguyên Đán 2026');
 DECLARE @KM_GIOTO VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Ưu đãi Giỗ Tổ Hùng Vương 2026');
 DECLARE @KM_304   VARCHAR(6) = (SELECT MaKM FROM KhuyenMai WHERE TenKM = N'Khuyến mãi 30/4 - 1/5');
@@ -543,8 +543,8 @@ INSERT INTO KhuyenMaiDetail (MaKM, LoaiKM, GiaTri, TrangThai, MaTuyen, maLoaiToa
 -- Hè 2026: giảm 10% ghế nằm & mềm tuyến T01
 (@KM_HE,    'GIAM_PHAN_TRAM',     10, 1, 'T01', 'G_NAM',  NULL),
 (@KM_HE,    'GIAM_PHAN_TRAM',     10, 1, 'T01', 'G_MEM',  NULL),
--- Flash sale cuối tuần: giảm 20% ghế cứng tất cả tuyến
-(@KM_FS,    'GIAM_PHAN_TRAM',     20, 1, NULL,  'G_CUNG', NULL),
+-- Flash sale cuối tuần: giảm 50k ghế cứng tất cả tuyến
+(@KM_FS,    'GIAM_TIEN',     50000, 1, NULL,  'G_CUNG', NULL),
 -- Tết: giảm 15% ghế mềm tuyến T02; giảm 200k ghế cứng tất cả tuyến
 (@KM_TET,   'GIAM_PHAN_TRAM',     15, 1, 'T02', 'G_MEM',  NULL),
 (@KM_TET,   'GIAM_TIEN',      200000, 1, NULL,  'G_CUNG', NULL),

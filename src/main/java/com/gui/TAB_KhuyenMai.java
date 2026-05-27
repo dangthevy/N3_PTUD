@@ -57,6 +57,16 @@ public class TAB_KhuyenMai extends JPanel {
     private enum BtnStyle { PRIMARY, SECONDARY, DANGER }
 
     private static final String DATE_FORMAT = "dd/MM/yyyy";
+    private static final String STATUS_ACTIVE = "Áp Dụng";
+    private static final String STATUS_STOPPED = "Ngừng";
+
+    // Bảng khuyến mãi: Mã, Tên, Ngày BĐ, Ngày KT, Trạng thái
+    private static final int[] KM_COL_RATIOS = { 9, 43, 16, 16, 16 };
+    private static final int[] KM_COL_MIN    = { 62, 180, 95, 95, 85 };
+
+    // Bảng chi tiết: Mã, Tuyến, Loại ghế, Loại vé, Loại KM, Giá trị, Trạng thái
+    private static final int[] KMD_COL_RATIOS = { 10, 25, 13, 11, 12, 16, 13 };
+    private static final int[] KMD_COL_MIN    = { 70, 135, 80, 70, 80, 90, 85 };
 
     // ===== Cột KhuyenMai – KHÔNG có loaiKM, giaTri =====
     private static final String[] COLS_KM = {
@@ -228,12 +238,19 @@ public class TAB_KhuyenMai extends JPanel {
     // ========== SPLIT ==========
     // [SỬA] setDividerLocation(0.5) để split về giữa màn hình
     private JSplitPane buildSplitBody() {
-        JSplitPane sp = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                buildKMPanel(), buildKMDPanel());
-        sp.setDividerLocation(0.5);   // [SỬA] 0.55 → 0.5 để hai panel bằng nhau
-        sp.setResizeWeight(0.5);      // [SỬA] giữ tỉ lệ khi resize cửa sổ
+        JSplitPane sp = new JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT,
+                buildKMPanel(),
+                buildKMDPanel()
+        );
+
+        sp.setResizeWeight(0.5);
         sp.setBorder(BorderFactory.createEmptyBorder());
-        sp.setOpaque(false); sp.setDividerSize(6);
+        sp.setOpaque(false);
+        sp.setDividerSize(6);
+
+        SwingUtilities.invokeLater(() -> sp.setDividerLocation(0.5));
+
         return sp;
     }
 
@@ -273,6 +290,7 @@ public class TAB_KhuyenMai extends JPanel {
         // [SỬA] Bỏ setPreferredSize cứng → scroll tự lấp đầy không gian còn lại
         styleScrollBar(scroll.getVerticalScrollBar());
         styleScrollBar(scroll.getHorizontalScrollBar());
+        installResponsiveColumnWidths(scroll, tableKM, KM_COL_RATIOS, KM_COL_MIN);
 
         p.add(actionBar, BorderLayout.NORTH);
         JPanel inner = new JPanel(new BorderLayout()); inner.setOpaque(false);
@@ -295,6 +313,8 @@ public class TAB_KhuyenMai extends JPanel {
         // [SỬA] Bỏ setPreferredSize cứng → scroll tự lấp đầy không gian còn lại
         styleScrollBar(scroll.getVerticalScrollBar());
         styleScrollBar(scroll.getHorizontalScrollBar());
+        installResponsiveColumnWidths(scroll, tableKMD, KMD_COL_RATIOS, KMD_COL_MIN);
+
         JPanel inner = new JPanel(new BorderLayout()); inner.setOpaque(false);
         inner.add(sep,    BorderLayout.NORTH);
         inner.add(scroll, BorderLayout.CENTER);
@@ -373,13 +393,8 @@ public class TAB_KhuyenMai extends JPanel {
                 }
             }
         });
-        // [SỬA] AUTO_RESIZE_OFF thay vì AUTO_RESIZE_LAST_COLUMN
-        // → mỗi cột giữ đúng width đã set, không bị co giãn làm mất chữ
-//        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         styleTable(t);
-        int[] w = { 59, 210, 110, 110, 120 };
-        for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
-            t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KM.length);
         t.getColumnModel().getColumn(4).setCellRenderer(new TrangThaiRenderer());
         return t;
@@ -388,13 +403,11 @@ public class TAB_KhuyenMai extends JPanel {
 
     private static class TrangThaiRenderer extends DefaultTableCellRenderer {
 
-        private static final Color CLR_ACTIVE  = new Color(0x16A34A); // xanh lá
-        private static final Color CLR_STOP    = new Color(0xDC2626); // đỏ
-        private static final Color CLR_OFF     = new Color(0xD97706); // vàng cam
+        private static final Color CLR_ACTIVE = new Color(0x16A34A);
+        private static final Color CLR_STOP   = new Color(0xDC2626);
 
-        private static final Color BG_ACTIVE   = new Color(0xDCFCE7);
-        private static final Color BG_STOP     = new Color(0xFEE2E2);
-        private static final Color BG_OFF      = new Color(0xFEF9C3);
+        private static final Color BG_ACTIVE  = new Color(0xDCFCE7);
+        private static final Color BG_STOP    = new Color(0xFEE2E2);
 
         @Override
         public Component getTableCellRendererComponent(
@@ -404,20 +417,17 @@ public class TAB_KhuyenMai extends JPanel {
 
             String text = v != null ? v.toString() : "";
 
-            // Badge: text canh giữa, bo tròn giả lập bằng padding + màu nền
             l.setHorizontalAlignment(CENTER);
-            l.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+            l.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
 
             if (!sel) {
-                // Màu text + nền theo trạng thái
-                if (text.equalsIgnoreCase("Đang áp dụng")) {
+                if (STATUS_ACTIVE.equalsIgnoreCase(text)) {
                     l.setForeground(CLR_ACTIVE);
                     l.setBackground(BG_ACTIVE);
-                } else if (text.equalsIgnoreCase("Dừng áp dụng")) {
+                } else if (STATUS_STOPPED.equalsIgnoreCase(text)) {
                     l.setForeground(CLR_STOP);
                     l.setBackground(BG_STOP);
                 } else {
-                    // fallback
                     l.setForeground(new Color(0x5A6A7D));
                     l.setBackground(new Color(0xF0F4FA));
                 }
@@ -461,14 +471,81 @@ public class TAB_KhuyenMai extends JPanel {
             }
         });
         // [SỬA] AUTO_RESIZE_OFF để cột không bị co làm mất chữ
-//        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         styleTable(t);
-        int[] w = { 70, 170, 90, 90, 80, 70, 100 };
-        for (int i = 0; i < w.length && i < t.getColumnCount(); i++)
-            t.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
         applyRenderers(t, COLS_KMD.length);
         t.getColumnModel().getColumn(6).setCellRenderer(new TrangThaiRenderer());
         return t;
+    }
+
+    private void installResponsiveColumnWidths(
+            JScrollPane scroll,
+            JTable table,
+            int[] ratios,
+            int[] minWidths
+    ) {
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+
+        Runnable resize = () -> resizeColumnsToViewport(scroll, table, ratios, minWidths);
+
+        scroll.getViewport().addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                resize.run();
+            }
+        });
+
+        SwingUtilities.invokeLater(resize);
+    }
+
+    private void resizeColumnsToViewport(
+            JScrollPane scroll,
+            JTable table,
+            int[] ratios,
+            int[] minWidths
+    ) {
+        int viewportWidth = scroll.getViewport().getExtentSize().width;
+        if (viewportWidth <= 0) return;
+
+        int colCount = Math.min(table.getColumnCount(), Math.min(ratios.length, minWidths.length));
+
+        int minTotal = 0;
+        int ratioTotal = 0;
+
+        for (int i = 0; i < colCount; i++) {
+            minTotal += minWidths[i];
+            ratioTotal += ratios[i];
+        }
+
+        // Nếu màn hình đủ rộng: fill đủ bảng.
+        // Nếu màn hình quá nhỏ: giữ minWidth và cho scroll ngang, tránh mất chữ.
+        int targetWidth = Math.max(viewportWidth, minTotal);
+        int extraWidth = targetWidth - minTotal;
+
+        int usedWidth = 0;
+        int usedExtra = 0;
+
+        for (int i = 0; i < colCount; i++) {
+            int extra;
+
+            if (i == colCount - 1) {
+                extra = extraWidth - usedExtra;
+            } else {
+                extra = (int) Math.floor(extraWidth * ratios[i] / (double) ratioTotal);
+                usedExtra += extra;
+            }
+
+            int width = minWidths[i] + extra;
+
+            table.getColumnModel().getColumn(i).setMinWidth(minWidths[i]);
+            table.getColumnModel().getColumn(i).setPreferredWidth(width);
+            table.getColumnModel().getColumn(i).setWidth(width);
+
+            usedWidth += width;
+        }
+
+        table.revalidate();
+        table.repaint();
     }
 
     // ========== LOAD DATA ==========
@@ -553,8 +630,8 @@ public class TAB_KhuyenMai extends JPanel {
                 km.getMaKM(), km.getTenKM(),
                 km.getNgayBatDau()  != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayBatDau()) : "",
                 km.getNgayKetThuc() != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayKetThuc()) : "",
-                km.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng",
-//                km.getMoTa() != null ? km.getMoTa() : ""
+                km.isTrangThai() ? STATUS_ACTIVE : STATUS_STOPPED,
+                //                km.getMoTa() != null ? km.getMoTa() : ""
         });
     }
 
@@ -566,7 +643,7 @@ public class TAB_KhuyenMai extends JPanel {
                 , d.getLoaiVe() != null ? d.getLoaiVe().getTenLoai() : "Tất cả"
                 , d.getLoaiKM().getLabel()
                 , formatGiaTri(d.getLoaiKM().getLabel(), d.getGiaTri())
-                , d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng"
+                , d.isTrangThai() ? STATUS_ACTIVE : STATUS_STOPPED
         });
     }
 
@@ -584,7 +661,7 @@ public class TAB_KhuyenMai extends JPanel {
             modelKM.setValueAt(km.getTenKM(),  i, 1);
             modelKM.setValueAt(km.getNgayBatDau()  != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayBatDau())  : "", i, 2);
             modelKM.setValueAt(km.getNgayKetThuc() != null ? new SimpleDateFormat(DATE_FORMAT).format(km.getNgayKetThuc()) : "", i, 3);
-            modelKM.setValueAt(km.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng", i, 4);
+            modelKM.setValueAt(km.isTrangThai() ? STATUS_ACTIVE : STATUS_STOPPED, i, 4);
             break;
         }
     }
@@ -601,7 +678,7 @@ public class TAB_KhuyenMai extends JPanel {
             modelKMD.setValueAt(tenLoaiVe,                          i, 3);
             modelKMD.setValueAt(d.getLoaiKM().getLabel(),           i, 4);
             modelKMD.setValueAt(formatGiaTri(d.getLoaiKM().getLabel(), d.getGiaTri()), i, 5);
-            modelKMD.setValueAt(d.isTrangThai() ? "Đang áp dụng" : "Dừng áp dụng",   i, 6);
+            modelKMD.setValueAt(d.isTrangThai() ? STATUS_ACTIVE : STATUS_STOPPED, i, 6);
             break;
         }
     }
@@ -658,7 +735,7 @@ public class TAB_KhuyenMai extends JPanel {
         UIHelper.DatePickerField dpKT = makeKhuyenMaiDatePicker(false);
         dpKT.setDate(new SimpleDateFormat(DATE_FORMAT).format(new Date()));
 
-        JCheckBox chkActive   = new JCheckBox("Đang áp dụng");
+        JCheckBox chkActive = new JCheckBox("Áp dụng");
         chkActive.setBackground(BG_CARD);
         chkActive.setSelected(true);
         JTextArea txtMoTa = makeStyledTextArea(3, 22);
@@ -698,22 +775,44 @@ public class TAB_KhuyenMai extends JPanel {
         JButton btnSave = makeBtn(isEdit ? "Cập nhật" : "Lưu", BtnStyle.PRIMARY);
         btnSave.addActionListener(e -> {
             if (txtTen.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(dlg, "Tên KM không được rỗng!"); return;
+                JOptionPane.showMessageDialog(dlg, "Tên KM không được rỗng!");
+                return;
             }
+
             KhuyenMai obj = new KhuyenMai();
             obj.setMaKM(isEdit ? km.getMaKM() : null);
             obj.setTenKM(txtTen.getText().trim());
+
             Date ngayBatDau = parseDatePickerField(dpBD);
             Date ngayKetThuc = parseDatePickerField(dpKT);
+
             if (ngayBatDau == null || ngayKetThuc == null) {
-                JOptionPane.showMessageDialog(dlg, "Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!"); return;
+                JOptionPane.showMessageDialog(
+                        dlg,
+                        "Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!"
+                );
+                return;
             }
-            if (isDateBeforeToday(ngayBatDau) || isDateBeforeToday(ngayKetThuc)) {
-                JOptionPane.showMessageDialog(dlg, "Ngày bắt đầu và ngày kết thúc không được ở quá khứ!"); return;
+
+            // Chỉ THÊM mới KM mới bị chặn ngày quá khứ
+            // CẬP NHẬT KM thì cho phép ngày bắt đầu / ngày kết thúc ở quá khứ
+            if (!isEdit && (isDateBeforeToday(ngayBatDau) || isDateBeforeToday(ngayKetThuc))) {
+                JOptionPane.showMessageDialog(
+                        dlg,
+                        "Ngày bắt đầu và ngày kết thúc không được ở quá khứ!"
+                );
+                return;
             }
+
+            // Luôn kiểm tra logic ngày bắt đầu <= ngày kết thúc
             if (ngayBatDau.after(ngayKetThuc)) {
-                JOptionPane.showMessageDialog(dlg, "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!"); return;
+                JOptionPane.showMessageDialog(
+                        dlg,
+                        "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!"
+                );
+                return;
             }
+
             obj.setNgayBatDau(ngayBatDau);
             obj.setNgayKetThuc(ngayKetThuc);
             obj.setTrangThai(chkActive.isSelected());
@@ -721,12 +820,18 @@ public class TAB_KhuyenMai extends JPanel {
 
             if (isEdit) {
                 if (daoKM.updateKhuyenMai(obj)) {
-                    // updateTableRowKM(obj);
-                    loadDataKhuyenMai(); dlg.dispose(); }
-                else JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+                    loadDataKhuyenMai();
+                    dlg.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dlg, "Cập nhật thất bại!");
+                }
             } else {
-                if (daoKM.insertKhuyenMai(obj)) { loadDataKhuyenMai(); dlg.dispose(); }
-                else JOptionPane.showMessageDialog(dlg, "Thêm thất bại!");
+                if (daoKM.insertKhuyenMai(obj)) {
+                    loadDataKhuyenMai();
+                    dlg.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dlg, "Thêm thất bại!");
+                }
             }
         });
 
