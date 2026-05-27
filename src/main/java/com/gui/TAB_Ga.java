@@ -31,6 +31,7 @@ public class TAB_Ga extends JPanel {
     private static final Color TEXT_MID     = new Color(0x5A6A7D);
     private static final Color TEXT_LIGHT   = new Color(0xA0AEC0);
     private static final Color BORDER       = new Color(0xE2EAF4);
+    private static final Color TH_BG        = new Color(0xE5E7EB);
     private static final Color ROW_ALT      = new Color(0xF7FAFF);
     private static final Color BTN2_BG      = new Color(0xF0F4FA);
     private static final Color BTN2_FG      = new Color(0x3A5A8C);
@@ -378,7 +379,7 @@ public class TAB_Ga extends JPanel {
             { setHorizontalAlignment(LEFT); }
             @Override public Component getTableCellRendererComponent(JTable t,Object v,boolean sel,boolean foc,int row,int col){
                 JLabel l=(JLabel)super.getTableCellRendererComponent(t,v,sel,foc,row,col);
-                l.setOpaque(true); l.setBackground(ACCENT); l.setForeground(Color.WHITE);
+                l.setOpaque(true); l.setBackground(TH_BG); l.setForeground(ACCENT);
                 l.setFont(new Font("Segoe UI",Font.BOLD,13)); l.setBorder(BorderFactory.createEmptyBorder(0,12,0,6)); return l;
             }
         });
@@ -491,15 +492,19 @@ public class TAB_Ga extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(color);
                 g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int top = y + 3;
-                int left = x + 2;
-                int right = x + size - 2;
-                int bottom = y + size - 2;
-                g2.drawLine(left, top + 2, right, top + 2);
-                g2.drawLine(x + size / 2 - 2, top, x + size / 2 + 2, top);
-                g2.drawRoundRect(left + 1, top + 3, size - 6, size - 8, 2, 2);
-                g2.drawLine(x + size / 2 - 2, top + 6, x + size / 2 - 2, bottom - 1);
-                g2.drawLine(x + size / 2 + 2, top + 6, x + size / 2 + 2, bottom - 1);
+                int cx = x + size / 2;
+                int cy = y + size / 2;
+                float s = size / 12f;
+
+                g2.drawLine(Math.round(cx - 6 * s), Math.round(cy - 5 * s), Math.round(cx + 6 * s), Math.round(cy - 5 * s));
+                g2.drawLine(Math.round(cx - 2 * s), Math.round(cy - 5 * s), Math.round(cx - 2 * s), Math.round(cy - 8 * s));
+                g2.drawLine(Math.round(cx + 2 * s), Math.round(cy - 5 * s), Math.round(cx + 2 * s), Math.round(cy - 8 * s));
+                g2.drawLine(Math.round(cx - 2 * s), Math.round(cy - 8 * s), Math.round(cx + 2 * s), Math.round(cy - 8 * s));
+                g2.drawLine(Math.round(cx - 5 * s), Math.round(cy - 5 * s), Math.round(cx - 4 * s), Math.round(cy + 6 * s));
+                g2.drawLine(Math.round(cx + 5 * s), Math.round(cy - 5 * s), Math.round(cx + 4 * s), Math.round(cy + 6 * s));
+                g2.drawLine(Math.round(cx - 4 * s), Math.round(cy + 6 * s), Math.round(cx + 4 * s), Math.round(cy + 6 * s));
+                g2.drawLine(Math.round(cx - 1 * s), Math.round(cy - 3 * s), Math.round(cx - 1 * s), Math.round(cy + 4 * s));
+                g2.drawLine(Math.round(cx + 2 * s), Math.round(cy - 3 * s), Math.round(cx + 2 * s), Math.round(cy + 4 * s));
                 g2.dispose();
             }
             @Override public int getIconWidth() { return size; }

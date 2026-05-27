@@ -20,8 +20,8 @@ public class TAB_HoanVe extends JPanel {
 
 		// 1. Một dòng chữ tiêu đề ở trên cùng
 		JLabel lblTitle = new JLabel("HOÀN VÉ", SwingConstants.CENTER);
-		lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
-		lblTitle.setForeground(new Color(0, 122, 255));
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+		lblTitle.setForeground(new Color(0x1A5EAB));
 		lblTitle.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0)); // Tạo khoảng trống trên dưới
 
 		add(lblTitle, BorderLayout.NORTH);

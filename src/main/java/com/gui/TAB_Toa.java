@@ -61,7 +61,7 @@ public class TAB_Toa extends JPanel {
 			pnlTitle.add(Box.createHorizontalStrut(10));
 		}
 		JLabel lblTitle = new JLabel("QUẢN LÝ TOA VẬT LÝ (KHO)");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
 		lblTitle.setForeground(ACCENT);
 		pnlTitle.add(lblTitle);
 		pnlHeaderRow.add(pnlTitle, BorderLayout.WEST);
@@ -183,7 +183,7 @@ public class TAB_Toa extends JPanel {
 					if (statusIdx == 0) {
 						filters.add(RowFilter.notFilter(RowFilter.regexFilter("^Thanh lý$", 4)));
 					} else if (statusIdx == 1) {
-						filters.add(RowFilter.regexFilter("^Sẵn sàng$", 4));
+						filters.add(RowFilter.regexFilter("^S��n sàng$", 4));
 					} else if (statusIdx == 2) {
 						filters.add(RowFilter.regexFilter("^Bảo trì$", 4));
 					} else if (statusIdx == 3) {

@@ -111,7 +111,7 @@ public class TAB_QuanLyDoanTau extends JPanel {
 		JPanel pnlHeader = new JPanel(new BorderLayout());
 		pnlHeader.setOpaque(false);
 		JLabel lblTitle = new JLabel("QUẢN LÝ ĐOÀN TÀU");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
 		lblTitle.setForeground(ACCENT);
 		JPanel pnlGlobalActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
 		pnlGlobalActions.setOpaque(false);

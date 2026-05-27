@@ -59,7 +59,7 @@ public class TAB_Gia extends JPanel {
     // =========================================================================
     // FONT
     // =========================================================================
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  18);
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD,  13);
     private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
@@ -281,7 +281,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("QUẢN LÝ BẢNG GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(TEXT_DARK);
+        title.setForeground(ACCENT);
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -370,7 +370,7 @@ public class TAB_Gia extends JPanel {
 
         JLabel title = new JLabel("CHI TIẾT GIÁ VÉ");
         title.setFont(F_TITLE);
-        title.setForeground(TEXT_DARK);
+        title.setForeground(ACCENT);
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -1088,7 +1088,7 @@ public class TAB_Gia extends JPanel {
     // DIALOG CẬP NHẬT GIA DETAIL — Auto-versioning thông minh
     // Nếu bảng giá đã có vé bán:
     //   - Lần sửa đầu → clone bảng giá, đóng bảng cũ
-    //   - Các lần sửa tiếp → update trực tiếp bảng clone (chưa có vé)
+    //   - Các lần sửa ti��p → update trực tiếp bảng clone (chưa có vé)
     // =========================================================================
     private void openUpdateDetailDialog() {
         int row = tblGD.getSelectedRow();
@@ -1274,7 +1274,7 @@ public class TAB_Gia extends JPanel {
                 ps.executeUpdate();
             }
 
-            // 2. Tạo bảng giá mới — lưu maGiaGoc để biết clone từ đâu
+            // 2. Tạo b���ng giá mới — lưu maGiaGoc để biết clone từ đâu
             String maGiaMoi = genMaGia();
             String moTaMoi  = moTaCu.replaceAll("\\s*\\(cập nhật.*\\)", "")
                     + " (cập nhật " + formatNgay(ngayApDung.toString()) + ")";

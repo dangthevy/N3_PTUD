@@ -972,8 +972,51 @@ public class TAB_QLNhanVien extends JPanel {
         lblT.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblValue.setForeground(accent);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        p.add(lblT, BorderLayout.NORTH); p.add(lblValue, BorderLayout.CENTER);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblT, BorderLayout.WEST);
+        topRow.add(makeStatIcon(title, accent), BorderLayout.EAST);
+
+        p.add(topRow, BorderLayout.NORTH);
+        p.add(lblValue, BorderLayout.CENTER);
         return p;
+    }
+
+    private JLabel makeStatIcon(String title, Color accent) {
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                int cx = getWidth() / 2;
+                int cy = getHeight() / 2;
+                String t = title.toLowerCase();
+
+                if (t.contains("tổng")) {
+                    g2.drawOval(cx - 6, cy - 7, 12, 12);
+                    g2.drawRoundRect(cx - 9, cy + 3, 18, 8, 4, 4);
+                } else if (t.contains("hoạt động")) {
+                    g2.drawOval(cx - 6, cy - 7, 12, 12);
+                    g2.drawLine(cx - 2, cy - 1, cx, cy + 2);
+                    g2.drawLine(cx, cy + 2, cx + 4, cy - 2);
+                } else if (t.contains("nghỉ phép")) {
+                    g2.drawOval(cx - 6, cy - 7, 12, 12);
+                    g2.drawArc(cx - 9, cy + 1, 18, 10, 200, 140);
+                } else {
+                    g2.drawOval(cx - 6, cy - 7, 12, 12);
+                    g2.drawLine(cx - 4, cy + 3, cx + 4, cy + 3);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+        return ico;
     }
 
     private JPanel buildCard(LayoutManager layout) {

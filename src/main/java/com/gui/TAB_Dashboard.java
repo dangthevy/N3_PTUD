@@ -99,8 +99,8 @@ public class TAB_Dashboard extends JPanel {
 		pnlHeader.setOpaque(false);
 
 		JLabel lblTitle = new JLabel("Dashboard");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 30));
-		lblTitle.setForeground(TEXT_DARK);
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+		lblTitle.setForeground(TABLE_HEADER_BG);
 
 		SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd/MM/yyyy");
 		JLabel lblSub = new JLabel("Tổng quan hoạt động hệ thống – " + sdf.format(new Date()));
@@ -259,7 +259,7 @@ public class TAB_Dashboard extends JPanel {
 		pnlSchedule.setBackground(BG_CARD);
 		pnlSchedule.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), new EmptyBorder(20, 20, 20, 20)));
 
-		JLabel lblTbl = new JLabel("Lịch trình tàu khởi hành hôm nay");
+		JLabel lblTbl = new JLabel("Lịch tr��nh tàu khởi hành hôm nay");
 		lblTbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
 		lblTbl.setBorder(new EmptyBorder(0, 0, 15, 0));
 
@@ -318,7 +318,7 @@ public class TAB_Dashboard extends JPanel {
 		add(pnlMain, BorderLayout.CENTER);
 	}
 
-	// ================= BIỂU ĐỒ ĐƯỜNG =================
+	// ================= BIỂU ĐỒ ĐƯ���NG =================
 	private JFreeChart createRevenue7DaysChart() {
 		DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 		try (Connection con = ConnectDB.getConnection(); Statement st = con.createStatement()) {

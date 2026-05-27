@@ -52,7 +52,7 @@ public class TAB_LoaiToa extends JPanel {
 		}
 
 		JLabel lblTitle = new JLabel("QUẢN LÝ KHUÔN MẪU LOẠI TOA");
-		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
+		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
 		lblTitle.setForeground(ACCENT);
 		pnlTitle.add(lblTitle);
 

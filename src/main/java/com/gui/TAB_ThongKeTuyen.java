@@ -89,7 +89,7 @@ public class TAB_ThongKeTuyen extends JPanel {
     private static final Color CLR_HOAN = new Color(0x2980B9);
     private static final Color CLR_HUY = new Color(0xC0392B);
 
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 18);
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
     private static final Font F_CELL = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
@@ -200,7 +200,7 @@ public class TAB_ThongKeTuyen extends JPanel {
                 "Ngày khởi hành",
                 "Giờ khởi hành",
                 "Ngày đến",
-                "Giờ đến",
+                "Giờ đ��n",
                 "Trạng thái"
         };
         tableModel = new DefaultTableModel(cols, 0);

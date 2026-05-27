@@ -66,7 +66,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     private static final Color BTN_SUCCESS      = new Color(40, 167, 69);
     private static final Color BTN_SUCCESS_HVR  = new Color(33, 136, 56);
 
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  18);
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD,  13);
     private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);

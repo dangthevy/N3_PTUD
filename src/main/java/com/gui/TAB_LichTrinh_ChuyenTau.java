@@ -64,7 +64,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
     // =========================================================================
     // FONT
     // =========================================================================
-    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  18);
+    private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD,  22);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD,  13);
     private static final Font F_CELL  = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
@@ -343,7 +343,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
 
         // Tiêu đề
         JLabel title = new JLabel("QUẢN LÝ CHUYẾN TÀU");
-        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
 
         JPanel top = new JPanel(new BorderLayout(0, 8));
         top.setOpaque(false);
@@ -612,7 +612,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         icoLich.setPreferredSize(new Dimension(28, 28));
 
         JLabel title = new JLabel("CHI TIẾT LỊCH TRÌNH");
-        title.setFont(F_TITLE); title.setForeground(TEXT_DARK);
+        title.setFont(F_TITLE); title.setForeground(ACCENT);
 
         JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         titleRow.setOpaque(false);
@@ -707,7 +707,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             if (NGUNG_HOAT_DONG.equals(ttChuyen)) {
                 warn("Chuyến tàu đang ngưng hoạt động!\nKhông thể tạo lịch trình."); return;
             }
-            String maChuyen = modelCT.getValueAt(row, 0).toString();
+            String maChuyen  = modelCT.getValueAt(row, 0).toString();
             String maTau    = modelCT.getValueAt(row, 3).toString();
             String maTuyen  = modelCT.getValueAt(row, 4).toString();
             openBatchLTDialog(maChuyen, maTau, maTuyen);
@@ -1127,7 +1127,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         JComboBox<String> cbTuyen = makeCombo(tenTuyenArr.length > 0 ? tenTuyenArr :
                 new String[]{"Hà Nội - Sài Gòn", "Hà Nội - Đà Nẵng", "Sài Gòn - Hà Nội"});
 
-        // Hàm cập nhật tên chuyến tự động: TênTàu + " - " + TênTuyến
+        // Hàm cập nhật tên chuyến tự động: TênTàu + " - " + Tuyến
         Runnable updateTenChuyen = () -> {
             Object selTau = cbMaTau.getSelectedItem();
             String maTauStr = selTau != null ? selTau.toString().trim() : "";
@@ -1461,8 +1461,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             // --- KIỂM TRA TRÙNG LỊCH (bỏ qua chính chuyến đang cập nhật) ---
             String trungTenUpd = kiemTraTrungLich(newMaTau, newNgayKH, newGioDi, thoiGianPhutUpd, maChuyenFinal);
             if (trungTenUpd != null) {
-                warn("Tàu " + newMaTau + " đang có chuyến \"" + trungTenUpd + "\" chưa kết thúc.\n" +
-                        "Vui lòng chọn thời gian sau khi chuyến đó hoàn thành.");
+                warn("Tàu " + newMaTau + " đang có chuyến \"" + trungTenUpd + "\" trùng thời gian!");
                 return;
             }
 
@@ -1530,7 +1529,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
      * - Nếu có ít nhất 1 LT đang chạy → "Đang Khởi Hành"
      * - Nếu có ít nhất 1 LT chưa chạy → "Chưa Khởi Hành"
      * - Nếu tất cả LT đã hoàn thành → "Đã Hoàn Thành"
-     * - Nếu không có LT nào → "Chưa Khởi Hành"
+     * - Nếu không có LT nào → "Chưa Kh��i Hành"
      */
 
     /**
@@ -1658,7 +1657,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             if (daoLichTrinh.insert(maLT, ngayKH, gioDi, ngayDen, maChuyen)) {
                 String ttNewLT = tinhTrangThai(ngayKH, gioDi, ngayDen);
                 String ndHienThi = ngayDen.length() >= 10 ? ngayDen.substring(0, 10) : ngayDen;
-                String gdHienThi = ngayDen.length() >= 16 ? ngayDen.substring(11, 16) : "--:--";
+                String gdHienThi = ngayDen.length() >= 10 ? ngayDen.substring(0, 10) : ngayDen;
                 modelLT.addRow(new Object[]{maLT, ngayKH, gioDi, ndHienThi, gdHienThi, ttNewLT});
                 // Cập nhật trạng thái chuyến
                 int ctRow = tableCT.getSelectedRow();
@@ -1704,7 +1703,10 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
             String gio  = cbGio.getSelectedItem() != null ? cbGio.getSelectedItem().toString() : "06:00";
             if (!ngay.isEmpty()) {
                 String nd = tinhNgayDen(ngay, gio, thoiGianPhut);
-                lblNgayDen.setText(nd.length() >= 10 ? nd.substring(0, 10) : nd);
+                // Chỉ hiện ngày (dd/MM/yyyy)
+                String ndNgay = nd.length() >= 10 ? nd.substring(0, 10) : nd;
+                lblNgayDen.setText(ndNgay + "  (" + (thoiGianPhut/60) + "h" +
+                        (thoiGianPhut%60>0 ? thoiGianPhut%60+"m" : "") + ")");
             }
         };
         dpNgay.addPropertyChangeListener("date", e -> updateND.run());
@@ -2059,7 +2061,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
      * Kiểm tra tàu có sẵn sàng vào ngày/giờ chỉ định không.
      * Tàu cần thời gian: đi (thoiGianPhut) + về (thoiGianPhut) mới sẵn sàng cho chuyến tiếp.
      *
-     * Logic: Tìm lịch trình gần nhất TRƯỚC ngày/giờ mới của cùng tàu.
+     * Logic: Tìm lịch trình gần nh���t TRƯỚC ngày/giờ mới của cùng tàu.
      *        Tính thời điểm tàu sẵn sàng = ngayDen (chuyến trước) + thoiGianPhut (thời gian về).
      *        Nếu thời điểm sẵn sàng > thời điểm khởi hành mới → tàu chưa sẵn sàng.
      *
@@ -2713,7 +2715,7 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
                     new LineBorder(BORDER, 1, true),
                     BorderFactory.createEmptyBorder(5, 10, 5, 34)));
 
-            // ── Icon lịch vẽ tay ─────────────────────────────────────────
+            // ��─ Icon lịch vẽ tay ─────────────────────────────────────────
             JLabel ico = new JLabel() {
                 private boolean hovered = false;
                 {
@@ -2976,3 +2978,4 @@ public class TAB_LichTrinh_ChuyenTau extends JPanel {
         public String getDate() { return txt.getText(); }
     }
 }
+
