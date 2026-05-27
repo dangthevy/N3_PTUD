@@ -21,7 +21,64 @@ public class DAO_KhuyenMai {
     }
 
     // ---- READ ----
+    // Tự động dừng khuyến mãi đã qua ngày kết thúc
+    public int capNhatTrangThaiKhuyenMaiHetHan() {
+        String sqlKMD =
+                "UPDATE KhuyenMaiDetail " +
+                        "SET TrangThai = 0 " +
+                        "WHERE TrangThai = 1 " +
+                        "AND An = 0 " +
+                        "AND MaKM IN ( " +
+                        "    SELECT MaKM FROM KhuyenMai " +
+                        "    WHERE TrangThai = 1 " +
+                        "    AND An = 0 " +
+                        "    AND NgayKetThuc < CAST(GETDATE() AS DATE) " +
+                        ")";
+
+        String sqlKM =
+                "UPDATE KhuyenMai " +
+                        "SET TrangThai = 0 " +
+                        "WHERE TrangThai = 1 " +
+                        "AND An = 0 " +
+                        "AND NgayKetThuc < CAST(GETDATE() AS DATE)";
+
+        try {
+            conn.setAutoCommit(false);
+
+            int updatedDetail;
+            int updatedKM;
+
+            try (PreparedStatement psKMD = conn.prepareStatement(sqlKMD);
+                 PreparedStatement psKM = conn.prepareStatement(sqlKM)) {
+
+                updatedDetail = psKMD.executeUpdate();
+                updatedKM = psKM.executeUpdate();
+
+                conn.commit();
+                return updatedKM;
+            }
+
+        } catch (SQLException e) {
+            try {
+                conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+            return 0;
+
+        } finally {
+            try {
+                conn.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public List<KhuyenMai> getAllKhuyenMai() {
+        capNhatTrangThaiKhuyenMaiHetHan();
+
         List<KhuyenMai> list = new ArrayList<>();
         String sql = "SELECT * FROM KhuyenMai WHERE An = 0 ORDER BY NgayBatDau";
         try (PreparedStatement ps = conn.prepareStatement(sql);
@@ -32,6 +89,8 @@ public class DAO_KhuyenMai {
     }
 
     public KhuyenMai getKhuyenMaiByID(String maKM) {
+        capNhatTrangThaiKhuyenMaiHetHan();
+
         String sql = "SELECT * FROM KhuyenMai WHERE An = 0 AND maKM = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maKM);
@@ -86,6 +145,8 @@ public class DAO_KhuyenMai {
 
     // Tìm kiếm kết hợp tên + ngày
     public List<KhuyenMai> searchKhuyenMai(String ten, java.util.Date ngayBD, java.util.Date ngayKT) {
+        capNhatTrangThaiKhuyenMaiHetHan();
+
         List<KhuyenMai> list = new ArrayList<>();
 
         StringBuilder sql = new StringBuilder(
