@@ -108,8 +108,8 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         lblTongHoaDon = new JLabel("0");
         lblTongDoanhThu = new JLabel("0 đ");
 
-        kpiPanel.add(createKpiCard("TỔNG HÓA ĐƠN", lblTongHoaDon, ACCENT));
-        kpiPanel.add(createKpiCard("TỔNG DOANH THU", lblTongDoanhThu, new Color(40, 167, 69)));
+        kpiPanel.add(createKpiCard("TỔNG HÓA ĐƠN", lblTongHoaDon, ACCENT, "invoice"));
+        kpiPanel.add(createKpiCard("TỔNG DOANH THU", lblTongDoanhThu, new Color(40, 167, 69), "revenue"));
 
         topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
@@ -189,11 +189,12 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         styleRevenueChart();
         ChartPanel jfreeChartPanel = new ChartPanel(barChart);
         jfreeChartPanel.setOpaque(false);
+        jfreeChartPanel.setBorder(BorderFactory.createEmptyBorder());
         jfreeChartPanel.setMinimumDrawWidth(0);
         jfreeChartPanel.setMinimumDrawHeight(0);
         jfreeChartPanel.setMaximumDrawWidth(Integer.MAX_VALUE);
         jfreeChartPanel.setMaximumDrawHeight(Integer.MAX_VALUE);
-        jfreeChartPanel.setPreferredSize(new Dimension(0, 340));
+        jfreeChartPanel.setPreferredSize(new Dimension(0, 0));
         chartCard.add(jfreeChartPanel, BorderLayout.CENTER);
 
         // --- B. BẢNG CHI TIẾT ---
@@ -246,7 +247,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         return new DecimalFormat("#,###").format(amount) + " đ";
     }
 
-    private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
+    private JPanel createKpiCard(String title, JLabel lblValue, Color color, String iconType) {
         JPanel card = new JPanel(new BorderLayout(5, 5));
         card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -261,7 +262,41 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         lblValue.setForeground(color);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
 
-        card.add(lblTitle, BorderLayout.NORTH);
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+
+                if ("invoice".equals(iconType)) {
+                    g2.drawRoundRect(cx - 8, cy - 9, 16, 15, 2, 2);
+                    g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx - 5, cy - 5, cx + 5, cy - 5);
+                    g2.drawLine(cx - 5, cy - 1, cx + 5, cy - 1);
+                    g2.drawLine(cx - 5, cy + 3, cx + 2, cy + 3);
+                } else {
+                    g2.drawOval(cx - 8, cy - 6, 16, 12);
+                    g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx, cy - 9, cx, cy - 6);
+                    g2.drawLine(cx, cy + 6, cx, cy + 9);
+                    g2.drawArc(cx - 5, cy - 3, 10, 6, 0, 180);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblTitle, BorderLayout.WEST);
+        topRow.add(ico, BorderLayout.EAST);
+
+        card.add(topRow, BorderLayout.NORTH);
         card.add(lblValue, BorderLayout.CENTER);
         return card;
     }
@@ -721,7 +756,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
     private void styleRevenueChart() {
         barChart.setAntiAlias(true);
         barChart.setBackgroundPaint(BG_CARD);
-        barChart.setPadding(new org.jfree.chart.ui.RectangleInsets(8, 8, 28, 8));
+        barChart.setPadding(new org.jfree.chart.ui.RectangleInsets(0, 0, 0, 0));
         barChart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
         barChart.getTitle().setPaint(TEXT_DARK);
 
@@ -731,6 +766,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         plot.setRangeGridlinePaint(new Color(0xDCE5F2));
         plot.setRangeGridlineStroke(new BasicStroke(1f));
         plot.setDomainGridlinesVisible(false);
+        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(2, 4, 2, 4));
 
         CategoryAxis domainAxis = plot.getDomainAxis();
         domainAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -751,8 +787,8 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         rangeAxis.setLabelPaint(TEXT_MID);
         rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
         rangeAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
-        // Chừa khoảng trống phía trên để nhãn số trên đầu cột không bị che/clipping.
-        rangeAxis.setUpperMargin(0.25);
+        rangeAxis.setUpperMargin(0.08);
+        rangeAxis.setLowerMargin(0.05);
 
         BarRenderer renderer = (BarRenderer) plot.getRenderer();
         renderer.setBarPainter(new StandardBarPainter());
@@ -761,12 +797,7 @@ public class TAB_ThongKeDoanhThu extends JPanel {
         renderer.setMaximumBarWidth(0.14);
         renderer.setItemMargin(0.08);
         renderer.setSeriesPaint(0, new Color(0x2F80ED));
-        renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("#,###")));
-        renderer.setDefaultItemLabelsVisible(true);
-        renderer.setDefaultItemLabelFont(new Font("Segoe UI", Font.BOLD, 11));
-        renderer.setDefaultItemLabelPaint(new Color(0x3B4A61));
-        renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.OUTSIDE12, TextAnchor.BOTTOM_CENTER));
-        renderer.setItemLabelAnchorOffset(6.0);
+        renderer.setDefaultItemLabelsVisible(false);
     }
 
     private double parseNumber(Object value) {

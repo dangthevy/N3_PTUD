@@ -1049,6 +1049,19 @@ public class Step4_ThanhToan extends JPanel {
 			JOptionPane.showMessageDialog(this,
 					"Thanh toán thành công! Mã Hóa Đơn: " + this.currentMaHD + printNote + emailNote);
 
+			if (printPath != null && !printPath.isEmpty()) {
+				int opt = JOptionPane.showConfirmDialog(this, "Mở file hóa đơn?", "Thành công",
+						JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				if (opt == JOptionPane.YES_OPTION && Desktop.isDesktopSupported()) {
+					try {
+						Desktop.getDesktop().open(new File(printPath));
+					} catch (Exception openEx) {
+						JOptionPane.showMessageDialog(this, "Không thể mở hóa đơn: " + openEx.getMessage(),
+								"Lỗi", JOptionPane.ERROR_MESSAGE);
+					}
+				}
+			}
+
 			// Chuyển step sau khi dialog đóng để tránh cảm giác giật UI.
 			SwingUtilities.invokeLater(() -> {
 				mainTab.getSelectedSeatsData().clear();
@@ -1355,6 +1368,9 @@ public class Step4_ThanhToan extends JPanel {
 		btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
 		btn.setForeground(selected ? new Color(0x00A676) : UIHelper.TEXT_MID);
 		btn.setHorizontalAlignment(SwingConstants.CENTER);
+		btn.setIcon(createPaymentIcon(pt));
+		btn.setIconTextGap(8);
+		btn.setHorizontalTextPosition(SwingConstants.RIGHT);
 		btn.setPreferredSize(new Dimension(0, 44));
 		btn.setContentAreaFilled(false);
 		btn.setBorderPainted(false);
@@ -1362,6 +1378,51 @@ public class Step4_ThanhToan extends JPanel {
 		btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		btn.addItemListener(e -> btn.setForeground(btn.isSelected() ? new Color(0x00A676) : UIHelper.TEXT_MID));
 		return btn;
+	}
+
+	private Icon createPaymentIcon(PTThanhToan pt) {
+		return new Icon() {
+			private final int w = 16;
+			private final int h = 16;
+
+			@Override
+			public void paintIcon(Component c, Graphics g, int x, int y) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				Color fg = c.getForeground() != null ? c.getForeground() : UIHelper.TEXT_MID;
+				g2.setColor(fg);
+				g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = x + w / 2;
+				int cy = y + h / 2;
+
+				if (pt == PTThanhToan.TIEN_MAT) {
+					// Tiền mặt: ví tiền
+					g2.drawRoundRect(x + 1, y + 3, w - 2, h - 6, 3, 3);
+					g2.drawLine(x + 2, y + 6, x + w - 2, y + 6);
+					g2.drawArc(cx - 3, cy - 1, 6, 4, 0, 180);
+				} else {
+					// Chuyển khoản: biểu tượng chuyển tiền
+					g2.drawRoundRect(x + 1, y + 2, w - 2, h - 4, 3, 3);
+					g2.drawLine(x + 4, y + 6, x + 11, y + 6);
+					g2.drawLine(x + 9, y + 4, x + 11, y + 6);
+					g2.drawLine(x + 9, y + 8, x + 11, y + 6);
+					g2.drawLine(x + 11, y + 10, x + 4, y + 10);
+					g2.drawLine(x + 6, y + 8, x + 4, y + 10);
+					g2.drawLine(x + 6, y + 12, x + 4, y + 10);
+				}
+				g2.dispose();
+			}
+
+			@Override
+			public int getIconWidth() {
+				return w;
+			}
+
+			@Override
+			public int getIconHeight() {
+				return h;
+			}
+		};
 	}
 
 	private boolean showChuyenKhoanDialog(long amount) {
@@ -1708,6 +1769,13 @@ public class Step4_ThanhToan extends JPanel {
 				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
 				g2.setColor(UIHelper.BORDER);
 				g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+				// Chevron dropdown vẽ tay để tránh phụ thuộc glyph font.
+				g2.setColor(UIHelper.TEXT_MID);
+				g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+				int cx = getWidth() - 14;
+				int cy = getHeight() / 2 + 1;
+				g2.drawLine(cx - 4, cy - 2, cx, cy + 2);
+				g2.drawLine(cx, cy + 2, cx + 4, cy - 2);
 				g2.dispose();
 				super.paintComponent(g);
 			}
@@ -1716,6 +1784,7 @@ public class Step4_ThanhToan extends JPanel {
 		btn.setForeground(UIHelper.TEXT_MID);
 		btn.setText("+ Chọn khuyến mãi ▾");
 		btn.setHorizontalAlignment(SwingConstants.LEFT);
+		btn.setText("+ Chọn khuyến mãi");
 		btn.setContentAreaFilled(false);
 		btn.setBorderPainted(false);
 		btn.setFocusPainted(false);

@@ -130,9 +130,9 @@ public class TAB_ThongKeVe extends JPanel {
         lblDaSuDung = new JLabel("0");
         lblHetHan = new JLabel("0");
 
-        kpiPanel.add(createKpiCard("Tổng Vé Bán Ra", lblTongVe, new Color(0, 122, 255)));
-        kpiPanel.add(createKpiCard("Vé Đã Sử Dụng", lblDaSuDung, new Color(40, 167, 69)));
-        kpiPanel.add(createKpiCard("Vé Hủy/Hết Hạn", lblHetHan, new Color(220, 53, 69)));
+        kpiPanel.add(createKpiCard("Tổng Vé Bán Ra", lblTongVe, new Color(0, 122, 255), "ticket_total"));
+        kpiPanel.add(createKpiCard("Vé Đã Sử Dụng", lblDaSuDung, new Color(40, 167, 69), "ticket_used"));
+        kpiPanel.add(createKpiCard("Vé Hủy/Hết Hạn", lblHetHan, new Color(220, 53, 69), "ticket_invalid"));
         topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
         JPanel filterCard = makeCard(new FlowLayout(FlowLayout.LEFT, 15, 12));
@@ -228,7 +228,7 @@ public class TAB_ThongKeVe extends JPanel {
         capNhatDanhSachTieuChi();
     }
 
-    private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
+    private JPanel createKpiCard(String title, JLabel lblValue, Color color, String iconType) {
         JPanel card = new JPanel(new BorderLayout(5, 5));
         card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -243,7 +243,42 @@ public class TAB_ThongKeVe extends JPanel {
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblValue.setForeground(color);
 
-        card.add(lblTitle, BorderLayout.NORTH);
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+
+                // Ticket shape
+                g2.drawRoundRect(cx - 8, cy - 6, 16, 12, 2, 2);
+                g2.drawLine(cx - 3, cy - 6, cx - 3, cy + 6);
+
+                if ("ticket_used".equals(iconType)) {
+                    g2.drawLine(cx, cy, cx + 2, cy + 2);
+                    g2.drawLine(cx + 2, cy + 2, cx + 5, cy - 2);
+                } else if ("ticket_invalid".equals(iconType)) {
+                    g2.drawLine(cx, cy - 2, cx + 4, cy + 2);
+                    g2.drawLine(cx + 4, cy - 2, cx, cy + 2);
+                } else {
+                    g2.drawLine(cx + 1, cy - 2, cx + 4, cy - 2);
+                    g2.drawLine(cx + 1, cy + 1, cx + 4, cy + 1);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblTitle, BorderLayout.WEST);
+        topRow.add(ico, BorderLayout.EAST);
+
+        card.add(topRow, BorderLayout.NORTH);
         card.add(lblValue, BorderLayout.CENTER);
         return card;
     }

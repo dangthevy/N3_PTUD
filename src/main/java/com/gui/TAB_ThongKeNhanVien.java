@@ -141,8 +141,8 @@ public class TAB_ThongKeNhanVien extends JPanel {
 
         lblTongNhanVien = new JLabel("0");
         lblTongDoanhThu = new JLabel("0");
-        kpiPanel.add(createKpiCard("TỔNG NHÂN VIÊN", lblTongNhanVien, ACCENT));
-        kpiPanel.add(createKpiCard("TỔNG DOANH THU", lblTongDoanhThu, new Color(40, 167, 69)));
+        kpiPanel.add(createKpiCard("TỔNG NHÂN VIÊN", lblTongNhanVien, ACCENT, "employee"));
+        kpiPanel.add(createKpiCard("TỔNG DOANH THU", lblTongDoanhThu, new Color(40, 167, 69), "revenue"));
         topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
         JPanel filterCard = makeCard(new FlowLayout(FlowLayout.LEFT, 15, 12));
@@ -193,10 +193,12 @@ public class TAB_ThongKeNhanVien extends JPanel {
         styleChart(barChart);
         ChartPanel chartPanel = new ChartPanel(barChart);
         chartPanel.setOpaque(false);
+        chartPanel.setBorder(BorderFactory.createEmptyBorder());
         chartPanel.setMinimumDrawWidth(0);
         chartPanel.setMinimumDrawHeight(0);
         chartPanel.setMaximumDrawWidth(Integer.MAX_VALUE);
         chartPanel.setMaximumDrawHeight(Integer.MAX_VALUE);
+        chartPanel.setPreferredSize(new Dimension(0, 0));
         chartPanel.setDomainZoomable(false);
         chartPanel.setRangeZoomable(false);
         chartCard.add(chartPanel, BorderLayout.CENTER);
@@ -234,12 +236,13 @@ public class TAB_ThongKeNhanVien extends JPanel {
         });
     }
 
-    private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
+    private JPanel createKpiCard(String title, JLabel lblValue, Color color, String iconType) {
         JPanel card = new JPanel(new BorderLayout(5, 5));
         card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(BORDER, 1, true),
                 BorderFactory.createEmptyBorder(15, 20, 15, 20)));
+
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setForeground(TEXT_MID);
@@ -247,7 +250,40 @@ public class TAB_ThongKeNhanVien extends JPanel {
         lblValue.setForeground(color);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
 
-        card.add(lblTitle, BorderLayout.NORTH);
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+
+                if ("employee".equals(iconType)) {
+                    g2.drawOval(cx - 8, cy - 7, 6, 6);
+                    g2.drawOval(cx + 2, cy - 7, 6, 6);
+                    g2.drawArc(cx - 10, cy - 1, 10, 8, 0, 180);
+                    g2.drawArc(cx, cy - 1, 10, 8, 0, 180);
+                } else {
+                    g2.drawOval(cx - 8, cy - 6, 16, 12);
+                    g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(cx, cy - 9, cx, cy - 6);
+                    g2.drawLine(cx, cy + 6, cx, cy + 9);
+                    g2.drawArc(cx - 5, cy - 3, 10, 6, 0, 180);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblTitle, BorderLayout.WEST);
+        topRow.add(ico, BorderLayout.EAST);
+
+        card.add(topRow, BorderLayout.NORTH);
         card.add(lblValue, BorderLayout.CENTER);
         return card;
     }
@@ -813,7 +849,7 @@ public class TAB_ThongKeNhanVien extends JPanel {
 
     private void styleChart(JFreeChart chart) {
         chart.setBackgroundPaint(BG_CARD);
-        chart.setPadding(new org.jfree.chart.ui.RectangleInsets(8, 8, 28, 8));
+        chart.setPadding(new org.jfree.chart.ui.RectangleInsets(0, 0, 0, 0));
         chart.getTitle().setFont(new Font("Segoe UI", Font.BOLD, 16));
         chart.getTitle().setPaint(TEXT_DARK);
 
@@ -822,7 +858,7 @@ public class TAB_ThongKeNhanVien extends JPanel {
         plot.setOutlineVisible(false);
         plot.setRangeGridlinePaint(new Color(0xDCE5F2));
         plot.setDomainGridlinesVisible(false);
-        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(6, 8, 6, 8));
+        plot.setInsets(new org.jfree.chart.ui.RectangleInsets(2, 4, 2, 4));
 
         CategoryAxis domainAxis = plot.getDomainAxis();
         domainAxis.setTickLabelFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -843,8 +879,8 @@ public class TAB_ThongKeNhanVien extends JPanel {
         rangeAxis.setLabelPaint(TEXT_MID);
         rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
         rangeAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
-        // Chừa headroom để nhãn giá trị gần đỉnh biểu đồ vẫn hiển thị rõ.
-        rangeAxis.setUpperMargin(0.10);
+        rangeAxis.setUpperMargin(0.08);
+        rangeAxis.setLowerMargin(0.05);
 
         BarRenderer renderer = (BarRenderer) plot.getRenderer();
         renderer.setSeriesPaint(0, new Color(0x2F80ED));

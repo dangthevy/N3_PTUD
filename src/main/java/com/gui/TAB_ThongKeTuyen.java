@@ -84,6 +84,10 @@ public class TAB_ThongKeTuyen extends JPanel {
     private static final Color ROW_ALT = new Color(0xF7FAFF);
     private static final Color BTN_SUCCESS = new Color(40, 167, 69);
     private static final Color BTN_SUCCESS_HVR = new Color(33, 136, 56);
+    private static final Color CLR_CHUA = new Color(0xE67E22);
+    private static final Color CLR_DANG = new Color(0x27AE60);
+    private static final Color CLR_HOAN = new Color(0x2980B9);
+    private static final Color CLR_HUY = new Color(0xC0392B);
 
     private static final Font F_TITLE = new Font("Segoe UI", Font.BOLD, 18);
     private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 13);
@@ -128,9 +132,9 @@ public class TAB_ThongKeTuyen extends JPanel {
         lblTongChuyen = new JLabel("0");
         lblChuyenDaHoanThanh = new JLabel("0");
         lblChuyenChuaHoanThanh = new JLabel("0");
-        kpiPanel.add(createKpiCard("TỔNG CHUYẾN TÀU", lblTongChuyen, ACCENT));
-        kpiPanel.add(createKpiCard("CHUYẾN TÀU ĐÃ HOÀN THÀNH", lblChuyenDaHoanThanh, new Color(40, 167, 69)));
-        kpiPanel.add(createKpiCard("CHUYẾN TÀU CHƯA HOÀN THÀNH", lblChuyenChuaHoanThanh, new Color(255, 140, 0)));
+        kpiPanel.add(createKpiCard("TỔNG CHUYẾN TÀU", lblTongChuyen, ACCENT, "train_total"));
+        kpiPanel.add(createKpiCard("CHUYẾN TÀU ĐÃ HOÀN THÀNH", lblChuyenDaHoanThanh, new Color(40, 167, 69), "completed"));
+        kpiPanel.add(createKpiCard("CHUYẾN TÀU CHƯA HOÀN THÀNH", lblChuyenChuaHoanThanh, new Color(255, 140, 0), "pending"));
         topWrapper.add(kpiPanel, BorderLayout.NORTH);
 
         JPanel filterCard = makeCard(new FlowLayout(FlowLayout.LEFT, 15, 12));
@@ -230,12 +234,13 @@ public class TAB_ThongKeTuyen extends JPanel {
         loadDuLieuThongKe();
     }
 
-    private JPanel createKpiCard(String title, JLabel lblValue, Color color) {
+    private JPanel createKpiCard(String title, JLabel lblValue, Color color, String iconType) {
         JPanel card = new JPanel(new BorderLayout(5, 5));
         card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(BORDER, 1, true),
                 BorderFactory.createEmptyBorder(15, 20, 15, 20)));
+
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setForeground(TEXT_MID);
@@ -243,7 +248,43 @@ public class TAB_ThongKeTuyen extends JPanel {
         lblValue.setForeground(color);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
 
-        card.add(lblTitle, BorderLayout.NORTH);
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+
+                if ("train_total".equals(iconType)) {
+                    g2.drawRoundRect(cx - 8, cy - 8, 16, 12, 3, 3);
+                    g2.drawLine(cx - 4, cy - 8, cx - 4, cy - 3);
+                    g2.drawLine(cx + 4, cy - 8, cx + 4, cy - 3);
+                    g2.drawOval(cx - 6, cy + 4, 3, 3);
+                    g2.drawOval(cx + 3, cy + 4, 3, 3);
+                } else if ("completed".equals(iconType)) {
+                    g2.drawOval(cx - 7, cy - 7, 14, 14);
+                    g2.drawLine(cx - 4, cy, cx - 1, cy + 3);
+                    g2.drawLine(cx - 1, cy + 3, cx + 5, cy - 3);
+                } else {
+                    g2.drawOval(cx - 7, cy - 7, 14, 14);
+                    g2.drawLine(cx, cy - 3, cx, cy + 2);
+                    g2.drawLine(cx, cy + 5, cx, cy + 5);
+                }
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblTitle, BorderLayout.WEST);
+        topRow.add(ico, BorderLayout.EAST);
+
+        card.add(topRow, BorderLayout.NORTH);
         card.add(lblValue, BorderLayout.CENTER);
         return card;
     }
@@ -744,7 +785,7 @@ public class TAB_ThongKeTuyen extends JPanel {
         DefaultTableCellRenderer r = new DefaultTableCellRenderer();
         r.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 6));
         for (int i = 0; i < t.getColumnCount(); i++) t.getColumnModel().getColumn(i).setCellRenderer(r);
-
+        t.getColumnModel().getColumn(6).setCellRenderer(new TrangThaiTuyenRenderer());
         t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         t.getColumnModel().getColumn(0).setPreferredWidth(55);   // STT
         t.getColumnModel().getColumn(1).setPreferredWidth(290);  // Ten chuyen
@@ -754,6 +795,29 @@ public class TAB_ThongKeTuyen extends JPanel {
         t.getColumnModel().getColumn(5).setPreferredWidth(95);   // Gio den
         t.getColumnModel().getColumn(6).setPreferredWidth(130);  // Trang thai
         return t;
+    }
+
+    private static class TrangThaiTuyenRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int row, int col) {
+            JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, row, col);
+            l.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 6));
+            l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            String val = v != null ? v.toString().trim() : "";
+            if ("Chưa Khởi Hành".equalsIgnoreCase(val)) {
+                l.setForeground(CLR_CHUA);
+            } else if ("Đang Khởi Hành".equalsIgnoreCase(val)) {
+                l.setForeground(CLR_DANG);
+            } else if ("Đã Hoàn Thành".equalsIgnoreCase(val)) {
+                l.setForeground(CLR_HOAN);
+            } else if ("Đã Hủy".equalsIgnoreCase(val)) {
+                l.setForeground(CLR_HUY);
+            } else {
+                l.setForeground(TEXT_DARK);
+            }
+            if (!sel) l.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
+            return l;
+        }
     }
 
     private void styleScrollBar(JScrollBar sb) {

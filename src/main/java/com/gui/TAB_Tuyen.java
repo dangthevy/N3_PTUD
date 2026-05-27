@@ -126,8 +126,10 @@ public class TAB_Tuyen extends JPanel {
 
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlButtons.setOpaque(false);
-        JButton btnXoa = makeBtn("- Xóa", BtnStyle.DANGER);
-        JButton btnThem = makeBtn("+ Thêm Mới", BtnStyle.PRIMARY);
+        JButton btnXoa = makeBtn("Xóa", BtnStyle.DANGER);
+        JButton btnThem = makeBtn("Thêm Mới", BtnStyle.PRIMARY);
+        setActionButtonIcon(btnThem, createPlusIcon(12, Color.WHITE, 2.0f));
+        setActionButtonIcon(btnXoa, createTrashIcon(12, Color.WHITE, 1.8f));
         btnXoa.addActionListener(e -> xoaTuyen());
         btnThem.addActionListener(e -> hienThiDialogThemTuyen());
 
@@ -520,7 +522,36 @@ public class TAB_Tuyen extends JPanel {
         lblT.setFont(F_LABEL);
         lblValue.setForeground(accent);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        p.add(lblT, BorderLayout.NORTH); p.add(lblValue, BorderLayout.CENTER);
+
+        JLabel ico = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+
+                // Route icon
+                g2.drawOval(cx - 8, cy - 4, 6, 6);
+                g2.drawOval(cx + 2, cy - 4, 6, 6);
+                g2.drawLine(cx - 2, cy - 1, cx + 2, cy - 1);
+                g2.drawArc(cx - 4, cy - 1, 10, 10, 180, -140);
+                g2.drawLine(cx + 1, cy + 6, cx + 5, cy + 6);
+                g2.dispose();
+            }
+        };
+        ico.setPreferredSize(new Dimension(38, 38));
+        ico.setOpaque(false);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(lblT, BorderLayout.WEST);
+        topRow.add(ico, BorderLayout.EAST);
+
+        p.add(topRow, BorderLayout.NORTH);
+        p.add(lblValue, BorderLayout.CENTER);
         return p;
     }
 
@@ -619,9 +650,56 @@ public class TAB_Tuyen extends JPanel {
             }
         };
         b.setFont(F_LABEL); b.setForeground(style == BtnStyle.SECONDARY ? BTN2_FG : Color.WHITE);
-        b.setPreferredSize(new Dimension(style == BtnStyle.DANGER ? 80 : 130, 36));
+        b.setPreferredSize(new Dimension(style == BtnStyle.DANGER ? 110 : 130, 36));
         b.setContentAreaFilled(false); b.setBorderPainted(false); b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b;
+    }
+
+    private void setActionButtonIcon(JButton button, Icon icon) {
+        button.setIcon(icon);
+        button.setIconTextGap(8);
+        button.setHorizontalTextPosition(SwingConstants.RIGHT);
+        button.setVerticalTextPosition(SwingConstants.CENTER);
+    }
+
+    private Icon createPlusIcon(int size, Color color, float strokeWidth) {
+        return new Icon() {
+            @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int m = size / 2;
+                g2.drawLine(x + m, y + 2, x + m, y + size - 2);
+                g2.drawLine(x + 2, y + m, x + size - 2, y + m);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return size; }
+            @Override public int getIconHeight() { return size; }
+        };
+    }
+
+    private Icon createTrashIcon(int size, Color color, float strokeWidth) {
+        return new Icon() {
+            @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int top = y + 3;
+                int left = x + 2;
+                int right = x + size - 2;
+                int bottom = y + size - 2;
+                g2.drawLine(left, top + 2, right, top + 2);
+                g2.drawLine(x + size / 2 - 2, top, x + size / 2 + 2, top);
+                g2.drawRoundRect(left + 1, top + 3, size - 6, size - 8, 2, 2);
+                g2.drawLine(x + size / 2 - 2, top + 6, x + size / 2 - 2, bottom - 1);
+                g2.drawLine(x + size / 2 + 2, top + 6, x + size / 2 + 2, bottom - 1);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return size; }
+            @Override public int getIconHeight() { return size; }
+        };
     }
 
     private JDialog makeDialog(String title) {
