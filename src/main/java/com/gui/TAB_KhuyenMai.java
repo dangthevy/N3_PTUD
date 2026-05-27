@@ -70,7 +70,7 @@ public class TAB_KhuyenMai extends JPanel {
 
     // ===== Cột KhuyenMai – KHÔNG có loaiKM, giaTri =====
     private static final String[] COLS_KM = {
-            "Mã KM", "Tên KM", "Ngày bắt đầu", "Ngày kết thúc", "Trạng thái"
+            "Mã KM", "Tên KM", "Ngày BĐ", "Ngày KT", "Trạng thái"
     };
 
     // ===== Cột KhuyenMaiDetail – CÓ loaiKM, giaTri =====
@@ -1453,8 +1453,8 @@ public class TAB_KhuyenMai extends JPanel {
                                 "<html>Không thể bật lại chi tiết này!<br><br>"
                                         + "Đã có chi tiết <b>" + maConflict + "</b> cùng tổ hợp<br>"
                                         + "(Tuyến / Loại toa / Loại vé) đang <b>Đang áp dụng</b>.<br><br>"
-                                        + "Hệ thống chỉ cho phép <b>1 chi tiết active</b> cho mỗi tổ hợp.<br>"
-                                        + "Hãy dừng dòng kia trước rồi mới bật dòng này.</html>",
+                                        + "Hệ thống chỉ cho phép <b>1 chi tiết hoạt động</b> cho mỗi tổ hợp.<br>"
+                                        + "Hãy dừng chi tiết kia trước rồi mới bật chi tiết này.</html>",
                                 "Xung đột trạng thái",
                                 JOptionPane.WARNING_MESSAGE);
                         return;
@@ -1502,8 +1502,8 @@ public class TAB_KhuyenMai extends JPanel {
                         "<html>Chi tiết này đã được áp dụng cho "
                                 + "<b>" + luotDung + "</b> vé.<br><br>"
                                 + "Hệ thống sẽ:<br>"
-                                + "&nbsp;&nbsp;• Dừng dòng hiện tại (TrangThai = 0) để giữ lịch sử<br>"
-                                + "&nbsp;&nbsp;• Tạo dòng mới với giá trị vừa nhập (TrangThai = 1)<br><br>"
+                                + "&nbsp;&nbsp;• Dừng chi tiết khuyến mãi hiện tại để giữ lịch sử<br>"
+                                + "&nbsp;&nbsp;• Tạo chi tiết khuyến mãi mới với giá trị vừa nhập<br><br>"
                                 + "Bạn có chắc muốn tiếp tục?</html>",
                         "Xác nhận thay đổi",
                         JOptionPane.YES_NO_OPTION,
@@ -1731,51 +1731,84 @@ public class TAB_KhuyenMai extends JPanel {
     }
 
     // [THÊM MỚI] makeStyledComboBox – nền F8FAFD, border BORDER→ACCENT_FOC, arrow tùy chỉnh
+    // ComboBox dùng cho dialog KMD: lấy style từ dialog nhân viên
+// Khóa chiều cao và giữ tổng border/inset không đổi để GridBagLayout không bị nhảy hàng khi focus/click.
     private <T> JComboBox<T> makeStyledComboBox(T[] items) {
         JComboBox<T> cb = new JComboBox<>(items);
+
         cb.setFont(F_CELL);
         cb.setBackground(new Color(0xF8FAFD));
         cb.setForeground(TEXT_DARK);
+
+        // Giữ size ổn định giống TAB_QLNhanVien
+        cb.setPreferredSize(new Dimension(260, 34));
+        cb.setMinimumSize(new Dimension(120, 34));
+
         cb.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(BORDER, 1, true),
-                BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+                BorderFactory.createEmptyBorder(5, 9, 5, 9)
+        ));
+
         cb.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
-            @Override protected JButton createArrowButton() {
+            @Override
+            protected JButton createArrowButton() {
                 JButton b = new JButton() {
-                    @Override protected void paintComponent(Graphics g) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
                         Graphics2D g2 = (Graphics2D) g.create();
-                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setRenderingHint(
+                                RenderingHints.KEY_ANTIALIASING,
+                                RenderingHints.VALUE_ANTIALIAS_ON
+                        );
+
                         g2.setColor(new Color(0xF8FAFD));
                         g2.fillRect(0, 0, getWidth(), getHeight());
+
                         g2.setColor(TEXT_MID);
-                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-                        FontMetrics fm = g2.getFontMetrics();
-                        String txt = "▾";
-                        g2.drawString(txt,
-                                (getWidth()  - fm.stringWidth(txt)) / 2,
-                                (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+
+                        int cx = getWidth() / 2;
+                        int cy = getHeight() / 2 + 1;
+                        int size = 5;
+
+                        Polygon arrow = new Polygon();
+                        arrow.addPoint(cx - size, cy - 2);
+                        arrow.addPoint(cx + size, cy - 2);
+                        arrow.addPoint(cx, cy + size - 1);
+
+                        g2.fillPolygon(arrow);
                         g2.dispose();
                     }
                 };
+
                 b.setBorderPainted(false);
                 b.setContentAreaFilled(false);
                 b.setFocusPainted(false);
-                b.setPreferredSize(new Dimension(24, 0));
+                b.setOpaque(false);
+                b.setPreferredSize(new Dimension(28, 0));
+                b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
                 return b;
             }
         });
+
         cb.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusGained(java.awt.event.FocusEvent e) {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(ACCENT_FOC, 2, true),
-                        BorderFactory.createEmptyBorder(0, 3, 0, 3)));
+                        BorderFactory.createEmptyBorder(4, 8, 4, 8)
+                ));
             }
-            @Override public void focusLost(java.awt.event.FocusEvent e) {
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
                 cb.setBorder(BorderFactory.createCompoundBorder(
                         new LineBorder(BORDER, 1, true),
-                        BorderFactory.createEmptyBorder(0, 4, 0, 4)));
+                        BorderFactory.createEmptyBorder(5, 9, 5, 9)
+                ));
             }
         });
+
         return cb;
     }
 
