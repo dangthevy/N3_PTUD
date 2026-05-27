@@ -8,18 +8,13 @@ import java.util.List;
 public class DAO_Ve {
 
 	private void ensureVeHanhKhachSnapshotTable(Connection conn) {
-		if (conn == null) return;
-		String sql = "IF OBJECT_ID('dbo.VeHanhKhachSnapshot', 'U') IS NULL "
-				+ "BEGIN "
-				+ "CREATE TABLE VeHanhKhachSnapshot ("
-				+ "maVe VARCHAR(30) NOT NULL PRIMARY KEY,"
-				+ "maKH VARCHAR(15) NULL,"
-				+ "tenKH NVARCHAR(100) NULL,"
-				+ "sdt VARCHAR(15) NULL,"
-				+ "cccd VARCHAR(20) NULL,"
-				+ "email VARCHAR(100) NULL,"
-				+ "CONSTRAINT FK_VeHanhKhachSnapshot_Ve FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE"
-				+ ") "
+		if (conn == null)
+			return;
+		String sql = "IF OBJECT_ID('dbo.VeHanhKhachSnapshot', 'U') IS NULL " + "BEGIN "
+				+ "CREATE TABLE VeHanhKhachSnapshot (" + "maVe VARCHAR(30) NOT NULL PRIMARY KEY,"
+				+ "maKH VARCHAR(15) NULL," + "tenKH NVARCHAR(100) NULL," + "sdt VARCHAR(15) NULL,"
+				+ "cccd VARCHAR(20) NULL," + "email VARCHAR(100) NULL,"
+				+ "CONSTRAINT FK_VeHanhKhachSnapshot_Ve FOREIGN KEY (maVe) REFERENCES Ve(maVe) ON DELETE CASCADE" + ") "
 				+ "END";
 		try (Statement st = conn.createStatement()) {
 			st.execute(sql);
@@ -31,36 +26,36 @@ public class DAO_Ve {
 	// ===================== QUERY =====================
 
 	/**
-	 * Lấy tất cả vé, có thể lọc theo mã vé hoặc mã khách hàng.
-	 * Cột thanhTien = giá sau KM (lấy từ ChiTietHoaDon), nếu không có hóa đơn thì = giaVe gốc.
+	 * Lấy tất cả vé, có thể lọc theo mã vé hoặc mã khách hàng. Cột thanhTien = giá
+	 * sau KM (lấy từ ChiTietHoaDon), nếu không có hóa đơn thì = giaVe gốc.
 	 */
 	public ResultSet getDanhSachVe(String maVeFilter, String maKHFilter) throws SQLException {
 		Connection conn = ConnectDB.getConnection();
-		if (conn == null) return null;
+		if (conn == null)
+			return null;
 		ensureVeHanhKhachSnapshotTable(conn);
 
-		StringBuilder sql = new StringBuilder(
-				"SELECT v.maVe, v.maKH, COALESCE(vs.tenKH, k.tenKH) AS tenKH, v.maLT, v.maToa, v.viTriGhe, "
-						+ "       lv.tenLoai AS tenLoaiVe, v.giaVe, v.trangThaiVe, "
-						// thanhTien = giá khách thực trả (sau KM); nếu chưa có HĐ thì dùng giaVe
-						+ "       COALESCE(ct.thanhTien, v.giaVe) AS thanhTien, "
-						// ngayLap = ngày lập hóa đơn mới nhất chứa vé này
-						+ "       hd.ngayLap AS ngayLap "
-						+ "FROM Ve v "
-						+ "LEFT JOIN VeHanhKhachSnapshot vs ON v.maVe = vs.maVe "
-						+ "LEFT JOIN KhachHang k  ON v.maKH     = k.maKH "
-						+ "LEFT JOIN LoaiVe    lv ON v.maLoaiVe = lv.maLoai "
-						// Lấy thanhTien và ngayLap của hóa đơn mới nhất chứa vé này
-						+ "LEFT JOIN (SELECT maVe, thanhTien FROM ChiTietHoaDon ct2 "
-						+ "           WHERE ct2.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
-						+ "                             WHERE maVe = ct2.maVe ORDER BY maHD DESC)) ct "
-						+ "       ON ct.maVe = v.maVe "
-						+ "LEFT JOIN (SELECT cth.maVe, hd2.ngayLap FROM ChiTietHoaDon cth "
-						+ "           JOIN HoaDon hd2 ON cth.maHD = hd2.maHD "
-						+ "           WHERE cth.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
-						+ "                             WHERE maVe = cth.maVe ORDER BY maHD DESC)) hd "
-						+ "       ON hd.maVe = v.maVe "
-						+ "WHERE 1=1 ");
+		StringBuilder sql = new StringBuilder("SELECT v.maVe, v.maKH, k.tenKH, v.maLT, v.maToa, v.viTriGhe, "
+				+ "       lv.tenLoai AS tenLoaiVe, v.giaVe, v.trangThaiVe, "
+				+ "       COALESCE(ct.thanhTien, v.giaVe) AS thanhTien, " + "       hd.ngayLap AS ngayLap, "
+				+ "       lt.ngayKhoiHanh, " + "       lt.gioKhoiHanh " + "FROM Ve v "
+				+ "LEFT JOIN KhachHang k  ON v.maKH     = k.maKH " + "LEFT JOIN LoaiVe    lv ON v.maLoaiVe = lv.maLoai "
+				+ "LEFT JOIN LichTrinh lt ON v.maLT     = lt.maLT "
+
+				// Lấy thanhTien mới nhất
+				+ "LEFT JOIN (SELECT maVe, thanhTien, maHD FROM ChiTietHoaDon ct2 "
+				+ "           WHERE ct2.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
+				+ "                             WHERE maVe = ct2.maVe ORDER BY maHD DESC)) ct "
+				+ "       ON ct.maVe = v.maVe "
+
+				// Lấy ngày lập hóa đơn mới nhất
+				+ "LEFT JOIN (SELECT cth.maVe, hd2.ngayLap FROM ChiTietHoaDon cth "
+				+ "           JOIN HoaDon hd2 ON cth.maHD = hd2.maHD "
+				+ "           WHERE cth.maHD = (SELECT TOP 1 maHD FROM ChiTietHoaDon "
+				+ "                             WHERE maVe = cth.maVe ORDER BY maHD DESC)) hd "
+				+ "       ON hd.maVe = v.maVe "
+
+				+ "WHERE 1=1 ");
 
 		List<Object> params = new ArrayList<>();
 
@@ -77,7 +72,8 @@ public class DAO_Ve {
 		sql.append("ORDER BY hd.ngayLap DESC, v.maVe DESC");
 
 		PreparedStatement ps = conn.prepareStatement(sql.toString());
-		for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
+		for (int i = 0; i < params.size(); i++)
+			ps.setObject(i + 1, params.get(i));
 		return ps.executeQuery();
 	}
 
@@ -86,31 +82,23 @@ public class DAO_Ve {
 	 */
 	public ResultSet getChiTietVe(String maVe) throws SQLException {
 		Connection conn = ConnectDB.getConnection();
-		if (conn == null) return null;
+		if (conn == null)
+			return null;
 		ensureVeHanhKhachSnapshotTable(conn);
 
-		String sql =
-				"SELECT v.maVe, v.maKH, "
-						+ "       COALESCE(vs.tenKH, k.tenKH) AS tenKH, "
-						+ "       COALESCE(vs.sdt, k.sdt) AS sdt, "
-						+ "       COALESCE(vs.cccd, k.cccd) AS cccd, "
-						+ "       COALESCE(vs.email, k.email) AS email, "
-						+ "       v.maLT, lt.ngayKhoiHanh, lt.gioKhoiHanh, "
-						+ "       ct.tenChuyen, t.tenTuyen, "
-						+ "       v.maToa, toa.tenToa, lt2.tenLoaiToa, "
-						+ "       v.viTriGhe, "
-						+ "       lv.tenLoai AS tenLoaiVe, "
-						+ "       v.giaVe, v.trangThaiVe "
-						+ "FROM Ve v "
-						+ "LEFT JOIN VeHanhKhachSnapshot vs ON v.maVe = vs.maVe "
-						+ "LEFT JOIN KhachHang  k   ON v.maKH      = k.maKH "
-						+ "LEFT JOIN LichTrinh  lt  ON v.maLT       = lt.maLT "
-						+ "LEFT JOIN ChuyenTau  ct  ON lt.maChuyen  = ct.maChuyen "
-						+ "LEFT JOIN Tuyen      t   ON ct.maTuyen   = t.maTuyen "
-						+ "LEFT JOIN Toa        toa ON v.maToa      = toa.maToa "
-						+ "LEFT JOIN LoaiToa    lt2 ON toa.maLoaiToa= lt2.maLoaiToa "
-						+ "LEFT JOIN LoaiVe     lv  ON v.maLoaiVe   = lv.maLoai "
-						+ "WHERE v.maVe = ?";
+		String sql = "SELECT v.maVe, v.maKH, " + "       COALESCE(vs.tenKH, k.tenKH) AS tenKH, "
+				+ "       COALESCE(vs.sdt, k.sdt) AS sdt, " + "       COALESCE(vs.cccd, k.cccd) AS cccd, "
+				+ "       COALESCE(vs.email, k.email) AS email, " + "       v.maLT, lt.ngayKhoiHanh, lt.gioKhoiHanh, "
+				+ "       ct.tenChuyen, t.tenTuyen, " + "       v.maToa, toa.tenToa, lt2.tenLoaiToa, "
+				+ "       v.viTriGhe, " + "       lv.tenLoai AS tenLoaiVe, " + "       v.giaVe, v.trangThaiVe "
+				+ "FROM Ve v " + "LEFT JOIN VeHanhKhachSnapshot vs ON v.maVe = vs.maVe "
+				+ "LEFT JOIN KhachHang  k   ON v.maKH      = k.maKH "
+				+ "LEFT JOIN LichTrinh  lt  ON v.maLT       = lt.maLT "
+				+ "LEFT JOIN ChuyenTau  ct  ON lt.maChuyen  = ct.maChuyen "
+				+ "LEFT JOIN Tuyen      t   ON ct.maTuyen   = t.maTuyen "
+				+ "LEFT JOIN Toa        toa ON v.maToa      = toa.maToa "
+				+ "LEFT JOIN LoaiToa    lt2 ON toa.maLoaiToa= lt2.maLoaiToa "
+				+ "LEFT JOIN LoaiVe     lv  ON v.maLoaiVe   = lv.maLoai " + "WHERE v.maVe = ?";
 
 		PreparedStatement ps = conn.prepareStatement(sql);
 		ps.setString(1, maVe);
@@ -125,44 +113,39 @@ public class DAO_Ve {
 	public static class KhuyenMaiInfo {
 		public String maKMDetail;
 		public String tenKM;
-		public String loaiKM;        // GIAM_PHAN_TRAM | GIAM_TIEN
-		public double giaTri;        // % hoặc VND
+		public String loaiKM; // GIAM_PHAN_TRAM | GIAM_TIEN
+		public double giaTri; // % hoặc VND
 		public double tienGiamThucTe; // Số tiền thực tế được giảm
-		public String moTa;          // mô tả thêm (tuyến, loại toa, loại vé)
+		public String moTa; // mô tả thêm (tuyến, loại toa, loại vé)
 	}
 
 	/**
-	 * Lấy danh sách khuyến mãi đã áp dụng cho 1 vé (qua ChiTiet_KhuyenMai + ChiTietHoaDon).
+	 * Lấy danh sách khuyến mãi đã áp dụng cho 1 vé (qua ChiTiet_KhuyenMai +
+	 * ChiTietHoaDon).
 	 */
 	public List<KhuyenMaiInfo> getKhuyenMaiCuaVe(String maVe) {
 		List<KhuyenMaiInfo> list = new ArrayList<>();
-		String sql =
-				"SELECT ck.MaKMDetail, km.TenKM, kmd.LoaiKM, kmd.GiaTri, "
-						+ "       ck.tienGiamCuaKM, "
-						+ "       ISNULL(t.tenTuyen,'Tất cả tuyến')   AS tenTuyen, "
-						+ "       ISNULL(lt.tenLoaiToa,'Tất cả loại toa') AS tenLoaiToa, "
-						+ "       ISNULL(lv.tenLoai,'Tất cả loại vé') AS tenLoaiVe "
-						+ "FROM ChiTiet_KhuyenMai ck "
-						+ "JOIN KhuyenMaiDetail kmd ON ck.MaKMDetail = kmd.MaKMDetail "
-						+ "JOIN KhuyenMai       km  ON kmd.MaKM      = km.MaKM "
-						+ "LEFT JOIN Tuyen      t   ON kmd.MaTuyen   = t.maTuyen "
-						+ "LEFT JOIN LoaiToa    lt  ON kmd.maLoaiToa = lt.maLoaiToa "
-						+ "LEFT JOIN LoaiVe     lv  ON kmd.MaLoai    = lv.maLoai "
-						+ "WHERE ck.maVe = ?";
+		String sql = "SELECT ck.MaKMDetail, km.TenKM, kmd.LoaiKM, kmd.GiaTri, " + "       ck.tienGiamCuaKM, "
+				+ "       ISNULL(t.tenTuyen,'Tất cả tuyến')   AS tenTuyen, "
+				+ "       ISNULL(lt.tenLoaiToa,'Tất cả loại toa') AS tenLoaiToa, "
+				+ "       ISNULL(lv.tenLoai,'Tất cả loại vé') AS tenLoaiVe " + "FROM ChiTiet_KhuyenMai ck "
+				+ "JOIN KhuyenMaiDetail kmd ON ck.MaKMDetail = kmd.MaKMDetail "
+				+ "JOIN KhuyenMai       km  ON kmd.MaKM      = km.MaKM "
+				+ "LEFT JOIN Tuyen      t   ON kmd.MaTuyen   = t.maTuyen "
+				+ "LEFT JOIN LoaiToa    lt  ON kmd.maLoaiToa = lt.maLoaiToa "
+				+ "LEFT JOIN LoaiVe     lv  ON kmd.MaLoai    = lv.maLoai " + "WHERE ck.maVe = ?";
 
-		try (Connection conn = ConnectDB.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
+		try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, maVe);
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
 					KhuyenMaiInfo km = new KhuyenMaiInfo();
-					km.maKMDetail      = rs.getString("MaKMDetail");
-					km.tenKM           = rs.getString("TenKM");
-					km.loaiKM          = rs.getString("LoaiKM");
-					km.giaTri          = rs.getDouble("GiaTri");
-					km.tienGiamThucTe  = rs.getDouble("tienGiamCuaKM");
-					km.moTa            = rs.getString("tenTuyen") + " | "
-							+ rs.getString("tenLoaiToa") + " | "
+					km.maKMDetail = rs.getString("MaKMDetail");
+					km.tenKM = rs.getString("TenKM");
+					km.loaiKM = rs.getString("LoaiKM");
+					km.giaTri = rs.getDouble("GiaTri");
+					km.tienGiamThucTe = rs.getDouble("tienGiamCuaKM");
+					km.moTa = rs.getString("tenTuyen") + " | " + rs.getString("tenLoaiToa") + " | "
 							+ rs.getString("tenLoaiVe");
 					list.add(km);
 				}
@@ -174,18 +157,18 @@ public class DAO_Ve {
 	}
 
 	/**
-	 * Lấy số tiền khách đã thực trả (thanhTien) từ ChiTietHoaDon.
-	 * Đây là số tiền GỐC để tính hoàn vé (đã trừ KM khi mua).
+	 * Lấy số tiền khách đã thực trả (thanhTien) từ ChiTietHoaDon. Đây là số tiền
+	 * GỐC để tính hoàn vé (đã trừ KM khi mua).
+	 * 
 	 * @return thanhTien, hoặc -1 nếu không tìm thấy hóa đơn
 	 */
 	public double getTienThanhToanThucTe(String maVe) {
-		String sql =
-				"SELECT TOP 1 thanhTien FROM ChiTietHoaDon WHERE maVe = ? ORDER BY maHD DESC";
-		try (Connection conn = ConnectDB.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
+		String sql = "SELECT TOP 1 thanhTien FROM ChiTietHoaDon WHERE maVe = ? ORDER BY maHD DESC";
+		try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, maVe);
 			try (ResultSet rs = ps.executeQuery()) {
-				if (rs.next()) return rs.getDouble("thanhTien");
+				if (rs.next())
+					return rs.getDouble("thanhTien");
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -198,11 +181,10 @@ public class DAO_Ve {
 	public int[] demTongVeVaVeHoan() {
 		int[] result = { 0, 0 };
 		try (Connection conn = ConnectDB.getConnection()) {
-			if (conn == null) return result;
-			String sql =
-					"SELECT COUNT(*) AS tongVe, "
-							+ "SUM(CASE WHEN trangThaiVe = 'DAHOAN' THEN 1 ELSE 0 END) AS veHoan "
-							+ "FROM Ve";
+			if (conn == null)
+				return result;
+			String sql = "SELECT COUNT(*) AS tongVe, "
+					+ "SUM(CASE WHEN trangThaiVe = 'DAHOAN' THEN 1 ELSE 0 END) AS veHoan " + "FROM Ve";
 			PreparedStatement ps = conn.prepareStatement(sql);
 			ResultSet rs = ps.executeQuery();
 			if (rs.next()) {
@@ -220,73 +202,74 @@ public class DAO_Ve {
 	/**
 	 * Tính phí hoàn vé theo khoảng cách thời gian đến giờ khởi hành.
 	 *
-	 * Chính sách:
-	 *   - Còn >= 72 giờ  : hoàn 90% (phí 10%)
-	 *   - Còn 24–72 giờ  : hoàn 75% (phí 25%)
-	 *   - Còn  4–24 giờ  : hoàn 50% (phí 50%)
-	 *   - Còn < 4 giờ    : không hoàn (0%)
+	 * Chính sách: - Còn >= 72 giờ : hoàn 90% (phí 10%) - Còn 24–72 giờ : hoàn 75%
+	 * (phí 25%) - Còn 4–24 giờ : hoàn 50% (phí 50%) - Còn < 4 giờ : không hoàn (0%)
 	 *
 	 * @return double[]{tienHoan, phiHoan, phanTramHoan, gioConLai}
 	 */
 	public double[] tinhTienHoan(String maVe) {
-		String sql =
-				"SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
-						+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT "
-						+ "WHERE v.maVe = ?";
+		String sql = "SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
+				+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT " + "WHERE v.maVe = ?";
 
-		try (Connection conn = ConnectDB.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
+		try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, maVe);
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
 					// Số tiền khách thực trả (đã áp KM khi mua)
 					double tienThanhToan = getTienThanhToanThucTe(maVe);
-					if (tienThanhToan < 0) tienThanhToan = rs.getDouble("giaVe");
+					if (tienThanhToan < 0)
+						tienThanhToan = rs.getDouble("giaVe");
 
 					// Tính giờ còn lại đến khởi hành
 					java.sql.Date ngay = rs.getDate("ngayKhoiHanh");
-					java.sql.Time gio  = rs.getTime("gioKhoiHanh");
+					java.sql.Time gio = rs.getTime("gioKhoiHanh");
 
 					java.util.Calendar cal = java.util.Calendar.getInstance();
 					cal.setTime(ngay);
 					java.util.Calendar tc = java.util.Calendar.getInstance();
 					tc.setTime(gio);
 					cal.set(java.util.Calendar.HOUR_OF_DAY, tc.get(java.util.Calendar.HOUR_OF_DAY));
-					cal.set(java.util.Calendar.MINUTE,      tc.get(java.util.Calendar.MINUTE));
-					cal.set(java.util.Calendar.SECOND,      0);
+					cal.set(java.util.Calendar.MINUTE, tc.get(java.util.Calendar.MINUTE));
+					cal.set(java.util.Calendar.SECOND, 0);
 					cal.set(java.util.Calendar.MILLISECOND, 0);
 
-					long diffMs    = cal.getTimeInMillis() - System.currentTimeMillis();
+					long diffMs = cal.getTimeInMillis() - System.currentTimeMillis();
 					double gioConLai = diffMs / 3_600_000.0;
 
 					double phanTramHoan;
-					if      (gioConLai >= 72) phanTramHoan = 0.90;
-					else if (gioConLai >= 24) phanTramHoan = 0.75;
-					else if (gioConLai >=  4) phanTramHoan = 0.50;
-					else                      phanTramHoan = 0.00;
+					if (gioConLai >= 72)
+						phanTramHoan = 0.90;
+					else if (gioConLai >= 24)
+						phanTramHoan = 0.75;
+					else if (gioConLai >= 4)
+						phanTramHoan = 0.50;
+					else
+						phanTramHoan = 0.00;
 
 					double tienHoan = Math.round(tienThanhToan * phanTramHoan);
-					double phiHoan  = tienThanhToan - tienHoan;
+					double phiHoan = tienThanhToan - tienHoan;
 
-					return new double[]{ tienHoan, phiHoan, phanTramHoan * 100, gioConLai, tienThanhToan };
+					return new double[] { tienHoan, phiHoan, phanTramHoan * 100, gioConLai, tienThanhToan };
 				}
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return new double[]{ 0, 0, 0, 0, 0 };
+		return new double[] { 0, 0, 0, 0, 0 };
 	}
 
 	// ===================== HOÀN VÉ =====================
 
 	/**
-	 * Hoàn vé: cập nhật trangThaiVe = 'DAHOAN'
-	 * Đồng thời cập nhật GheLichTrinh về TRONG để có thể đặt lại.
+	 * Hoàn vé: cập nhật trangThaiVe = 'DAHOAN' Đồng thời cập nhật GheLichTrinh về
+	 * TRONG để có thể đặt lại.
+	 * 
 	 * @return true nếu thành công
 	 */
 	public boolean hoanVe(String maVe) {
 		try (Connection conn = ConnectDB.getConnection()) {
-			if (conn == null) return false;
+			if (conn == null)
+				return false;
 			conn.setAutoCommit(false);
 			try {
 				// 1. Cập nhật trạng thái vé
@@ -294,7 +277,10 @@ public class DAO_Ve {
 				PreparedStatement ps1 = conn.prepareStatement(sqlVe);
 				ps1.setString(1, maVe);
 				int updated = ps1.executeUpdate();
-				if (updated == 0) { conn.rollback(); return false; }
+				if (updated == 0) {
+					conn.rollback();
+					return false;
+				}
 				ps1.close();
 
 				// 2. Lấy maLT, maToa, viTriGhe
@@ -303,7 +289,7 @@ public class DAO_Ve {
 				ps2.setString(1, maVe);
 				ResultSet rs = ps2.executeQuery();
 				if (rs.next()) {
-					String maLT  = rs.getString("maLT");
+					String maLT = rs.getString("maLT");
 					String maToa = rs.getString("maToa");
 					String viTri = rs.getString("viTriGhe");
 
@@ -333,32 +319,45 @@ public class DAO_Ve {
 		}
 	}
 
+	/**
+	 * Cập nhật trạng thái vé xuống DB. Dùng để tự động đánh dấu vé HETHAN khi load
+	 * dữ liệu.
+	 */
+	public boolean capNhatTrangThaiVe(String maVe, String trangThai) {
+		String sql = "UPDATE Ve SET trangThaiVe = ? WHERE maVe = ?";
+		try (Connection conn = com.connectDB.ConnectDB.getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, trangThai);
+			ps.setString(2, maVe);
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
 	// ===================== HELPERS CŨ (giữ tương thích) =====================
 
 	public Object[] getThongTinHoanVe(String maVe) {
-		String sql =
-				"SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
-						+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT WHERE v.maVe = ?";
-		try (Connection conn = ConnectDB.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
+		String sql = "SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
+				+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT WHERE v.maVe = ?";
+		try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, maVe);
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
-					return new Object[]{ rs.getDouble("giaVe"),
-							rs.getDate("ngayKhoiHanh"),
+					return new Object[] { rs.getDouble("giaVe"), rs.getDate("ngayKhoiHanh"),
 							rs.getTime("gioKhoiHanh") };
 				}
 			}
-		} catch (SQLException e) { e.printStackTrace(); }
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		return null;
 	}
 
 	public double[] getGiaVeVaGioTau(String maVe) {
-		String sql =
-				"SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
-						+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT WHERE v.maVe = ?";
-		try (Connection conn = ConnectDB.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
+		String sql = "SELECT v.giaVe, lt.ngayKhoiHanh, lt.gioKhoiHanh "
+				+ "FROM Ve v JOIN LichTrinh lt ON v.maLT = lt.maLT WHERE v.maVe = ?";
+		try (Connection conn = ConnectDB.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, maVe);
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
@@ -370,13 +369,15 @@ public class DAO_Ve {
 					java.util.Calendar tc = java.util.Calendar.getInstance();
 					tc.setTime(gioT);
 					cal.set(java.util.Calendar.HOUR_OF_DAY, tc.get(java.util.Calendar.HOUR_OF_DAY));
-					cal.set(java.util.Calendar.MINUTE,      tc.get(java.util.Calendar.MINUTE));
-					cal.set(java.util.Calendar.SECOND,      0);
+					cal.set(java.util.Calendar.MINUTE, tc.get(java.util.Calendar.MINUTE));
+					cal.set(java.util.Calendar.SECOND, 0);
 					cal.set(java.util.Calendar.MILLISECOND, 0);
-					return new double[]{ giaVe, (double) cal.getTimeInMillis() };
+					return new double[] { giaVe, (double) cal.getTimeInMillis() };
 				}
 			}
-		} catch (SQLException e) { e.printStackTrace(); }
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		return null;
 	}
 }
