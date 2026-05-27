@@ -192,7 +192,7 @@ public class Step4_ThanhToan extends JPanel {
 	// TODO: thay thông tin tài khoản theo thực tế
 	private static final String VIETQR_BANK_ID = "VPBank";
 	private static final String VIETQR_ACCOUNT = "0865532649";
-	private static final String VIETQR_ACCOUNT_NAME = "DANG THE VY";
+	private static final String VIETQR_ACCOUNT_NAME = "DUONG SAT VIET NAM";
 	// Sepay: endpoint danh sách giao dịch + API key
 	private static final String PAYMENT_STATUS_ENDPOINT = "https://my.sepay.vn/userapi/transactions/list";
 	private static final String SEPAY_API_KEY = "4YLJ5RBD72H5APO6CCQH0GMITN0JTFMYPXCSZVFRIS3YOVBSMRGZEZWNGSKDNQXL";

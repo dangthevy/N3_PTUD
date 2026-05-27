@@ -62,11 +62,11 @@ public class TAB_KhuyenMai extends JPanel {
 
     // Bảng khuyến mãi: Mã, Tên, Ngày BĐ, Ngày KT, Trạng thái
     private static final int[] KM_COL_RATIOS = { 9, 43, 16, 16, 16 };
-    private static final int[] KM_COL_MIN    = { 62, 180, 95, 95, 85 };
+    private static final int[] KM_COL_MIN    = { 62, 135, 95, 95, 85 };
 
     // Bảng chi tiết: Mã, Tuyến, Loại ghế, Loại vé, Loại KM, Giá trị, Trạng thái
     private static final int[] KMD_COL_RATIOS = { 10, 25, 13, 11, 12, 16, 13 };
-    private static final int[] KMD_COL_MIN    = { 70, 135, 80, 70, 80, 90, 85 };
+    private static final int[] KMD_COL_MIN    = { 70, 135, 70, 70, 70, 90, 80 };
 
     // ===== Cột KhuyenMai – KHÔNG có loaiKM, giaTri =====
     private static final String[] COLS_KM = {

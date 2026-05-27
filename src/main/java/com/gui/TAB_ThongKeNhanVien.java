@@ -188,7 +188,7 @@ public class TAB_ThongKeNhanVien extends JPanel {
         chartCard.setBorder(BorderFactory.createCompoundBorder(new ShadowBorder(), BorderFactory.createEmptyBorder(10, 10, 10, 10)));
         chartCard.setPreferredSize(new Dimension(0, 400));
         chartDataset = new DefaultCategoryDataset();
-        JFreeChart barChart = ChartFactory.createBarChart("Biểu Đồ Số Vé Bán", "Ngày", "Số vé",
+        JFreeChart barChart = ChartFactory.createBarChart("Biểu Đồ Số Vé Bán Theo Nhân Viên", "Nhân viên", "Số vé",
                 chartDataset, PlotOrientation.VERTICAL, false, true, false);
         styleChart(barChart);
         ChartPanel chartPanel = new ChartPanel(barChart);
@@ -204,7 +204,7 @@ public class TAB_ThongKeNhanVien extends JPanel {
         chartCard.add(chartPanel, BorderLayout.CENTER);
 
         JPanel tableCard = makeCard(new BorderLayout());
-        String[] cols = {"STT", "Ngày", "Nhân viên", "Số vé bán", "Doanh thu", "Tỷ lệ %"};
+        String[] cols = {"STT", "Nhân viên", "Số vé bán", "Doanh thu", "Tỷ lệ %"};
         tableModel = new DefaultTableModel(cols, 0);
         tableTKNhanVien = buildTable(tableModel);
 
@@ -360,36 +360,46 @@ public class TAB_ThongKeNhanVien extends JPanel {
             return;
         }
 
-        double tongVe = 0;
-        for (Object[] row : listData) tongVe += ((Number) row[2]).intValue();
+        class Agg {
+            int soVe = 0;
+            double doanhThu = 0;
+        }
 
-        Map<String, Integer> soVeTheoNgay = new LinkedHashMap<>();
-        int stt = 1;
+        double tongVe = 0;
+        Map<String, Agg> aggByNhanVien = new LinkedHashMap<>();
         for (Object[] row : listData) {
-            Date ngay = (Date) row[0];
-            String ngayText = sdf.format(ngay);
             String nhanVien = String.valueOf(row[1]);
             int soVe = ((Number) row[2]).intValue();
             double doanhThu = ((Number) row[3]).doubleValue();
-            double tyLe = tongVe == 0 ? 0 : (soVe / tongVe) * 100;
+
+            Agg agg = aggByNhanVien.computeIfAbsent(nhanVien, k -> new Agg());
+            agg.soVe += soVe;
+            agg.doanhThu += doanhThu;
+            tongVe += soVe;
+        }
+
+        List<Map.Entry<String, Agg>> ordered = new ArrayList<>(aggByNhanVien.entrySet());
+        ordered.sort(Comparator.comparingInt((Map.Entry<String, Agg> e) -> e.getValue().soVe).reversed());
+
+        int stt = 1;
+        for (Map.Entry<String, Agg> entry : ordered) {
+            String nhanVien = entry.getKey();
+            Agg agg = entry.getValue();
+            double tyLe = tongVe == 0 ? 0 : (agg.soVe / tongVe) * 100;
 
             tableModel.addRow(new Object[]{
                     stt++,
-                    ngayText,
                     nhanVien,
-                    df.format(soVe),
-                    df.format(doanhThu),
+                    df.format(agg.soVe),
+                    df.format(agg.doanhThu),
                     String.format("%.1f%%", tyLe)
             });
-            soVeTheoNgay.put(ngayText, soVeTheoNgay.getOrDefault(ngayText, 0) + soVe);
         }
 
-        List<Map.Entry<String, Integer>> topChartData = new ArrayList<>(soVeTheoNgay.entrySet());
-        topChartData.sort(Comparator.comparingInt((Map.Entry<String, Integer> e) -> e.getValue()).reversed());
-        int chartLimit = Math.min(10, topChartData.size());
+        int chartLimit = Math.min(10, ordered.size());
         for (int i = 0; i < chartLimit; i++) {
-            Map.Entry<String, Integer> e = topChartData.get(i);
-            chartDataset.addValue(e.getValue(), "Số vé", e.getKey());
+            Map.Entry<String, Agg> e = ordered.get(i);
+            chartDataset.addValue(e.getValue().soVe, "Số vé", e.getKey());
         }
     }
 
@@ -597,8 +607,8 @@ public class TAB_ThongKeNhanVien extends JPanel {
                 CellStyle csMoney = alt ? styleMoneyAlt : styleMoney;
                 CellStyle csPercent = alt ? stylePercentAlt : stylePercent;
 
-                int soVe = (int) parseNumber(tableModel.getValueAt(i, 3));
-                double doanhThu = parseNumber(tableModel.getValueAt(i, 4));
+                int soVe = (int) parseNumber(tableModel.getValueAt(i, 2));
+                double doanhThu = parseNumber(tableModel.getValueAt(i, 3));
                 tongVe += soVe;
                 tongDoanhThu += doanhThu;
 
@@ -611,36 +621,32 @@ public class TAB_ThongKeNhanVien extends JPanel {
                 c1.setCellStyle(csText);
 
                 Cell c2 = row.createCell(2);
-                c2.setCellValue(String.valueOf(tableModel.getValueAt(i, 2)));
-                c2.setCellStyle(csText);
+                c2.setCellValue(soVe);
+                c2.setCellStyle(csCenter);
 
                 Cell c3 = row.createCell(3);
-                c3.setCellValue(soVe);
-                c3.setCellStyle(csCenter);
+                c3.setCellValue(doanhThu);
+                c3.setCellStyle(csMoney);
 
                 Cell c4 = row.createCell(4);
-                c4.setCellValue(doanhThu);
-                c4.setCellStyle(csMoney);
-
-                Cell c5 = row.createCell(5);
-                c5.setCellValue(String.valueOf(tableModel.getValueAt(i, 5)));
-                c5.setCellStyle(csPercent);
+                c4.setCellValue(String.valueOf(tableModel.getValueAt(i, 4)));
+                c4.setCellStyle(csPercent);
             }
 
             int sumRowIdx = dataStart + rowCount;
             Row sumRow = sh.createRow(sumRowIdx);
             sumRow.setHeightInPoints(22);
-            for (int c = 0; c <= 3; c++) {
+            for (int c = 0; c <= 2; c++) {
                 Cell cell = sumRow.createCell(c);
                 cell.setCellStyle(styleSumLabel);
             }
             sumRow.getCell(0).setCellValue("Tổng: " + tongVe + " vé");
-            sh.addMergedRegion(new CellRangeAddress(sumRowIdx, sumRowIdx, 0, 3));
+            sh.addMergedRegion(new CellRangeAddress(sumRowIdx, sumRowIdx, 0, 2));
 
-            Cell sumValue = sumRow.createCell(4);
+            Cell sumValue = sumRow.createCell(3);
             sumValue.setCellValue(tongDoanhThu);
             sumValue.setCellStyle(styleSumValue);
-            Cell emptyPercent = sumRow.createCell(5);
+            Cell emptyPercent = sumRow.createCell(4);
             emptyPercent.setCellStyle(styleSumLabel);
 
             Row footerRow = sh.createRow(sumRowIdx + 2);
@@ -650,11 +656,10 @@ public class TAB_ThongKeNhanVien extends JPanel {
             sh.addMergedRegion(new CellRangeAddress(sumRowIdx + 2, sumRowIdx + 2, 0, colCount - 1));
 
             sh.setColumnWidth(0, 8 * 256);
-            sh.setColumnWidth(1, 16 * 256);
-            sh.setColumnWidth(2, 28 * 256);
-            sh.setColumnWidth(3, 16 * 256);
-            sh.setColumnWidth(4, 20 * 256);
-            sh.setColumnWidth(5, 12 * 256);
+            sh.setColumnWidth(1, 32 * 256);
+            sh.setColumnWidth(2, 16 * 256);
+            sh.setColumnWidth(3, 20 * 256);
+            sh.setColumnWidth(4, 12 * 256);
             sh.createFreezePane(0, 3);
 
             try (FileOutputStream fos = new FileOutputStream(filePath)) {

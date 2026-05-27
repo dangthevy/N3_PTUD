@@ -31,7 +31,7 @@ public class TAB_Ga extends JPanel {
     private static final Color TEXT_MID     = new Color(0x5A6A7D);
     private static final Color TEXT_LIGHT   = new Color(0xA0AEC0);
     private static final Color BORDER       = new Color(0xE2EAF4);
-    private static final Color TH_BG        = new Color(0xE5E7EB);
+    private static final Color TH_BG        = new Color(0x1A5EAB);
     private static final Color ROW_ALT      = new Color(0xF7FAFF);
     private static final Color BTN2_BG      = new Color(0xF0F4FA);
     private static final Color BTN2_FG      = new Color(0x3A5A8C);
@@ -84,9 +84,12 @@ public class TAB_Ga extends JPanel {
         pnlTop.add(title, BorderLayout.CENTER);
 
         // ================= CENTER PANEL (TOOL BAR & TABLE) =================
-        JPanel centerPnl = makeCard(new BorderLayout(0, 15));
-        centerPnl.setBorder(BorderFactory.createCompoundBorder(
-                new ShadowBorder(), new EmptyBorder(15, 15, 15, 15)
+        JPanel centerWrap = new JPanel(new BorderLayout(0, 15));
+        centerWrap.setOpaque(false);
+
+        JPanel toolbarCard = makeCard(new BorderLayout());
+        toolbarCard.setBorder(BorderFactory.createCompoundBorder(
+                new ShadowBorder(), new EmptyBorder(12, 15, 12, 15)
         ));
 
         JPanel pnlToolbar = new JPanel(new BorderLayout());
@@ -108,9 +111,14 @@ public class TAB_Ga extends JPanel {
         pnlButtons.add(btnThem);
         pnlButtons.add(btnXoa);
 
-
         pnlToolbar.add(pnlSearch, BorderLayout.WEST);
         pnlToolbar.add(pnlButtons, BorderLayout.EAST);
+        toolbarCard.add(pnlToolbar, BorderLayout.CENTER);
+
+        JPanel tableCard = makeCard(new BorderLayout());
+        tableCard.setBorder(BorderFactory.createCompoundBorder(
+                new ShadowBorder(), new EmptyBorder(15, 15, 15, 15)
+        ));
 
         String[] cols = {"Mã Ga", "Tên Ga", "Địa chỉ", "Tỉnh Thành"};
         dataModel = new DefaultTableModel(cols, 0);
@@ -126,8 +134,10 @@ public class TAB_Ga extends JPanel {
         scrollPane.getViewport().setBackground(BG_CARD);
         styleScrollBar(scrollPane.getVerticalScrollBar());
 
-        centerPnl.add(pnlToolbar, BorderLayout.NORTH);
-        centerPnl.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+
+        centerWrap.add(toolbarCard, BorderLayout.NORTH);
+        centerWrap.add(tableCard, BorderLayout.CENTER);
 
         // XỬ LÝ SỰ KIỆN
         txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -163,7 +173,7 @@ public class TAB_Ga extends JPanel {
         });
 
         add(pnlTop, BorderLayout.NORTH);
-        add(centerPnl, BorderLayout.CENTER);
+        add(centerWrap, BorderLayout.CENTER);
     }
 
     private void updateTableData() {
@@ -379,7 +389,7 @@ public class TAB_Ga extends JPanel {
             { setHorizontalAlignment(LEFT); }
             @Override public Component getTableCellRendererComponent(JTable t,Object v,boolean sel,boolean foc,int row,int col){
                 JLabel l=(JLabel)super.getTableCellRendererComponent(t,v,sel,foc,row,col);
-                l.setOpaque(true); l.setBackground(TH_BG); l.setForeground(ACCENT);
+                l.setOpaque(true); l.setBackground(TH_BG); l.setForeground(Color.WHITE);
                 l.setFont(new Font("Segoe UI",Font.BOLD,13)); l.setBorder(BorderFactory.createEmptyBorder(0,12,0,6)); return l;
             }
         });

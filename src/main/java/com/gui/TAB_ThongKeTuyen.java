@@ -200,7 +200,7 @@ public class TAB_ThongKeTuyen extends JPanel {
                 "Ngày khởi hành",
                 "Giờ khởi hành",
                 "Ngày đến",
-                "Giờ đ��n",
+                "Giờ đến",
                 "Trạng thái"
         };
         tableModel = new DefaultTableModel(cols, 0);

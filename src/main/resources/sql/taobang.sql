@@ -121,6 +121,17 @@ CREATE TABLE GheBaoTri (
     FOREIGN KEY (maToa) REFERENCES Toa(maToa) ON DELETE CASCADE
 );
 
+CREATE TABLE LichSuBaoTri (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    loaiTaiSan NVARCHAR(50) NOT NULL, -- 'TAU', 'TOA', 'GHE'
+    maTaiSan VARCHAR(50) NOT NULL,    -- maTau, maToa, ho?c maToa_viTriGhe
+    ngayBatDau DATETIME DEFAULT GETDATE(),
+    ngayKetThuc DATETIME NULL,
+    lyDo NVARCHAR(255) NOT NULL,
+    chiPhi DECIMAL(18, 2) DEFAULT 0,
+    nguoiThucHien VARCHAR(20) NULL    -- maNV ph? trách l?nh
+);
+
 -- =============================================
 -- 4. BẢNG GIÁ
 -- =============================================
@@ -306,15 +317,15 @@ INSERT INTO LoaiVe VALUES
 -- NHÂN VIÊN (giữ nguyên hash mật khẩu từ bản mới)
 -- =============================================
 INSERT INTO NhanVien (tenNV, sdt, email, taiKhoan, matKhau, chucVu, trangThai, ngayVaoLam) VALUES
-(N'Nguyễn Văn A',    '0909090901', 'vana@tau.com',   'vana',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-01-01'),
-(N'Lê Thị Bán Vé',  '0909012323', 'banve@tau.com',  'banve',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-02-01'),
-(N'Nguyễn Văn B',   '0923122312', 'vanb@tau.com',   'vanb',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2025-01-01'),
-(N'Phạm Quang Khải','0963212321', 'khai@tau.com',   'khai',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'Phạm Quốc Vinh', '0923452812', 'vinh@tau.com',   'vinh',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'Đặng Thế Vỹ',    '0925723812', 'vy@tau.com',     'vy',     'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'Nguyễn Vủ Thiện','0958472305', 'thien@tau.com',  'thien',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'Phạm Thái Bảo',  '0935782312', 'bao@tau.com',    'bao',    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2025-02-01'),
-(N'admin',           '0963212322', 'admin@tau.com',  'admin',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'ADMIN',    'HOATDONG', '2025-02-01');
+(N'Nguyễn Văn A',    '0909090901', 'vana@gmail.com',   'vana',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2026-01-01'),
+(N'Lê Thị Bán Vé',  '0909012323', 'banve@gmail.com',  'banve',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2026-02-01'),
+(N'Nguyễn Văn B',   '0923122312', 'vanb@gmail.com',   'vanb',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'NHANVIEN', 'HOATDONG', '2026-01-01'),
+(N'Phạm Quang Khải','0963212321', 'khai@gmail.com',   'khai',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2026-02-01'),
+(N'Phạm Quốc Vinh', '0923452812', 'vinh@gmail.com',   'vinh',   'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2026-02-01'),
+(N'Đặng Thế Vỹ',    '0925723812', 'vy184651@gmail.com',     'vyql',     'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2026-02-01'),
+(N'Nguyễn Vủ Thiện','0958472305', 'thien@gmail.com',  'thien',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2026-02-01'),
+(N'Phạm Thái Bảo',  '0935782312', 'bao@gmail.com',    'baoql',    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'QUANLY',   'HOATDONG', '2026-02-01'),
+(N'admin',           '0963212322', 'admin@gmail.com',  'admin',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', N'ADMIN',    'HOATDONG', '2026-02-01');
 
 INSERT INTO KhachHang (maKH, tenKH, sdt, cccd, email) VALUES
 ('KH01', N'Trần Văn An', '0912111222', '079123456781', 'an@gmail.com');
@@ -479,12 +490,12 @@ INSERT INTO GiaDetail (maGia, maLoaiToa, maTuyen, gia) VALUES
 ('BG01', 'G_NAM',  'T10', 620000),
 
 -- ===== T11 / T12 (ĐN - SG) =====
-('BG01', 'G_CUNG', 'T11', 360000),
-('BG01', 'G_MEM',  'T11', 580000),
-('BG01', 'G_NAM',  'T11', 880000),
-('BG01', 'G_CUNG', 'T12', 360000),
-('BG01', 'G_MEM',  'T12', 580000),
-('BG01', 'G_NAM',  'T12', 880000);
+('BG01', 'G_CUNG', 'T11', 3000),
+('BG01', 'G_MEM',  'T11', 5000),
+('BG01', 'G_NAM',  'T11', 8000),
+('BG01', 'G_CUNG', 'T12', 3000),
+('BG01', 'G_MEM',  'T12', 5000),
+('BG01', 'G_NAM',  'T12', 8000);
 GO
 
 -- =======================================================================
@@ -733,7 +744,9 @@ IF NOT EXISTS (
   AND name = 'ngayThem'
 )
 BEGIN
-    ALTER TABLE KhachHang ADD ngayThem DATE NULL;
+    ALTER TABLE KhachHang 
+    ADD ngayThem DATE NOT NULL 
+        CONSTRAINT DF_KhachHang_ngayThem DEFAULT CAST(GETDATE() AS DATE);
 END
 GO
 
