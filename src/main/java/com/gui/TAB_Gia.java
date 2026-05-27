@@ -1139,8 +1139,8 @@ public class TAB_Gia extends JPanel {
                 "AND gh.moTa LIKE ? " +
                 "AND NOT EXISTS (SELECT 1 FROM Ve v " +
                 "  JOIN LichTrinh lt ON v.maLT = lt.maLT " +
-                "  JOIN GiaHeader gh2 ON gh2.maLT = lt.maLT " +
-                "  WHERE gh2.maGia = gh.maGia)";
+                "  WHERE lt.ngayKhoiHanh >= gh.ngayApDung " +
+                "  AND lt.ngayKhoiHanh <= gh.ngayKetThuc)";
         try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, ngayApDung.toString());
@@ -1256,39 +1256,40 @@ public class TAB_Gia extends JPanel {
     }
 
     /**
-     * Đếm số vé đã bán với tổ hợp maGia + maLoaiToa + maTuyen.
-     * Một vé dùng tổ hợp này khi:
-     *  - Lịch trình (Ve.maLT) nằm trong bảng giá (GiaHeader.maLT)
-     *  - Loại toa của chỗ ngồi khớp maLoaiToa
-     *  - Tuyến khớp maTuyen
+     * Đếm số vé đã bán khớp tổ hợp (maLoaiToa + maTuyen) trong khoảng thời gian bảng giá áp dụng.
+     * Vì GiaHeader không còn FK đến LichTrinh, ta đếm vé có ngày khởi hành
+     * nằm trong khoảng ngayApDung → ngayKetThuc của bảng giá.
      */
     private int demSoVeDungChiTietGia(String maGia, String maLoaiToa, String maTuyen) {
         String sql = "SELECT COUNT(*) FROM Ve v " +
-                "JOIN ChoNgoi cn ON v.maCho = cn.maCho " +
-                "JOIN Toa t       ON cn.maToa = t.maToa " +
                 "JOIN LichTrinh lt ON v.maLT = lt.maLT " +
                 "JOIN ChuyenTau ct ON lt.maChuyen = ct.maChuyen " +
-                "JOIN GiaHeader gh ON gh.maLT = lt.maLT " +
-                "WHERE gh.maGia = ? AND t.maLoaiToa = ? AND ct.maTuyen = ?";
+                "JOIN Toa t ON v.maToa = t.maToa " +
+                "WHERE t.maLoaiToa = ? AND ct.maTuyen = ? " +
+                "AND lt.ngayKhoiHanh >= (SELECT ngayApDung FROM GiaHeader WHERE maGia = ?) " +
+                "AND lt.ngayKhoiHanh <= (SELECT ngayKetThuc FROM GiaHeader WHERE maGia = ?)";
         try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, maGia);
-            ps.setString(2, maLoaiToa);
-            ps.setString(3, maTuyen);
+            ps.setString(1, maLoaiToa);
+            ps.setString(2, maTuyen);
+            ps.setString(3, maGia);
+            ps.setString(4, maGia);
             java.sql.ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
         } catch (Exception e) { e.printStackTrace(); }
         return 0;
     }
 
-    /** Đếm tổng số vé đã bán với một bảng giá (dùng để validate xóa/sửa header) */
+    /** Đếm tổng số vé đã bán trong khoảng thời gian bảng giá áp dụng */
     private int demSoVeDungBangGia(String maGia) {
         String sql = "SELECT COUNT(*) FROM Ve v " +
-                "JOIN GiaHeader gh ON gh.maLT = v.maLT " +
-                "WHERE gh.maGia = ?";
+                "JOIN LichTrinh lt ON v.maLT = lt.maLT " +
+                "WHERE lt.ngayKhoiHanh >= (SELECT ngayApDung FROM GiaHeader WHERE maGia = ?) " +
+                "AND lt.ngayKhoiHanh <= (SELECT ngayKetThuc FROM GiaHeader WHERE maGia = ?)";
         try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, maGia);
+            ps.setString(2, maGia);
             java.sql.ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
         } catch (Exception e) { e.printStackTrace(); }
