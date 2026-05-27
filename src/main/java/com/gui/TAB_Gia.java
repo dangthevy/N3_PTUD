@@ -775,52 +775,17 @@ public class TAB_Gia extends JPanel {
                 warn("Ngày kết thúc phải sau Ngày áp dụng!"); return;
             }
 
-            // --- Validate trùng khoảng thời gian → hỏi đóng bảng cũ ---
+            // --- Validate: không được trùng thời gian với BẤT KỲ bảng giá nào ---
+            // Bảng giá mới chỉ được tạo khi không chồng với bảng giá nào (kể cả Ngừng/Chưa áp dụng)
             String trungTen = kiemTraTrungThoiGian(tuRaw, denRaw, null);
-            String maGiaTrung = null;
             if (trungTen != null) {
-                // Tìm maGia bảng trùng
-                for (int i = 0; i < modelGH.getRowCount(); i++) {
-                    if (modelGH.getValueAt(i, 1).toString().equals(trungTen)) {
-                        Object ttObj = modelGH.getValueAt(i, 4);
-                        if (ttObj != null && !ttObj.toString().equals("Ngừng áp dụng")) {
-                            maGiaTrung = modelGH.getValueAt(i, 0).toString();
-                            break;
-                        }
-                    }
-                }
-
-                if (maGiaTrung != null) {
-                    java.time.LocalDate ngayApDungMoi = java.time.LocalDate.parse(tuRaw);
-                    java.time.LocalDate ngayDongCu = ngayApDungMoi.minusDays(1);
-
-                    int choice = JOptionPane.showConfirmDialog(dlg,
-                            "<html>Bảng giá <b>\"" + trungTen + "\"</b> đang áp dụng trong khoảng thời gian này.<br><br>"
-                                    + "Hệ thống sẽ tự động đóng bảng giá cũ<br>"
-                                    + "(kết thúc vào <b>" + formatNgay(ngayDongCu.toString()) + "</b>)<br>"
-                                    + "và tạo bảng giá mới áp dụng từ <b>" + tuDisp + "</b>.<br><br>"
-                                    + "Tiếp tục?</html>",
-                            "Đóng bảng giá cũ",
-                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                    if (choice != JOptionPane.YES_OPTION) return;
-
-                    // Đóng bảng giá cũ
-                    try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
-                         java.sql.PreparedStatement ps = conn.prepareStatement(
-                                 "UPDATE GiaHeader SET ngayKetThuc = ? WHERE maGia = ?")) {
-                        ps.setString(1, ngayDongCu.toString());
-                        ps.setString(2, maGiaTrung);
-                        ps.executeUpdate();
-                    } catch (Exception ex) { ex.printStackTrace(); }
-                } else {
-                    warn("Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\"!\n"
-                            + "Vui lòng chọn khoảng thời gian khác."); return;
-                }
+                warn("Không thể tạo bảng giá mới!\n" +
+                        "Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\".\n\n" );
+                return;
             }
 
             boolean ok = daoGia.insertHeader(maTuSinh, moTa, tuRaw, denRaw);
             if (ok) {
-                // Reload toàn bộ để cập nhật trạng thái bảng cũ (nếu vừa đóng)
                 loadFromDB();
                 selectBangGia(maTuSinh);
                 dlg.dispose();
