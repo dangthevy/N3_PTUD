@@ -168,6 +168,35 @@ public class TAB_TraCuuVe extends JPanel {
             ResultSet rs = daoVe.getDanhSachVe(maVeFilter, null);
             while (rs != null && rs.next()) {
                 String status = rs.getString("trangThaiVe");
+                if (status == null) status = "CHUASUDUNG";
+
+                // ── Tự động phát hiện vé hết hạn theo giờ khởi hành ──────────────
+                // Chỉ xét vé "CHUASUDUNG": nếu giờ khởi hành đã qua → HETHAN
+                if ("CHUASUDUNG".equals(status)) {
+                    java.sql.Date ngayKH = rs.getDate("ngayKhoiHanh");
+                    java.sql.Time gioKH  = rs.getTime("gioKhoiHanh");
+                    if (ngayKH != null && gioKH != null) {
+                        // Ghép ngày + giờ khởi hành thành một thời điểm đầy đủ
+                        java.util.Calendar calKH = java.util.Calendar.getInstance();
+                        calKH.setTime(ngayKH);
+                        java.util.Calendar calGio = java.util.Calendar.getInstance();
+                        calGio.setTime(gioKH);
+                        calKH.set(java.util.Calendar.HOUR_OF_DAY, calGio.get(java.util.Calendar.HOUR_OF_DAY));
+                        calKH.set(java.util.Calendar.MINUTE,      calGio.get(java.util.Calendar.MINUTE));
+                        calKH.set(java.util.Calendar.SECOND,      0);
+                        calKH.set(java.util.Calendar.MILLISECOND, 0);
+
+                        // Nếu thời điểm khởi hành đã qua → hết hạn
+                        if (calKH.getTimeInMillis() < System.currentTimeMillis()) {
+                            status = "HETHAN";
+                            // Cập nhật xuống DB (chạy nền để không chặn UI)
+                            final String maVeFinal = rs.getString("maVe");
+                            new Thread(() -> daoVe.capNhatTrangThaiVe(maVeFinal, "HETHAN")).start();
+                        }
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────────
+
                 // thanhTien = giá sau ap dung KM (từ ChiTietHoaDon), fallback về giaVe nếu chưa có HĐ
                 double thanhTien = rs.getDouble("thanhTien");
                 // ngayLap từ HoaDon
@@ -185,7 +214,7 @@ public class TAB_TraCuuVe extends JPanel {
                         rs.getString("tenLoaiVe") != null ? rs.getString("tenLoaiVe") : "",
                         df.format(thanhTien),   // ← giá SAU khuyến mãi
                         ngayLapStr,
-                        trangThaiToDisplay(status != null ? status : "CHUASUDUNG")
+                        trangThaiToDisplay(status)
                 });
             }
         } catch (SQLException e) {
