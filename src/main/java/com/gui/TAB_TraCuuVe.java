@@ -96,31 +96,6 @@ public class TAB_TraCuuVe extends JPanel {
         add(buildDanhSachCard(), BorderLayout.CENTER);
 
         loadData(null);
-
-        // Auto-refresh khi tab được hiển thị trở lại (ví dụ: sau khi bán vé xong)
-        addHierarchyListener(e -> {
-            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
-                loadData(txtMaVe != null ? txtMaVe.getText().trim() : null);
-            }
-        });
-    }
-
-    /**
-     * Gọi từ bên ngoài (ví dụ: TAB_BanVe) sau khi bán vé / lập hóa đơn thành công.
-     * Xóa bộ lọc, load lại toàn bộ danh sách vé và cập nhật stat card.
-     * Vé mới nhất sẽ hiển thị đầu tiên (SQL ORDER BY ngayLap DESC).
-     */
-    public void refreshAfterSale() {
-        // Xóa filter để không bị ẩn vé mới
-        if (txtMaVe != null) txtMaVe.setText("");
-
-        loadData(null);
-
-        // Cuộn lên đầu bảng để thấy vé mới nhất
-        if (table != null && tableModel.getRowCount() > 0) {
-            table.scrollRectToVisible(table.getCellRect(0, 0, true));
-            table.setRowSelectionInterval(0, 0);
-        }
     }
 
     // ================= TABLE INIT =================
@@ -890,18 +865,18 @@ public class TAB_TraCuuVe extends JPanel {
         // ============================================================
         y -= 6;
         drawDashedHLine(canvas, margin, pageW - margin, y, LGRAY);
-        y -= 14;
+        y -= 18;
 
         // ============================================================
-        // 7. CUỐNG VÉ — thông tin gọn
+        // 7. CUỐNG VÉ — thông tin gọn + lời cảm ơn căn giữa
         // ============================================================
         drawCenteredText(canvas, fontBold, 7.5f,
                 maVe + "   |   " + tenTau + "   |   " + ngayDi + "   " + gioDi
                         + "   |   " + maToa + "  Ghế " + viTri,
                 GRAY, margin, pageW, y);
-        y -= 11;
+        y -= 14;
 
-        // Ngày in
+        // Ngày in — căn trái, nhỏ
         String ngayIn = "Ngày in: " + new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date());
         canvas.setFillColor(LGRAY);
         canvas.beginText();
@@ -909,15 +884,11 @@ public class TAB_TraCuuVe extends JPanel {
         canvas.moveText(margin, y);
         canvas.showText(ngayIn);
         canvas.endText();
+        y -= 16;
 
-        canvas.setFillColor(LGRAY);
-        canvas.beginText();
-        canvas.setFontAndSize(fontPlain, 7f);
+        // Lời cảm ơn — to hơn, đậm, căn giữa
         String thanks = "Cảm ơn quý khách! / Thank you!";
-        float tw = fontPlain.getWidth(thanks, 7f);
-        canvas.moveText(pageW - margin - tw, y);
-        canvas.showText(thanks);
-        canvas.endText();
+        drawCenteredText(canvas, fontBold, 10f, thanks, GRAY, margin, pageW, y);
 
         // ============================================================
         // 8. VIỀN NGOÀI toàn trang
@@ -1239,33 +1210,11 @@ public class TAB_TraCuuVe extends JPanel {
         pnl.setOpaque(false);
         pnl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
-        // Icon ve bên cạnh title
-        JLabel icoTitle = new JLabel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(ACCENT);
-                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int cx = getWidth()/2, cy = getHeight()/2;
-                // Hinh ve: chu nhat con dau
-                g2.drawRoundRect(cx-11, cy-6, 22, 12, 4, 4);
-                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawLine(cx-3, cy-6, cx-3, cy+6);
-                g2.fillOval(cx+1, cy-3, 3, 3);
-                g2.fillOval(cx+5, cy-3, 3, 3);
-                g2.fillOval(cx+1, cy+1, 3, 3);
-                g2.fillOval(cx+5, cy+1, 3, 3);
-                g2.dispose();
-            }
-        };
-        icoTitle.setPreferredSize(new Dimension(28, 28));
-
         JLabel lbl = new JLabel("TRA CỨU VÀ HOÀN VÉ");
         lbl.setFont(F_TITLE); lbl.setForeground(ACCENT);
 
-        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         titleRow.setOpaque(false);
-        titleRow.add(icoTitle);
         titleRow.add(lbl);
 
         pnl.add(titleRow, BorderLayout.WEST);
