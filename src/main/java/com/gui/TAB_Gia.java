@@ -86,7 +86,7 @@ public class TAB_Gia extends JPanel {
     private String[][] DS_LOAI_VE  = {};
     private String[][] DS_TUYEN    = {};
 
-    private static final String[] TRANG_THAI_ARR = {"Đang áp dụng", "Ngừng áp dụng"};
+    private static final String[] TRANG_THAI_ARR = {"Đang áp dụng", "Chưa áp dụng", "Ngừng áp dụng"};
 
     private static final String DATE_FMT = "dd/MM/yyyy";
 
@@ -605,7 +605,10 @@ public class TAB_Gia extends JPanel {
         lblTuNgay   .setText(tuNgay);
         lblDenNgay  .setText(denNgay);
         lblTrangThai.setText(trangThai);
-        lblTrangThai.setForeground(trangThai.equals("Đang áp dụng") ? CLR_ON : CLR_OFF);
+        lblTrangThai.setForeground(
+                trangThai.equals("Đang áp dụng") ? CLR_ON
+                        : trangThai.equals("Chưa áp dụng") ? new Color(0xE67E22)
+                        : CLR_OFF);
 
         // Load GiaDetail tương ứng maGia từ DB (hoặc cache trong memory)
         loadDetailForMaGia(maGia);
@@ -628,12 +631,7 @@ public class TAB_Gia extends JPanel {
             java.time.LocalDate today = java.time.LocalDate.now();
             for (GiaHeaderRow h : list) {
                 // Tính trạng thái dựa trên ngày hiện tại
-                String trangThai = "Ngừng áp dụng";
-                try {
-                    java.time.LocalDate den = java.time.LocalDate.parse(h.ngayKetThuc);
-                    java.time.LocalDate tu  = java.time.LocalDate.parse(h.ngayApDung);
-                    if (!today.isBefore(tu) && !today.isAfter(den)) trangThai = "Đang áp dụng";
-                } catch (Exception ignored) {}
+                String trangThai = tinhTrangThai(h.ngayApDung, h.ngayKetThuc);
 
                 modelGH.addRow(new Object[]{
                         h.maGia,
@@ -777,18 +775,54 @@ public class TAB_Gia extends JPanel {
                 warn("Ngày kết thúc phải sau Ngày áp dụng!"); return;
             }
 
-            // --- Validate trùng khoảng thời gian ---
+            // --- Validate trùng khoảng thời gian → hỏi đóng bảng cũ ---
             String trungTen = kiemTraTrungThoiGian(tuRaw, denRaw, null);
+            String maGiaTrung = null;
             if (trungTen != null) {
-                warn("Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\"!\n"
-                        + "Vui lòng chọn khoảng thời gian khác."); return;
+                // Tìm maGia bảng trùng
+                for (int i = 0; i < modelGH.getRowCount(); i++) {
+                    if (modelGH.getValueAt(i, 1).toString().equals(trungTen)) {
+                        Object ttObj = modelGH.getValueAt(i, 4);
+                        if (ttObj != null && !ttObj.toString().equals("Ngừng áp dụng")) {
+                            maGiaTrung = modelGH.getValueAt(i, 0).toString();
+                            break;
+                        }
+                    }
+                }
+
+                if (maGiaTrung != null) {
+                    java.time.LocalDate ngayApDungMoi = java.time.LocalDate.parse(tuRaw);
+                    java.time.LocalDate ngayDongCu = ngayApDungMoi.minusDays(1);
+
+                    int choice = JOptionPane.showConfirmDialog(dlg,
+                            "<html>Bảng giá <b>\"" + trungTen + "\"</b> đang áp dụng trong khoảng thời gian này.<br><br>"
+                                    + "Hệ thống sẽ tự động đóng bảng giá cũ<br>"
+                                    + "(kết thúc vào <b>" + formatNgay(ngayDongCu.toString()) + "</b>)<br>"
+                                    + "và tạo bảng giá mới áp dụng từ <b>" + tuDisp + "</b>.<br><br>"
+                                    + "Tiếp tục?</html>",
+                            "Đóng bảng giá cũ",
+                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (choice != JOptionPane.YES_OPTION) return;
+
+                    // Đóng bảng giá cũ
+                    try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+                         java.sql.PreparedStatement ps = conn.prepareStatement(
+                                 "UPDATE GiaHeader SET ngayKetThuc = ? WHERE maGia = ?")) {
+                        ps.setString(1, ngayDongCu.toString());
+                        ps.setString(2, maGiaTrung);
+                        ps.executeUpdate();
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                } else {
+                    warn("Khoảng thời gian bị trùng với bảng giá \"" + trungTen + "\"!\n"
+                            + "Vui lòng chọn khoảng thời gian khác."); return;
+                }
             }
 
             boolean ok = daoGia.insertHeader(maTuSinh, moTa, tuRaw, denRaw);
             if (ok) {
-                String tt = tinhTrangThai(tuRaw, denRaw);
-                modelGH.addRow(new Object[]{maTuSinh, moTa, tuDisp, denDisp, tt, denRaw});
-                updateStats();
+                // Reload toàn bộ để cập nhật trạng thái bảng cũ (nếu vừa đóng)
+                loadFromDB();
+                selectBangGia(maTuSinh);
                 dlg.dispose();
             } else {
                 warn("Lỗi khi lưu vào database! Mã bảng giá có thể đã tồn tại.");
@@ -800,13 +834,19 @@ public class TAB_Gia extends JPanel {
     /** Tự sinh mã bảng giá dạng BGxx */
     private String genMaGia() {
         int max = 0;
-        for (int i = 0; i < modelGH.getRowCount(); i++) {
-            String ma = modelGH.getValueAt(i, 0).toString();
-            try {
-                int n = Integer.parseInt(ma.replaceAll("[^0-9]", ""));
-                if (n > max) max = n;
-            } catch (Exception ignored) {}
-        }
+        // Scan DB thay vì model để tránh trùng mã
+        String sql = "SELECT maGia FROM GiaHeader";
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String ma = rs.getString("maGia");
+                try {
+                    int n = Integer.parseInt(ma.replaceAll("[^0-9]", ""));
+                    if (n > max) max = n;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception e) { e.printStackTrace(); }
         return String.format("BG%02d", max + 1);
     }
 
@@ -829,8 +869,8 @@ public class TAB_Gia extends JPanel {
                 try {
                     java.time.LocalDate tuCu  = java.time.LocalDate.parse(toDbDate(tuDispObj.toString()));
                     java.time.LocalDate denCu = java.time.LocalDate.parse(denRawObj.toString());
-                    // Chồng lấp: tuMoi < denCu AND denMoi > tuCu
-                    if (tuMoi.isBefore(denCu) && denMoi.isAfter(tuCu)) {
+                    // Chồng lấp (inclusive): tuMoi <= denCu AND denMoi >= tuCu
+                    if (!tuMoi.isAfter(denCu) && !denMoi.isBefore(tuCu)) {
                         return modelGH.getValueAt(i, 1).toString();
                     }
                 } catch (Exception ignored) {}
@@ -950,15 +990,41 @@ public class TAB_Gia extends JPanel {
             return;
         }
 
-        int ok = JOptionPane.showConfirmDialog(this,
-                "Xóa bảng giá " + maGia + "?\nTất cả chi tiết giá liên quan cũng sẽ bị xóa.",
+        // --- Kiểm tra đây có phải bảng clone không ---
+        String maGiaGoc = null;
+        String ngayKetThucClone = null; // ngayKetThuc của clone = ngayKetThuc gốc ban đầu
+        try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                     "SELECT maGiaGoc, CONVERT(VARCHAR, ngayKetThuc, 23) AS ngayKT FROM GiaHeader WHERE maGia = ?")) {
+            ps.setString(1, maGia);
+            java.sql.ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                maGiaGoc = rs.getString("maGiaGoc");
+                ngayKetThucClone = rs.getString("ngayKT"); // yyyy-MM-dd
+            }
+        } catch (Exception ex) { ex.printStackTrace(); }
+
+        String msgXoa = "Xóa bảng giá " + maGia + "?\nTất cả chi tiết giá liên quan cũng sẽ bị xóa.";
+        if (maGiaGoc != null && !maGiaGoc.isEmpty()) {
+            msgXoa += "\n\nBảng giá gốc \"" + maGiaGoc + "\" sẽ được khôi phục lại.";
+        }
+
+        int ok = JOptionPane.showConfirmDialog(this, msgXoa,
                 "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
             boolean deleted = daoGia.deleteHeader(maGia);
             if (deleted) {
-                modelGH.removeRow(row);
-                modelGD.setRowCount(0);
-                resetInfo();
+                // Nếu là clone → mở lại bảng gốc với ngayKetThuc = ngayKetThuc clone
+                if (maGiaGoc != null && !maGiaGoc.isEmpty() && ngayKetThucClone != null) {
+                    try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+                         java.sql.PreparedStatement ps = conn.prepareStatement(
+                                 "UPDATE GiaHeader SET ngayKetThuc = ? WHERE maGia = ?")) {
+                        ps.setString(1, ngayKetThucClone);
+                        ps.setString(2, maGiaGoc);
+                        ps.executeUpdate();
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }
+                loadFromDB();
                 updateStats();
             } else {
                 warn("Lỗi khi xóa! Kiểm tra lại ràng buộc khóa ngoại.");
@@ -1231,7 +1297,10 @@ public class TAB_Gia extends JPanel {
             catch (Exception ex) { denCu = ngayApDung.plusYears(1); }
             java.time.LocalDate denMoi = denCu.isAfter(ngayApDung) ? denCu : ngayApDung.plusMonths(6);
 
-            // 1. Đóng bảng giá cũ: ngayKetThuc = ngày trước ngày áp dụng mới
+            // 1. Lưu ngayKetThuc gốc trước khi đóng (để restore sau nếu xóa clone)
+            String ngayKetThucGoc = denRawCu;
+
+            // Đóng bảng giá cũ: ngayKetThuc = ngày trước ngày áp dụng mới
             try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
                  java.sql.PreparedStatement ps = conn.prepareStatement(
                          "UPDATE GiaHeader SET ngayKetThuc = ? WHERE maGia = ?")) {
@@ -1240,12 +1309,22 @@ public class TAB_Gia extends JPanel {
                 ps.executeUpdate();
             }
 
-            // 2. Tạo bảng giá mới
+            // 2. Tạo bảng giá mới — lưu maGiaGoc để biết clone từ đâu
             String maGiaMoi = genMaGia();
             String moTaMoi  = moTaCu.replaceAll("\\s*\\(cập nhật.*\\)", "")
                     + " (cập nhật " + formatNgay(ngayApDung.toString()) + ")";
-            if (!daoGia.insertHeader(maGiaMoi, moTaMoi, ngayApDung.toString(), denMoi.toString()))
-                return null;
+            // Insert với maGiaGoc
+            try (java.sql.Connection conn = com.connectDB.ConnectDB.getConnection();
+                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                         "INSERT INTO GiaHeader (maGia, tenGia, moTa, ngayApDung, ngayKetThuc, maGiaGoc) VALUES (?,?,?,?,?,?)")) {
+                ps.setString(1, maGiaMoi);
+                ps.setString(2, moTaMoi);
+                ps.setString(3, moTaMoi);
+                ps.setString(4, ngayApDung.toString());
+                ps.setString(5, denMoi.toString());
+                ps.setString(6, maGiaCu); // ← lưu bảng gốc
+                if (ps.executeUpdate() == 0) return null;
+            }
 
             // 3. Clone detail, thay giá dòng đang sửa
             List<GiaDetailRow> dsCu = daoGia.getDetailByMaGia(maGiaCu);
@@ -1623,6 +1702,9 @@ public class TAB_Gia extends JPanel {
             java.time.LocalDate today = java.time.LocalDate.now();
             java.time.LocalDate tu  = java.time.LocalDate.parse(tuRaw);
             java.time.LocalDate den = java.time.LocalDate.parse(denRaw);
+            // Chưa áp dụng: hôm nay < ngày áp dụng
+            if (today.isBefore(tu)) return "Chưa áp dụng";
+            // Đang áp dụng: ngayApDung <= hôm nay <= ngayKetThuc (inclusive)
             if (!today.isBefore(tu) && !today.isAfter(den)) return "Đang áp dụng";
         } catch (Exception ignored) {}
         return "Ngừng áp dụng";
@@ -1663,8 +1745,11 @@ public class TAB_Gia extends JPanel {
             l.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 4));
             l.setFont(new Font("Segoe UI", Font.BOLD, 12));
             String val = v != null ? v.toString() : "";
-            if (val.equals("Đang áp dụng")) l.setForeground(new Color(0x27AE60));
-            else                             l.setForeground(new Color(0x7F8C8D));
+            switch (val) {
+                case "Đang áp dụng"  -> l.setForeground(new Color(0x27AE60)); // xanh
+                case "Chưa áp dụng"  -> l.setForeground(new Color(0xE67E22)); // cam
+                default              -> l.setForeground(new Color(0x7F8C8D)); // xám (Ngừng)
+            }
             if (!sel) l.setBackground(row % 2 == 0 ? BG_CARD : ROW_ALT);
             return l;
         }
