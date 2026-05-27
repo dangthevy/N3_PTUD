@@ -1112,16 +1112,68 @@ public class TAB_Gia extends JPanel {
             if (soVe == 0) {
                 // ── Chưa có vé bán → sửa trực tiếp ──
                 if (daoGia.updateDetail(maGiaHdr, maToa, maTuyenSel, giaVal)) {
-                    loadDetailForMaGia(maGiaHdr); // load lại từ DB
+                    loadDetailForMaGia(maGiaHdr);
                     dlg.dispose();
                 } else {
                     warn("Lỗi khi cập nhật database!");
                 }
             } else {
-                // ── Đã có vé bán → CHẶN, không cho sửa ──
-                warn("Không thể cập nhật giá!\n" +
-                        "Bảng giá này đã có " + soVe + " vé được bán.\n" +
-                        "Vui lòng tạo bảng giá mới để áp dụng giá mới.");
+                // ── Đã có vé → auto-versioning ──
+                java.time.LocalDate tomorrow = java.time.LocalDate.now().plusDays(1);
+                DatePickerField dpApDung = new DatePickerField(formatNgay(tomorrow.toString()));
+
+                JPanel pnlChonNgay = new JPanel(new BorderLayout(8, 8));
+                pnlChonNgay.setOpaque(false);
+                pnlChonNgay.add(new JLabel("<html>Đã có <b>" + soVe + "</b> vé bán theo bảng giá này.<br><br>"
+                        + "Chọn <b>ngày áp dụng</b> giá mới:<br>"
+                        + "<i>(Bảng giá cũ sẽ kết thúc vào ngày trước đó)</i></html>"), BorderLayout.NORTH);
+                pnlChonNgay.add(dpApDung, BorderLayout.CENTER);
+
+                int choice = JOptionPane.showConfirmDialog(dlg, pnlChonNgay,
+                        "Tạo phiên bản giá mới",
+                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+                if (choice != JOptionPane.OK_OPTION) return;
+
+                String ngayApDungDisp = dpApDung.getDate().trim();
+                if (ngayApDungDisp.isEmpty()) { warn("Vui lòng chọn ngày áp dụng."); return; }
+
+                java.time.LocalDate ngayApDung;
+                try {
+                    ngayApDung = java.time.LocalDate.parse(toDbDate(ngayApDungDisp));
+                } catch (Exception ex) { warn("Ngày áp dụng không hợp lệ!"); return; }
+
+                if (!ngayApDung.isAfter(java.time.LocalDate.now())) {
+                    warn("Ngày áp dụng phải sau hôm nay!"); return;
+                }
+
+                // Kiểm tra đã có clone cho ngày này chưa
+                String maGiaClone = timBangGiaClone(maGiaHdr, ngayApDung);
+
+                if (maGiaClone != null) {
+                    // Đã có clone → update trực tiếp
+                    if (daoGia.updateDetail(maGiaClone, maToa, maTuyenSel, giaVal)) {
+                        loadFromDB();
+                        selectBangGia(maGiaClone);
+                        dlg.dispose();
+                    } else {
+                        warn("Lỗi khi cập nhật bảng giá mới!");
+                    }
+                } else {
+                    // Chưa có clone → tạo mới
+                    String maNew = cloneBangGia(maGiaHdr, maToa, maTuyenSel, giaVal, ngayApDung);
+                    if (maNew != null) {
+                        loadFromDB();
+                        selectBangGia(maNew);
+                        dlg.dispose();
+                        JOptionPane.showMessageDialog(TAB_Gia.this,
+                                "Đã tạo bảng giá mới thành công!\n" +
+                                        "Giá mới áp dụng từ " + ngayApDungDisp + ".\n" +
+                                        "Bảng giá cũ kết thúc vào " + formatNgay(ngayApDung.minusDays(1).toString()) + ".",
+                                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        warn("Lỗi khi tạo phiên bản mới!");
+                    }
+                }
             }
 
         });
